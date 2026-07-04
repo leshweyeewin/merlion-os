@@ -494,7 +494,8 @@ def query_hdb_bto_launches_and_grants(context_query: str = "general") -> str:
         results.append(
             f"🏢 {bto['town']} ({bto['type']})\n"
             f"   • Location: {bto['estates']}\n"
-            f"   • Units: {bto['units']} units | Launch: {bto['date']}\n"
+            f"   • Units: {bto['units']} units\n"
+            f"   • LaunchDate: {bto['date']}\n"
             f"   • Pricing: {bto['prices']}"
         )
 
