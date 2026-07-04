@@ -1,3 +1,5 @@
+# NOTE: This is a legacy CLI Proof of Concept (PoC) tool, not the live API production server path (use server.py for API).
+
 import os
 import sys
 from google import genai
@@ -11,7 +13,10 @@ from tools import (
     query_singapore_journey_onboarding,
     query_iras_tax_and_cpf_ledgers,
     query_welfare_and_skills_credits,
-    query_supplementary_civic_utilities
+    query_supplementary_civic_utilities,
+    search_singapore_government,
+    scrape_government_page,
+    call_tool_robustly
 )
 
 # 1. Initialize Cloud Workspace Handshake
@@ -26,7 +31,9 @@ TOOL_MAP = {
     "query_singapore_journey_onboarding": query_singapore_journey_onboarding,
     "query_iras_tax_and_cpf_ledgers": query_iras_tax_and_cpf_ledgers,
     "query_welfare_and_skills_credits": query_welfare_and_skills_credits,
-    "query_supplementary_civic_utilities": query_supplementary_civic_utilities
+    "query_supplementary_civic_utilities": query_supplementary_civic_utilities,
+    "search_singapore_government": search_singapore_government,
+    "scrape_government_page": scrape_government_page
 }
 
 def run_merlion_engine(user_prompt: str):
@@ -38,9 +45,11 @@ def run_merlion_engine(user_prompt: str):
     
     system_instruction = (
         "You are MerlionOS, the unified public sector AI coordination brain for Singapore Citizens. "
-        "Your task is to parse citizen requests and route them to the correct agency tool functions. "
+        "Your task is to parse citizen requests and route them to the correct agency tool functions or scrape official .gov.sg web pages. "
         "Always aggregate multiple tools if a query spans financial, civic, and lifestyle domains simultaneously. "
-        "Highlight concrete, actionable requirements (like the 2-month Singapore Journey window or mandatory voting status)."
+        "If the information is not present in predefined tools, search the Singapore Government directory with search_singapore_government "
+        "and then scrape the resulting URL using scrape_government_page to get the answer. "
+        "Highlight concrete, actionable requirements (like deadlines, fees, or eligibility criteria) and provide the source URL links."
     )
     
     # 3. Fire Prompt Generation Loop
@@ -62,14 +71,27 @@ def run_merlion_engine(user_prompt: str):
         
         for call in response.function_calls:
             tool_name = call.name
-            args = call.args
-            param_val = str(list(args.values())) if args else "general"
+            args = call.args or {}
             
             print(f"   -> Querying backend system: {tool_name}")
             
-            # Execute the function string matching the map key
             if tool_name in TOOL_MAP:
-                executed_text = TOOL_MAP[tool_name](param_val)
+                try:
+                    executed_text = call_tool_robustly(TOOL_MAP[tool_name], args)
+                except Exception as exc:
+                    print(f"   [ERROR] Tool '{tool_name}' raised {type(exc).__name__}: {exc}")
+                    executed_text = f"Error: Failed to execute tool '{tool_name}' ({type(exc).__name__})."
+                
+                tool_responses.append(
+                    types.Part.from_function_response(
+                        name=tool_name,
+                        response={'result': executed_text}
+                    )
+                )
+            else:
+                # Turn-balance fallback: always send a matching function response to avoid Gemini 400 errors
+                print(f"   [WARNING] Unregistered tool called: '{tool_name}'. Returning error response to balance turn.")
+                executed_text = f"Error: Tool '{tool_name}' is not registered in the CLI tool map."
                 tool_responses.append(
                     types.Part.from_function_response(
                         name=tool_name,
@@ -78,7 +100,7 @@ def run_merlion_engine(user_prompt: str):
                 )
         
         # 5. Compile and Synthesize Final Output Response
-        print("✍️ Compiling cross-agency guidance sheet...")
+        print("✍️  Compiling cross-agency guidance sheet...")
         final_response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=[

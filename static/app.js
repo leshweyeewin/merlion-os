@@ -12,6 +12,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const tabButtons = document.querySelectorAll(".tab-btn");
     const widgetPanes = document.querySelectorAll(".widget-pane");
 
+    // Conversation history for multi-turn context (kept client-side)
+    const conversationHistory = [];
+
+    // Sanitize any string before inserting into innerHTML to prevent XSS
+    function escapeHTML(str) {
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
     // Toggle Chat Widget open/close
     chatTrigger.addEventListener("click", () => {
         chatWidget.classList.remove("hidden");
@@ -67,8 +80,14 @@ document.addEventListener("DOMContentLoaded", () => {
         // Inline code: `code`
         html = html.replace(/`(.*?)`/g, "<code>$1</code>");
 
-        // Links: [label](url)
-        html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+        // Links: [label](url) — block javascript: and data: scheme hrefs to prevent XSS
+        html = html.replace(/\[(.*?)\]\((.*?)\)/g, (match, label, url) => {
+            const trimmed = url.trim().toLowerCase();
+            if (trimmed.startsWith('javascript:') || trimmed.startsWith('data:')) {
+                return escapeHTML(label);
+            }
+            return `<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+        });
 
         // Lists: lines starting with * or -
         let lines = html.split('\n');
@@ -129,6 +148,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const textSpan = document.createElement("span");
         textSpan.className = "log-text";
+        // message is pre-escaped by the caller — safe to set via innerHTML
         textSpan.innerHTML = message;
         logEntry.appendChild(textSpan);
 
@@ -194,7 +214,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const response = await fetch("/api/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message: text })
+                body: JSON.stringify({ message: text, history: conversationHistory })
             });
 
             if (!response.ok) {
@@ -213,6 +233,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (log.tool === "search_singapore_government") {
                         logType = "search";
                         tagLabel = "search";
+                        // No user-derived values interpolated — safe plain text message
                         appendLog(logType, tagLabel, `Executed directory lookup search for matched query`, {
                             arguments: log.arguments,
                             results: log.result
@@ -220,12 +241,16 @@ document.addEventListener("DOMContentLoaded", () => {
                     } else if (log.tool === "scrape_government_page") {
                         logType = "scrape";
                         tagLabel = "scrape";
-                        appendLog(logType, tagLabel, `Scraped official content matching: <code>${log.arguments.url}</code>`, {
+                        // Escape the URL (user-supplied / model-echoed) before inserting into innerHTML
+                        const safeUrl = escapeHTML(log.arguments.url || "");
+                        appendLog(logType, tagLabel, `Scraped official content matching: <code>${safeUrl}</code>`, {
                             extracted_char_count: log.result.length,
                             content_preview: log.result.substring(0, 300) + "..."
                         });
                     } else {
-                        appendLog(logType, tagLabel, `Intercepted static database query: <code>${log.tool}</code>`, {
+                        // Escape tool name (model-controlled string) before inserting into innerHTML
+                        const safeTool = escapeHTML(log.tool || "");
+                        appendLog(logType, tagLabel, `Intercepted static database query: <code>${safeTool}</code>`, {
                             arguments: log.arguments,
                             result: log.result
                         });
@@ -247,6 +272,10 @@ document.addEventListener("DOMContentLoaded", () => {
             chatMessages.appendChild(botMsg);
             
             appendLog("system", "success", "Response compiled and formatted successfully.");
+
+            // Update conversation history for multi-turn context
+            conversationHistory.push({ role: "user",  content: text });
+            conversationHistory.push({ role: "model", content: data.response });
 
         } catch (error) {
             removeTypingIndicator();
