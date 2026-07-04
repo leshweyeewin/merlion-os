@@ -16,7 +16,7 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar Dashboard Header -->
+        <!-- Dashboard Header -->
         <header class="app-header">
             <div class="logo-area">
                 <div class="merlion-emblem">🇸🇬</div>
@@ -31,72 +31,252 @@
             </div>
         </header>
 
-        <!-- Main Workspace -->
-        <main class="app-workspace">
-            <!-- Chat Interface Panel -->
-            <section class="panel chat-panel" aria-label="Chat Interface">
-                <div class="panel-header">
-                    <h2><i class="fa-solid fa-comments"></i> Citizen Assistant</h2>
-                    <p class="subtitle">Ask about tax, welfare, utilities, or query/scrape any gov.sg webpage</p>
+        <!-- Services Directory Grid Main Content -->
+        <main class="app-directory">
+            <div class="directory-header">
+                <h2>Singapore Government Digital Services Directory</h2>
+                <p>Direct access to statutory boards. Use the bottom-right co-pilot for multi-agency coordination or page scraping.</p>
+            </div>
+            
+            <div class="grid-container">
+                <!-- ICA Card -->
+                <div class="service-card">
+                    <div class="card-icon"><i class="fa-solid fa-id-card"></i></div>
+                    <h3>ICA</h3>
+                    <p>Immigration & Checkpoints Authority</p>
+                    <span class="card-desc">Citizenship status, passport renewal, and MyICA appointments.</span>
+                    <a href="https://www.ica.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                        Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
                 </div>
-                
-                <div class="messages-container" id="chat-messages">
-                    <div class="message bot-message">
-                        <div class="message-avatar">🦁</div>
-                        <div class="message-content">
-                            <p>Welcome back, Citizen. I am <strong>MerlionOS</strong>, your unified coordination brain. How can I assist you today?</p>
-                            <p>You can ask me questions directly, or request that I search and scrape official government sites (e.g. <em>"Check ICA passport renewal fees"</em> or <em>"Scrape eligibility requirements from https://www.gov.sg"</em>).</p>
+
+                <!-- ELD Card -->
+                <div class="service-card">
+                    <div class="card-icon"><i class="fa-solid fa-check-to-slot"></i></div>
+                    <h3>ELD</h3>
+                    <p>Elections Department</p>
+                    <span class="card-desc">Check voter registration status and electoral enrollment registers.</span>
+                    <a href="https://www.eld.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                        Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+
+                <!-- IRAS Card -->
+                <div class="service-card">
+                    <div class="card-icon"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                    <h3>IRAS</h3>
+                    <p>Inland Revenue Authority</p>
+                    <span class="card-desc">Personal income tax filing, property tax, and GST ledgers.</span>
+                    <a href="https://www.iras.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                        Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+
+                <!-- CPF Card -->
+                <div class="service-card">
+                    <div class="card-icon"><i class="fa-solid fa-piggy-bank"></i></div>
+                    <h3>CPF</h3>
+                    <p>Central Provident Fund Board</p>
+                    <span class="card-desc">Retirement savings, MediSave sub-tiers, and employer allocations.</span>
+                    <a href="https://www.cpf.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                        Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+
+                <!-- RedeemSG Card -->
+                <div class="service-card">
+                    <div class="card-icon"><i class="fa-solid fa-ticket"></i></div>
+                    <h3>RedeemSG</h3>
+                    <p>CDC & Climate Vouchers</p>
+                    <span class="card-desc">Redeem household CDC vouchers and active climate rebates.</span>
+                    <a href="https://vouchers.cdc.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                        Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+
+                <!-- SP Group Card -->
+                <div class="service-card">
+                    <div class="card-icon"><i class="fa-solid fa-plug"></i></div>
+                    <h3>SP Group</h3>
+                    <p>Utilities & Home Energy</p>
+                    <span class="card-desc">Open electricity, water, and gas lines, and check rebate status.</span>
+                    <a href="https://www.spgroup.com.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                        Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+
+                <!-- SkillsFuture Card -->
+                <div class="service-card">
+                    <div class="card-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+                    <h3>SkillsFuture</h3>
+                    <p>MySkillsFuture Training</p>
+                    <span class="card-desc">Access S$500 skills credit and mid-career course subsidies.</span>
+                    <a href="https://www.myskillsfuture.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                        Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+
+                <!-- MOM Card -->
+                <div class="service-card">
+                    <div class="card-icon"><i class="fa-solid fa-briefcase"></i></div>
+                    <h3>MOM</h3>
+                    <p>Ministry of Manpower</p>
+                    <span class="card-desc">Work permits, employment rules, labor laws, and work pass services.</span>
+                    <a href="https://www.mom.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                        Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+
+                <!-- MOH Card -->
+                <div class="service-card">
+                    <div class="card-icon"><i class="fa-solid fa-heart-pulse"></i></div>
+                    <h3>MOH</h3>
+                    <p>Ministry of Health</p>
+                    <span class="card-desc">HealthHub app, NEHR medical logs, and subsidized polyclinics.</span>
+                    <a href="https://www.moh.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                        Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+
+                <!-- HDB Card -->
+                <div class="service-card">
+                    <div class="card-icon"><i class="fa-solid fa-building"></i></div>
+                    <h3>HDB</h3>
+                    <p>Housing & Development Board</p>
+                    <span class="card-desc">BTO flat applications, housing grants, and home loan limits.</span>
+                    <a href="https://www.hdb.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                        Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+
+                <!-- MOE Card -->
+                <div class="service-card">
+                    <div class="card-icon"><i class="fa-solid fa-school"></i></div>
+                    <h3>MOE</h3>
+                    <p>Ministry of Education</p>
+                    <span class="card-desc">Primary/Secondary registration, fees, and study scholarships.</span>
+                    <a href="https://www.moe.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                        Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+
+                <!-- LTA Card -->
+                <div class="service-card">
+                    <div class="card-icon"><i class="fa-solid fa-train-subway"></i></div>
+                    <h3>LTA</h3>
+                    <p>Land Transport Authority</p>
+                    <span class="card-desc">OneMotoring account, COE bidding, road tax, and transit maps.</span>
+                    <a href="https://www.lta.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                        Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+
+                <!-- NEA Card -->
+                <div class="service-card">
+                    <div class="card-icon"><i class="fa-solid fa-leaf"></i></div>
+                    <h3>NEA</h3>
+                    <p>National Environment Agency</p>
+                    <span class="card-desc">Climate vouchers guidelines, weather details, and food hygiene checks.</span>
+                    <a href="https://www.nea.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                        Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+
+                <!-- Gov.sg Card -->
+                <div class="service-card">
+                    <div class="card-icon"><i class="fa-solid fa-landmark"></i></div>
+                    <h3>Gov.sg</h3>
+                    <p>Official Singapore Portal</p>
+                    <span class="card-desc">National budget allocations, policy matrices, and official news updates.</span>
+                    <a href="https://www.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                        Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+            </div>
+        </main>
+
+        <!-- Floating Chat Trigger Button -->
+        <div class="chat-trigger" id="chat-trigger">
+            <span class="pulse-indicator"></span>
+            <i class="fa-solid fa-circle-question"></i> Ask MerlionOS Co-Pilot
+        </div>
+
+        <!-- Floating Expandable Chat Panel Widget -->
+        <div class="chat-widget hidden" id="chat-widget" aria-label="AI Assistant Co-Pilot">
+            <!-- Widget Header -->
+            <div class="widget-header">
+                <div class="widget-title">
+                    <h3>🇸🇬 MerlionOS Co-Pilot</h3>
+                    <span>GovAI Coordination Brain</span>
+                </div>
+                <button class="minimize-btn" id="minimize-btn" aria-label="Minimize Assistant">
+                    <i class="fa-solid fa-chevron-down"></i>
+                </button>
+            </div>
+
+            <!-- Tab Switcher Navigation -->
+            <div class="widget-tabs">
+                <button class="tab-btn active" data-tab="assistant-pane">
+                    <i class="fa-solid fa-comments"></i> Assistant
+                </button>
+                <button class="tab-btn" data-tab="logs-pane">
+                    <i class="fa-solid fa-terminal"></i> Operations Trace
+                </button>
+            </div>
+
+            <!-- Widget Body Viewport -->
+            <div class="widget-viewport">
+                <!-- Assistant Pane -->
+                <div class="widget-pane" id="assistant-pane">
+                    <div class="messages-container" id="chat-messages">
+                        <div class="message bot-message">
+                            <div class="message-avatar">🦁</div>
+                            <div class="message-content">
+                                <p>Welcome, Citizen. I am **MerlionOS**, your unified AI co-pilot.</p>
+                                <p>Ask me parameters (e.g. *"Check ICA fees and HDB grant limits"*), or request that I scrape a public page (e.g. *"Scrape details from https://www.gov.sg/"*).</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="suggestions-container">
+                        <button class="suggestion-chip" data-query="What are the requirements for the Singapore Journey onboarding?">
+                            SG Journey
+                        </button>
+                        <button class="suggestion-chip" data-query="How do I check my electoral voting status with ELD?">
+                            ELD Voting
+                        </button>
+                        <button class="suggestion-chip" data-query="Scrape details about Climate Vouchers from https://www.gov.sg">
+                            Scrape gov.sg
+                        </button>
+                    </div>
+
+                    <form class="input-form" id="chat-form">
+                        <div class="input-wrapper">
+                            <input type="text" id="user-input" placeholder="Type query or paste gov.sg URL..." required autocomplete="off" aria-label="User query">
+                            <button type="submit" class="send-btn" aria-label="Send message">
+                                <i class="fa-solid fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Operations Console Pane -->
+                <div class="widget-pane hidden" id="logs-pane">
+                    <div class="logs-container" id="logs-container">
+                        <div class="log-entry system-entry">
+                            <span class="log-time">[17:00:00]</span>
+                            <span class="log-tag tag-system">system</span>
+                            <span class="log-text">MerlionOS unified routing brain active.</span>
+                        </div>
+                        <div class="log-entry system-entry">
+                            <span class="log-time">[17:00:00]</span>
+                            <span class="log-tag tag-system">system</span>
+                            <span class="log-text">Scraper enabled for all official *.gov.sg domains.</span>
                         </div>
                     </div>
                 </div>
-
-                <div class="suggestions-container">
-                    <button class="suggestion-chip" data-query="What are the requirements for the Singapore Journey onboarding?">
-                        <i class="fa-solid fa-compass"></i> SG Journey
-                    </button>
-                    <button class="suggestion-chip" data-query="How do I check my electoral voting status with ELD?">
-                        <i class="fa-solid fa-check-to-slot"></i> ELD Voting
-                    </button>
-                    <button class="suggestion-chip" data-query="Scrape details about Climate Vouchers from https://www.gov.sg">
-                        <i class="fa-solid fa-globe"></i> Scrape gov.sg
-                    </button>
-                    <button class="suggestion-chip" data-query="What CDC vouchers were released in June 2026?">
-                        <i class="fa-solid fa-ticket"></i> CDC Vouchers
-                    </button>
-                </div>
-
-                <form class="input-form" id="chat-form">
-                    <div class="input-wrapper">
-                        <input type="text" id="user-input" placeholder="Type a message or paste a gov.sg URL..." required autocomplete="off" aria-label="User query">
-                        <button type="submit" class="send-btn" aria-label="Send message">
-                            <i class="fa-solid fa-paper-plane"></i>
-                        </button>
-                    </div>
-                </form>
-            </section>
-
-            <!-- Agent Operations / Scrape Log Panel -->
-            <section class="panel log-panel" aria-label="System Operations Log">
-                <div class="panel-header">
-                    <h2><i class="fa-solid fa-microchip"></i> Operations Control</h2>
-                    <p class="subtitle">Real-time trace of autonomous tools, web scrapers, and searches</p>
-                </div>
-                <div class="logs-container" id="logs-container">
-                    <div class="log-entry system-entry">
-                        <span class="log-time">[17:00:00]</span>
-                        <span class="log-text">MerlionOS unified routing brain initialized.</span>
-                    </div>
-                    <div class="log-entry system-entry">
-                        <span class="log-time">[17:00:00]</span>
-                        <span class="log-text">Available integrations: ICA, IRAS, CPF, ELD, RedeemSG, SP Group.</span>
-                    </div>
-                    <div class="log-entry system-entry">
-                        <span class="log-time">[17:00:00]</span>
-                        <span class="log-text">Dynamic scraper active for all *.gov.sg domains.</span>
-                    </div>
-                </div>
-            </section>
-        </main>
+            </div>
+        </div>
     </div>
 
     <!-- Script File -->

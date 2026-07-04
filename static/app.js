@@ -4,6 +4,46 @@ document.addEventListener("DOMContentLoaded", () => {
     const chatMessages = document.getElementById("chat-messages");
     const logsContainer = document.getElementById("logs-container");
     const suggestionChips = document.querySelectorAll(".suggestion-chip");
+    
+    // Collapsible Chat Widget DOM elements
+    const chatTrigger = document.getElementById("chat-trigger");
+    const chatWidget = document.getElementById("chat-widget");
+    const minimizeBtn = document.getElementById("minimize-btn");
+    const tabButtons = document.querySelectorAll(".tab-btn");
+    const widgetPanes = document.querySelectorAll(".widget-pane");
+
+    // Toggle Chat Widget open/close
+    chatTrigger.addEventListener("click", () => {
+        chatWidget.classList.remove("hidden");
+        chatTrigger.style.display = "none";
+        scrollToBottom();
+        userInput.focus();
+    });
+
+    minimizeBtn.addEventListener("click", () => {
+        chatWidget.classList.add("hidden");
+        chatTrigger.style.display = "flex";
+    });
+
+    // Tab switcher logic
+    tabButtons.forEach(btn => {
+        btn.addEventListener("click", () => {
+            // Set active button class
+            tabButtons.forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+
+            // Toggle panes visibility
+            const targetPaneId = btn.getAttribute("data-tab");
+            widgetPanes.forEach(pane => {
+                if (pane.id === targetPaneId) {
+                    pane.classList.remove("hidden");
+                } else {
+                    pane.classList.add("hidden");
+                }
+            });
+            scrollToBottom();
+        });
+    });
 
     // Format operational logs timestamps
     function getTimestamp() {
@@ -173,7 +213,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (log.tool === "search_singapore_government") {
                         logType = "search";
                         tagLabel = "search";
-                        appendLog(logType, tagLabel, `Executed DDG Search query for <code>site:gov.sg</code>`, {
+                        appendLog(logType, tagLabel, `Executed directory lookup search for matched query`, {
                             arguments: log.arguments,
                             results: log.result
                         });
