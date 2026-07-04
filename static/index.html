@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MerlionOS - Singapore Public Sector AI Coordination Brain</title>
+    <meta name="description" content="Unified AI coordination dashboard for Singapore citizens - search, check, and scrape official public sector information.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Style Sheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Dashboard Header -->
+        <header class="app-header">
+            <div class="logo-area">
+                <div class="merlion-emblem">🇸🇬</div>
+                <div class="logo-text">
+                    <h1>MerlionOS</h1>
+                    <span>GovAI Coordination Portal</span>
+                </div>
+            </div>
+            <div class="system-status">
+                <span class="status-indicator online"></span>
+                <span>Active Engine</span>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <main class="app-workspace">
+            <!-- Chat Interface Panel -->
+            <section class="panel chat-panel" aria-label="Chat Interface">
+                <div class="panel-header">
+                    <h2><i class="fa-solid fa-comments"></i> Citizen Assistant</h2>
+                    <p class="subtitle">Ask about tax, welfare, utilities, or query/scrape any gov.sg webpage</p>
+                </div>
+                
+                <div class="messages-container" id="chat-messages">
+                    <div class="message bot-message">
+                        <div class="message-avatar">🦁</div>
+                        <div class="message-content">
+                            <p>Welcome back, Citizen. I am <strong>MerlionOS</strong>, your unified coordination brain. How can I assist you today?</p>
+                            <p>You can ask me questions directly, or request that I search and scrape official government sites (e.g. <em>"Check ICA passport renewal fees"</em> or <em>"Scrape eligibility requirements from https://www.gov.sg"</em>).</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="suggestions-container">
+                    <button class="suggestion-chip" data-query="What are the requirements for the Singapore Journey onboarding?">
+                        <i class="fa-solid fa-compass"></i> SG Journey
+                    </button>
+                    <button class="suggestion-chip" data-query="How do I check my electoral voting status with ELD?">
+                        <i class="fa-solid fa-check-to-slot"></i> ELD Voting
+                    </button>
+                    <button class="suggestion-chip" data-query="Scrape details about Climate Vouchers from https://www.gov.sg">
+                        <i class="fa-solid fa-globe"></i> Scrape gov.sg
+                    </button>
+                    <button class="suggestion-chip" data-query="What CDC vouchers were released in June 2026?">
+                        <i class="fa-solid fa-ticket"></i> CDC Vouchers
+                    </button>
+                </div>
+
+                <form class="input-form" id="chat-form">
+                    <div class="input-wrapper">
+                        <input type="text" id="user-input" placeholder="Type a message or paste a gov.sg URL..." required autocomplete="off" aria-label="User query">
+                        <button type="submit" class="send-btn" aria-label="Send message">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Agent Operations / Scrape Log Panel -->
+            <section class="panel log-panel" aria-label="System Operations Log">
+                <div class="panel-header">
+                    <h2><i class="fa-solid fa-microchip"></i> Operations Control</h2>
+                    <p class="subtitle">Real-time trace of autonomous tools, web scrapers, and searches</p>
+                </div>
+                <div class="logs-container" id="logs-container">
+                    <div class="log-entry system-entry">
+                        <span class="log-time">[17:00:00]</span>
+                        <span class="log-text">MerlionOS unified routing brain initialized.</span>
+                    </div>
+                    <div class="log-entry system-entry">
+                        <span class="log-time">[17:00:00]</span>
+                        <span class="log-text">Available integrations: ICA, IRAS, CPF, ELD, RedeemSG, SP Group.</span>
+                    </div>
+                    <div class="log-entry system-entry">
+                        <span class="log-time">[17:00:00]</span>
+                        <span class="log-text">Dynamic scraper active for all *.gov.sg domains.</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Script File -->
+    <script src="app.js"></script>
+</body>
+</html>
