@@ -1,4 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
+    initPortalReordering();
+
     const chatForm = document.getElementById("chat-form");
     const userInput = document.getElementById("user-input");
     const chatMessages = document.getElementById("chat-messages");
@@ -218,6 +220,12 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             if (!response.ok) {
+                if (response.status === 429) {
+                    const body = await response.json().catch(() => ({}));
+                    const err = new Error(body.detail || "Rate limit reached. Please wait a minute and try again.");
+                    err.isRateLimit = true;
+                    throw err;
+                }
                 throw new Error(`HTTP Error Status: ${response.status}`);
             }
 
@@ -279,16 +287,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
         } catch (error) {
             removeTypingIndicator();
-            appendLog("error", "error", `API handshake failed: ${error.message}`);
+            appendLog("error", "error", `API handshake failed: ${escapeHTML(error.message)}`);
 
             const errorMsg = document.createElement("div");
             errorMsg.className = "message bot-message";
-            errorMsg.innerHTML = `
-                <div class="message-avatar"><i class="fa-solid fa-landmark"></i></div>
-                <div class="message-content">
-                    <p style="color: var(--text-error);"><i class="fa-solid fa-triangle-exclamation"></i> <strong>Execution Error:</strong> Failed to fetch guidance coordinates. Please check your network or server logs.</p>
-                </div>
-            `;
+            if (error.isRateLimit) {
+                errorMsg.innerHTML = `
+                    <div class="message-avatar"><i class="fa-solid fa-landmark"></i></div>
+                    <div class="message-content">
+                        <p style="color: var(--text-warning);"><i class="fa-solid fa-clock"></i> <strong>Rate Limited:</strong> ${escapeHTML(error.message)}</p>
+                    </div>
+                `;
+            } else {
+                errorMsg.innerHTML = `
+                    <div class="message-avatar"><i class="fa-solid fa-landmark"></i></div>
+                    <div class="message-content">
+                        <p style="color: var(--text-error);"><i class="fa-solid fa-triangle-exclamation"></i> <strong>Execution Error:</strong> Failed to fetch guidance coordinates. Please check your network or server logs.</p>
+                    </div>
+                `;
+            }
             chatMessages.appendChild(errorMsg);
         } finally {
             userInput.disabled = false;
@@ -311,3 +328,127 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 });
+
+// Drag-and-drop reordering of the portal directory grid, persisted in localStorage
+function initPortalReordering() {
+    const STORAGE_KEY = "merlionos-portal-order";
+    const grid = document.querySelector(".grid-container");
+    const resetBtn = document.getElementById("reset-layout-btn");
+    if (!grid) return;
+
+    const defaultOrder = Array.from(grid.querySelectorAll(".service-card")).map(card => card.dataset.agency);
+    let draggedCard = null;
+    let swapTarget = null;
+
+    function applyOrder(order) {
+        const cards = Array.from(grid.querySelectorAll(".service-card"));
+        const cardsByAgency = new Map(cards.map(card => [card.dataset.agency, card]));
+        order.forEach(agency => {
+            const card = cardsByAgency.get(agency);
+            if (card) grid.appendChild(card);
+        });
+    }
+
+    function saveOrder() {
+        const order = Array.from(grid.querySelectorAll(".service-card")).map(card => card.dataset.agency);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(order));
+    }
+
+    function loadSavedOrder() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+            if (Array.isArray(saved) && saved.length) {
+                applyOrder(saved);
+            }
+        } catch (e) {
+            // Ignore malformed/corrupted saved layout and keep default order
+        }
+    }
+
+    // Nearest card to the pointer, by center-to-center distance (grid-aware, not just row-aware)
+    function getClosestCard(container, x, y) {
+        const cards = container.querySelectorAll(".service-card:not(.dragging)");
+        let closest = null;
+        let closestDist = Infinity;
+        cards.forEach(card => {
+            const box = card.getBoundingClientRect();
+            const dx = x - (box.left + box.width / 2);
+            const dy = y - (box.top + box.height / 2);
+            const dist = dx * dx + dy * dy;
+            if (dist < closestDist) {
+                closestDist = dist;
+                closest = card;
+            }
+        });
+        return closest;
+    }
+
+    // Swap two cards' positions in the grid, wherever they are
+    function swapCards(cardA, cardB) {
+        const parent = cardA.parentNode;
+        const placeholder = document.createComment("drag-swap-placeholder");
+        parent.insertBefore(placeholder, cardA);
+        parent.insertBefore(cardA, cardB);
+        parent.insertBefore(cardB, placeholder);
+        parent.removeChild(placeholder);
+    }
+
+    function clearSwapTarget() {
+        if (swapTarget) swapTarget.classList.remove("drag-over");
+        swapTarget = null;
+    }
+
+    grid.addEventListener("dragstart", (e) => {
+        const card = e.target.closest(".service-card");
+        if (!card) return;
+        draggedCard = card;
+        card.classList.add("dragging");
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", card.dataset.agency || "");
+    });
+
+    grid.addEventListener("dragend", () => {
+        if (draggedCard) draggedCard.classList.remove("dragging");
+        draggedCard = null;
+        clearSwapTarget();
+    });
+
+    grid.addEventListener("dragover", (e) => {
+        if (!draggedCard) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+
+        const target = getClosestCard(grid, e.clientX, e.clientY);
+        if (target === swapTarget) return;
+
+        clearSwapTarget();
+        if (target && target !== draggedCard) {
+            swapTarget = target;
+            swapTarget.classList.add("drag-over");
+        }
+    });
+
+    grid.addEventListener("dragleave", (e) => {
+        if (e.target === grid || !grid.contains(e.relatedTarget)) {
+            clearSwapTarget();
+        }
+    });
+
+    grid.addEventListener("drop", (e) => {
+        e.preventDefault();
+        if (draggedCard && swapTarget && swapTarget !== draggedCard) {
+            swapCards(draggedCard, swapTarget);
+            saveOrder();
+        }
+        clearSwapTarget();
+    });
+
+    if (resetBtn) {
+        resetBtn.addEventListener("click", () => {
+            localStorage.removeItem(STORAGE_KEY);
+            applyOrder(defaultOrder);
+        });
+    }
+
+    loadSavedOrder();
+}

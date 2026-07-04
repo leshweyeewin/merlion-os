@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "merlion-server",
+      "runtimeExecutable": "C:/Users/LESHW/AppData/Local/Python/pythoncore-3.14-64/python.exe",
+      "runtimeArgs": ["server.py"],
+      "port": 8000
+    }
+  ]
+}

@@ -45,6 +45,18 @@ Here is your prepared submission content for the **APAC GenAI Academy C2 hackath
 *   **Real-Time Logs Terminal**: Visualizes tool calls with customized tags (`[AGENT]`, `[SEARCH]`, `[SCRAPE]`, `[SUCCESS]`) and parameter arguments.
 *   **Responsive Layout**: Fits desktop dashboards and mobile devices.
 
+### 🏗️ Production Architecture & Core Flow
+NexusConcierge utilizes a conditional Workflow DAG Graph built on the official Google Agent Development Kit (google-adk). To prevent standard compilation or multi-turn execution conflicts, the system leverages a centralized Orchestration routing loop that exits cleanly through a single terminal node:
+
+*   **Orchestrator Node (gemini-1.5-flash):** Acts as the low-latency central router, determining intent and handling session token efficiency.
+*   **Specialist Agents (gemini-1.5-pro / flash):** Execute deep-domain tasks using decoupled tool workflows, feeding unified Markdown data blocks back to the central hub.
+*   **State Machine Memory:** Fully backed by an asynchronous database session manager utilizing SQLAlchemy and a local aiosqlite SQLite database (nexus_sessions.db).
+
+### 🛡️ Zero-Trust Enterprise Guardrails
+1.  **Credential Masking (MaskingMcpToolset):** A programmatic middleware wrapper intercepts all raw tool outputs, scrubbing exposed API keys or system tokens and replacing them with `[MASKED_CREDENTIAL]` before they reach the LLM context window.
+2.  **Financial Risk Enforcement (check_risk_setup):** A hard-coded validation check evaluates trade positions against local database constraints, immediately blocking any operations that cross the strict 2% maximum loss threshold.
+3.  **Rate-Limit Mitigation:** Implements an exponential backoff retry mechanism (up to 4 attempts) utilizing the `tenacity` library to maintain high resilience against free-tier API quota exhaustion.
+
 ---
 
 ## 🎥 3. Demo Video Assets (Local WebP Recordings)

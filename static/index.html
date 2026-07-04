@@ -38,239 +38,263 @@
             <div class="directory-header">
                 <h2>Singapore Government Digital Services Directory</h2>
                 <p>Ask anything about CPF, taxes, housing, health, and more — or use the assistant below to get answers across multiple agencies at once.</p>
+                <div class="directory-toolbar">
+                    <span class="reorder-hint"><i class="fa-solid fa-arrows-up-down-left-right"></i> Drag any card to rearrange your portal — your layout is saved automatically.</span>
+                    <button type="button" class="reset-layout-btn" id="reset-layout-btn">
+                        <i class="fa-solid fa-rotate-left"></i> Reset layout
+                    </button>
+                </div>
             </div>
             
             <div class="grid-container">
                 <!-- ICA Card -->
-                <div class="service-card">
+                <div class="service-card" draggable="true" data-agency="ica">
+                    <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" src="https://www.ica.gov.sg/Cwp/assets/ica/images/logo/ica_logo_new.svg" alt="Immigration & Checkpoints Authority logo">
+                        <img class="agency-logo" draggable="false" src="https://www.ica.gov.sg/Cwp/assets/ica/images/logo/ica_logo_new.svg" alt="Immigration & Checkpoints Authority logo">
                     </div>
                     <h3>ICA</h3>
                     <p>Immigration & Checkpoints Authority</p>
                     <span class="card-desc">Citizenship status, passport renewal, and MyICA appointments.</span>
-                    <a href="https://www.ica.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                    <a href="https://www.ica.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link" draggable="false">
                         Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     </a>
                 </div>
 
                 <!-- ELD Card -->
-                <div class="service-card">
+                <div class="service-card" draggable="true" data-agency="eld">
+                    <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" src="https://www.eld.gov.sg/images/logo/ELD_Logo.png" alt="Elections Department Singapore logo" onerror="logoFallback(this,'ELD')">
+                        <img class="agency-logo agency-logo-compact" draggable="false" src="https://www.eld.gov.sg/images/icons/touch-icon-ipad-retina.png" alt="Elections Department Singapore logo" onerror="logoFallback(this,'ELD')">
                     </div>
                     <h3>ELD</h3>
                     <p>Elections Department</p>
                     <span class="card-desc">Check voter registration status and electoral enrollment registers.</span>
-                    <a href="https://www.eld.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                    <a href="https://www.eld.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link" draggable="false">
                         Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     </a>
                 </div>
 
                 <!-- IRAS Card -->
-                <div class="service-card">
+                <div class="service-card" draggable="true" data-agency="iras">
+                    <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo agency-logo-compact" src="https://www.iras.gov.sg/images/default-source/logo/iras-logo-86x94.png?sfvrsn=7e88b3ab_3" alt="IRAS logo">
+                        <img class="agency-logo agency-logo-compact" draggable="false" src="https://www.iras.gov.sg/images/default-source/logo/iras-logo-86x94.png?sfvrsn=7e88b3ab_3" alt="IRAS logo">
                     </div>
                     <h3>IRAS</h3>
                     <p>Inland Revenue Authority</p>
                     <span class="card-desc">Personal income tax filing, property tax, and GST ledgers.</span>
-                    <a href="https://www.iras.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                    <a href="https://www.iras.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link" draggable="false">
                         Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     </a>
                 </div>
 
                 <!-- CPF Card -->
-                <div class="service-card">
-                    <div class="agency-logo-wrap agency-logo-cpf">
-                        <img class="agency-logo" src="https://www.cpf.gov.sg/content/dam/web/global/global-header/cpf-logo.svg" alt="Central Provident Fund Board logo" onerror="logoFallback(this,'CPF')">
+                <div class="service-card" draggable="true" data-agency="cpf">
+                    <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
+                    <div class="agency-logo-wrap">
+                        <img class="agency-logo agency-logo-invert" draggable="false" src="https://www.cpf.gov.sg/content/dam/web/global/global-header/cpf-logo.svg" alt="Central Provident Fund Board logo" onerror="logoFallback(this,'CPF')">
                     </div>
                     <h3>CPF</h3>
                     <p>Central Provident Fund Board</p>
                     <span class="card-desc">Retirement savings, MediSave sub-tiers, and employer allocations.</span>
-                    <a href="https://www.cpf.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                    <a href="https://www.cpf.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link" draggable="false">
                         Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     </a>
                 </div>
 
                 <!-- RedeemSG Card -->
-                <div class="service-card">
+                <div class="service-card" draggable="true" data-agency="redeemsg">
+                    <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" src="https://isomer-user-content.by.gov.sg/330/b2fd3325-57fd-4574-902a-e5e101dab591/logo.png" alt="CDC Vouchers logo">
+                        <img class="agency-logo" draggable="false" src="https://isomer-user-content.by.gov.sg/330/b2fd3325-57fd-4574-902a-e5e101dab591/logo.png" alt="CDC Vouchers logo">
                     </div>
                     <h3>RedeemSG</h3>
                     <p>CDC & Climate Vouchers</p>
                     <span class="card-desc">Redeem household CDC vouchers and active climate rebates.</span>
-                    <a href="https://vouchers.cdc.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                    <a href="https://vouchers.cdc.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link" draggable="false">
                         Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     </a>
                 </div>
 
                 <!-- SP Group Card -->
-                <div class="service-card">
+                <div class="service-card" draggable="true" data-agency="spgroup">
+                    <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" src="https://www.spgroup.com.sg/dam/spgroup/slices/SP_Group_Logo-01.svg" alt="SP Group logo">
+                        <img class="agency-logo" draggable="false" src="https://www.spgroup.com.sg/dam/spgroup/slices/SP_Group_Logo-01.svg" alt="SP Group logo">
                     </div>
                     <h3>SP Group</h3>
                     <p>Utilities & Home Energy</p>
                     <span class="card-desc">Open electricity, water, and gas lines, and check rebate status.</span>
-                    <a href="https://www.spgroup.com.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                    <a href="https://www.spgroup.com.sg/" target="_blank" rel="noopener noreferrer" class="card-link" draggable="false">
                         Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     </a>
                 </div>
 
                 <!-- SkillsFuture Card -->
-                <div class="service-card">
+                <div class="service-card" draggable="true" data-agency="skillsfuture">
+                    <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" src="https://courses.myskillsfuture.gov.sg/assets/images/logo-my-skillsfuture.svg" alt="MySkillsFuture logo" onerror="logoFallback(this,'SkillsFuture',true)">
+                        <img class="agency-logo" draggable="false" src="https://courses.myskillsfuture.gov.sg/logos/mySkillsFutureLogo.svg" alt="MySkillsFuture logo" onerror="logoFallback(this,'SkillsFuture',true)">
                     </div>
                     <h3>SkillsFuture</h3>
                     <p>MySkillsFuture Training</p>
                     <span class="card-desc">Access S$500 skills credit and mid-career course subsidies.</span>
-                    <a href="https://www.myskillsfuture.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                    <a href="https://www.myskillsfuture.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link" draggable="false">
                         Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     </a>
                 </div>
 
                 <!-- MOM Card -->
-                <div class="service-card">
+                <div class="service-card" draggable="true" data-agency="mom">
+                    <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" src="https://www.mom.gov.sg/html/mom/images/branding/mom-logo-print.png" alt="Ministry of Manpower logo">
+                        <img class="agency-logo" draggable="false" src="https://www.mom.gov.sg/html/mom/images/branding/mom-logo-print.png" alt="Ministry of Manpower logo">
                     </div>
                     <h3>MOM</h3>
                     <p>Ministry of Manpower</p>
                     <span class="card-desc">Work permits, employment rules, labor laws, and work pass services.</span>
-                    <a href="https://www.mom.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                    <a href="https://www.mom.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link" draggable="false">
                         Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     </a>
                 </div>
 
                 <!-- MOH Card -->
-                <div class="service-card">
+                <div class="service-card" draggable="true" data-agency="moh">
+                    <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" src="https://isomer-user-content.by.gov.sg/3/550779dd-661b-41af-b976-7e18be61338c/MOH-Logo-Cropped.png" alt="Ministry of Health logo">
+                        <img class="agency-logo" draggable="false" src="https://isomer-user-content.by.gov.sg/3/550779dd-661b-41af-b976-7e18be61338c/MOH-Logo-Cropped.png" alt="Ministry of Health logo">
                     </div>
                     <h3>MOH</h3>
                     <p>Ministry of Health</p>
                     <span class="card-desc">HealthHub app, NEHR medical logs, and subsidized polyclinics.</span>
-                    <a href="https://www.moh.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                    <a href="https://www.moh.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link" draggable="false">
                         Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     </a>
                 </div>
 
                 <!-- HDB Card -->
-                <div class="service-card">
+                <div class="service-card" draggable="true" data-agency="hdb">
+                    <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" src="https://www.hdb.gov.sg/-/media/hdbinfoweb/data/media/img/site-logo-small.png" alt="Housing & Development Board logo">
+                        <img class="agency-logo" draggable="false" src="https://www.hdb.gov.sg/-/media/hdbinfoweb/data/media/img/site-logo-small.png" alt="Housing & Development Board logo">
                     </div>
                     <h3>HDB</h3>
                     <p>Housing & Development Board</p>
                     <span class="card-desc">BTO flat applications, housing grants, and home loan limits.</span>
-                    <a href="https://www.hdb.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                    <a href="https://www.hdb.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link" draggable="false">
                         Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     </a>
                 </div>
 
                 <!-- MOE Card -->
-                <div class="service-card">
+                <div class="service-card" draggable="true" data-agency="moe">
+                    <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" src="https://www.moe.gov.sg/media/images/microsite/moe-logo.svg" alt="Ministry of Education logo">
+                        <img class="agency-logo" draggable="false" src="https://www.moe.gov.sg/media/images/microsite/moe-logo.svg" alt="Ministry of Education logo">
                     </div>
                     <h3>MOE</h3>
                     <p>Ministry of Education</p>
                     <span class="card-desc">Primary/Secondary registration, fees, and study scholarships.</span>
-                    <a href="https://www.moe.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                    <a href="https://www.moe.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link" draggable="false">
                         Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     </a>
                 </div>
 
                 <!-- LTA Card -->
-                <div class="service-card">
+                <div class="service-card" draggable="true" data-agency="lta">
+                    <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" src="https://www.lta.gov.sg/content/dam/ltagov/img/general/logo.png" alt="Land Transport Authority logo">
+                        <img class="agency-logo" draggable="false" src="https://www.lta.gov.sg/content/dam/ltagov/img/general/logo.png" alt="Land Transport Authority logo">
                     </div>
                     <h3>LTA</h3>
                     <p>Land Transport Authority</p>
                     <span class="card-desc">OneMotoring account, COE bidding, road tax, and transit maps.</span>
-                    <a href="https://www.lta.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                    <a href="https://www.lta.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link" draggable="false">
                         Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     </a>
                 </div>
 
                 <!-- NEA Card -->
-                <div class="service-card">
+                <div class="service-card" draggable="true" data-agency="nea">
+                    <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" src="https://www.nea.gov.sg/assets/images/design/logo.png" alt="National Environment Agency logo">
+                        <img class="agency-logo" draggable="false" src="https://www.nea.gov.sg/assets/images/design/logo.png" alt="National Environment Agency logo">
                     </div>
                     <h3>NEA</h3>
                     <p>National Environment Agency</p>
                     <span class="card-desc">Climate vouchers guidelines, weather details, and food hygiene checks.</span>
-                    <a href="https://www.nea.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                    <a href="https://www.nea.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link" draggable="false">
                         Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     </a>
                 </div>
 
                 <!-- Gov.sg Card -->
-                <div class="service-card">
+                <div class="service-card" draggable="true" data-agency="govsg">
+                    <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" src="https://isomer-user-content.by.gov.sg/34/a5e428db-5d1e-4e83-a365-e0a714c53678/gov-logo-v27b523bff-d573-473b-bf3a-24b71aa63f4f.webp" alt="gov.sg logo" onerror="logoFallback(this,'gov.sg')">
+                        <img class="agency-logo" draggable="false" src="https://isomer-user-content.by.gov.sg/34/a5e428db-5d1e-4e83-a365-e0a714c53678/gov-logo-v27b523bff-d573-473b-bf3a-24b71aa63f4f.webp" alt="gov.sg logo" onerror="logoFallback(this,'gov.sg')">
                     </div>
                     <h3>Gov.sg</h3>
                     <p>Official Singapore Portal</p>
                     <span class="card-desc">National budget allocations, policy updates, and official government news and explainers.</span>
-                    <a href="https://www.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                    <a href="https://www.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link" draggable="false">
                         Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     </a>
                 </div>
 
                 <!-- SG Journey Card -->
-                <div class="service-card">
+                <div class="service-card" draggable="true" data-agency="sgjourney">
+                    <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" src="https://www.sgjourney.gov.sg/wp-content/themes/scjtheme/assets/images/logo-vertical-preblack.svg" alt="Singapore Journey logo" onerror="logoFallback(this,'SG Journey')">
+                        <img class="agency-logo" draggable="false" src="https://www.sgjourney.gov.sg/wp-content/themes/scjtheme/assets/images/logo-vertical-preblack.svg" alt="Singapore Journey logo" onerror="logoFallback(this,'SG Journey')">
                     </div>
                     <h3>SG Journey</h3>
                     <p>Singapore Citizenship Journey</p>
                     <span class="card-desc">Complete the mandatory Citizenship Journey programme, explore community stories, and access new citizen resources.</span>
-                    <a href="https://www.sgjourney.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                    <a href="https://www.sgjourney.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link" draggable="false">
                         Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     </a>
                 </div>
 
                 <!-- OneMap Card -->
-                <div class="service-card">
+                <div class="service-card" draggable="true" data-agency="onemap">
+                    <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" src="https://mobile.onemap.gov.sg/web/2025/images/icons/onemap_logo.svg" alt="OneMap logo" onerror="logoFallback(this,'OneMap')">
+                        <img class="agency-logo" draggable="false" src="https://mobile.onemap.gov.sg/web/2025/images/icons/onemap_logo.svg" alt="OneMap logo" onerror="logoFallback(this,'OneMap')">
                     </div>
                     <h3>OneMap</h3>
                     <p>National Mapping Service</p>
                     <span class="card-desc">Official maps for GRC/SMC boundaries, school enrollment proximity checks, and community zone verification.</span>
-                    <a href="https://www.onemap.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                    <a href="https://www.onemap.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link" draggable="false">
                         Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     </a>
                 </div>
 
                 <!-- HealthHub Card -->
-                <div class="service-card">
+                <div class="service-card" draggable="true" data-agency="healthhub">
+                    <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" src="https://www.healthhub.sg/assets/images/healthhub-logo.png" alt="HealthHub logo" onerror="logoFallback(this,'HealthHub')">
+                        <img class="agency-logo" draggable="false" src="https://cdn.healthhub.sg/-/media/project/synapxe/healthhub/logo/healthhub-logo/healthhub-logo.svg" alt="HealthHub logo" onerror="logoFallback(this,'HealthHub')">
                     </div>
                     <h3>HealthHub</h3>
                     <p>National Health Platform</p>
                     <span class="card-desc">Manage health records, book clinic slots, track MediShield Life allocations, and view CPF MediSave usage.</span>
-                    <a href="https://www.healthhub.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                    <a href="https://www.healthhub.sg/" target="_blank" rel="noopener noreferrer" class="card-link" draggable="false">
                         Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     </a>
                 </div>
 
                 <!-- ActiveSG Card -->
-                <div class="service-card">
+                <div class="service-card" draggable="true" data-agency="activesg">
+                    <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" src="https://www.activesg.gov.sg/assets/images/activesg-logo.png" alt="ActiveSG logo" onerror="logoFallback(this,'ActiveSG')">
+                        <img class="agency-logo" draggable="false" src="logos/activesg.png" alt="ActiveSG logo" onerror="logoFallback(this,'ActiveSG')">
                     </div>
                     <h3>ActiveSG</h3>
                     <p>Sports &amp; Recreation</p>
                     <span class="card-desc">Redeem complimentary credits for public gyms, swimming complexes, and sporting facilities across Singapore.</span>
-                    <a href="https://www.activesg.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                    <a href="https://www.activesg.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link" draggable="false">
                         Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     </a>
                 </div>
