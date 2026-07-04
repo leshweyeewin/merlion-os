@@ -56,7 +56,9 @@
 
                 <!-- ELD Card -->
                 <div class="service-card">
-                    <div class="agency-logo-wrap agency-logo-text">ELD</div>
+                    <div class="agency-logo-wrap">
+                        <img class="agency-logo" src="https://www.eld.gov.sg/images/logo/ELD_Logo.png" alt="Elections Department Singapore logo" onerror="logoFallback(this,'ELD')">
+                    </div>
                     <h3>ELD</h3>
                     <p>Elections Department</p>
                     <span class="card-desc">Check voter registration status and electoral enrollment registers.</span>
@@ -80,7 +82,9 @@
 
                 <!-- CPF Card -->
                 <div class="service-card">
-                    <div class="agency-logo-wrap agency-logo-text">CPF</div>
+                    <div class="agency-logo-wrap agency-logo-cpf">
+                        <img class="agency-logo" src="https://www.cpf.gov.sg/content/dam/web/global/global-header/cpf-logo.svg" alt="Central Provident Fund Board logo" onerror="logoFallback(this,'CPF')">
+                    </div>
                     <h3>CPF</h3>
                     <p>Central Provident Fund Board</p>
                     <span class="card-desc">Retirement savings, MediSave sub-tiers, and employer allocations.</span>
@@ -117,7 +121,9 @@
 
                 <!-- SkillsFuture Card -->
                 <div class="service-card">
-                    <div class="agency-logo-wrap agency-logo-text agency-logo-text-small">SkillsFuture</div>
+                    <div class="agency-logo-wrap">
+                        <img class="agency-logo" src="https://courses.myskillsfuture.gov.sg/assets/images/logo-my-skillsfuture.svg" alt="MySkillsFuture logo" onerror="logoFallback(this,'SkillsFuture',true)">
+                    </div>
                     <h3>SkillsFuture</h3>
                     <p>MySkillsFuture Training</p>
                     <span class="card-desc">Access S$500 skills credit and mid-career course subsidies.</span>
@@ -206,11 +212,65 @@
 
                 <!-- Gov.sg Card -->
                 <div class="service-card">
-                    <div class="agency-logo-wrap agency-logo-text">gov.sg</div>
+                    <div class="agency-logo-wrap">
+                        <img class="agency-logo" src="https://isomer-user-content.by.gov.sg/34/a5e428db-5d1e-4e83-a365-e0a714c53678/gov-logo-v27b523bff-d573-473b-bf3a-24b71aa63f4f.webp" alt="gov.sg logo" onerror="logoFallback(this,'gov.sg')">
+                    </div>
                     <h3>Gov.sg</h3>
                     <p>Official Singapore Portal</p>
-                    <span class="card-desc">National budget allocations, policy matrices, and official news updates.</span>
+                    <span class="card-desc">National budget allocations, policy updates, and official government news and explainers.</span>
                     <a href="https://www.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                        Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+
+                <!-- SG Journey Card -->
+                <div class="service-card">
+                    <div class="agency-logo-wrap">
+                        <img class="agency-logo" src="https://www.sgjourney.gov.sg/wp-content/themes/scjtheme/assets/images/logo-vertical-preblack.svg" alt="Singapore Journey logo" onerror="logoFallback(this,'SG Journey')">
+                    </div>
+                    <h3>SG Journey</h3>
+                    <p>Singapore Citizenship Journey</p>
+                    <span class="card-desc">Complete the mandatory Citizenship Journey programme, explore community stories, and access new citizen resources.</span>
+                    <a href="https://www.sgjourney.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                        Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+
+                <!-- OneMap Card -->
+                <div class="service-card">
+                    <div class="agency-logo-wrap">
+                        <img class="agency-logo" src="https://mobile.onemap.gov.sg/web/2025/images/icons/onemap_logo.svg" alt="OneMap logo" onerror="logoFallback(this,'OneMap')">
+                    </div>
+                    <h3>OneMap</h3>
+                    <p>National Mapping Service</p>
+                    <span class="card-desc">Official maps for GRC/SMC boundaries, school enrollment proximity checks, and community zone verification.</span>
+                    <a href="https://www.onemap.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                        Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+
+                <!-- HealthHub Card -->
+                <div class="service-card">
+                    <div class="agency-logo-wrap">
+                        <img class="agency-logo" src="https://www.healthhub.sg/assets/images/healthhub-logo.png" alt="HealthHub logo" onerror="logoFallback(this,'HealthHub')">
+                    </div>
+                    <h3>HealthHub</h3>
+                    <p>National Health Platform</p>
+                    <span class="card-desc">Manage health records, book clinic slots, track MediShield Life allocations, and view CPF MediSave usage.</span>
+                    <a href="https://www.healthhub.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
+                        Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+
+                <!-- ActiveSG Card -->
+                <div class="service-card">
+                    <div class="agency-logo-wrap">
+                        <img class="agency-logo" src="https://www.activesg.gov.sg/assets/images/activesg-logo.png" alt="ActiveSG logo" onerror="logoFallback(this,'ActiveSG')">
+                    </div>
+                    <h3>ActiveSG</h3>
+                    <p>Sports &amp; Recreation</p>
+                    <span class="card-desc">Redeem complimentary credits for public gyms, swimming complexes, and sporting facilities across Singapore.</span>
+                    <a href="https://www.activesg.gov.sg/" target="_blank" rel="noopener noreferrer" class="card-link">
                         Go to Portal <i class="fa-solid fa-arrow-up-right-from-square"></i>
                     </a>
                 </div>
@@ -304,6 +364,17 @@
         </div>
     </div>
 
+    <!-- Logo fallback: if a gov logo fails to load, show a styled text badge -->
+    <script>
+        function logoFallback(img, text, small) {
+            var wrap = img.parentElement;
+            wrap.innerHTML = '';
+            wrap.classList.remove('agency-logo-cpf');
+            wrap.classList.add('agency-logo-text');
+            if (small) wrap.classList.add('agency-logo-text-small');
+            wrap.textContent = text;
+        }
+    </script>
     <!-- Script File -->
     <script src="app.js"></script>
 </body>
