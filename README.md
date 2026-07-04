@@ -1,9 +1,9 @@
 # 🇸🇬 MerlionOS: Unified Singapore Public Sector AI Coordination Brain
 *APAC GenAI Academy (APAC Edition) — Cohort 2 Hackathon Project*
 
-**MerlionOS** is a state-of-the-art, unified digital assistant portal built for Singapore Citizens. It simplifies access to fragmented public sector resources by orchestrating a **Gemini 2.5 Flash** agentic brain that routes questions, scrapes official government portals (`.gov.sg`), and surfaces live civic data — all in one premium dashboard.
+**MerlionOS** is a state-of-the-art, unified digital assistant portal built for Singapore Citizens. It simplifies access to fragmented public sector resources by orchestrating a **Gemini 2.5 Flash** agentic brain that routes questions, scrapes official government portals (`.gov.sg`), and surfaces live civic data — all in one clean, modern dashboard.
 
-Built with a glassmorphism dark-mode UI, it features a main-view tab switcher between the statutory portals directory and a **live SG Hub data dashboard**, alongside a floating **Co-Pilot chat assistant** with a real-time **Operations Control** terminal.
+Built with a premium white-background UI with a responsive card grid layout, it features a main-view tab switcher between the statutory portals directory and a **live SG Hub data dashboard**, alongside a floating **Co-Pilot chat assistant** with a real-time **Operations Control** terminal.
 
 ---
 
@@ -23,8 +23,8 @@ All sub-panels load **on-demand** (only when selected) and show a **"Last synced
 | 🌤️ **Weather & Air Quality** | NEA data.gov.sg API | PSI gauge card + 6-region 2-hr forecast cards |
 | 🏢 **HDB BTO Launches** | HDB static registry + HDB Newsroom | Launch date badge per listing; scraped press releases with dates |
 | 📊 **Job Market Analysis** | Google BigQuery MOM dataset | Sector vacancies, salaries, retrenchment risk, MOM support schemes |
-| 📢 **Gov Updates & Transit** | Telegram scraper (7 channels) | Last 3 posts per channel, sorted latest-first, post date shown |
-| 🎟️ **Kiasu SG Deals** | Telegram scraper (15 channels) | Last 3 posts per channel, sorted latest-first, post date shown |
+| 📢 **Gov Updates** | Telegram scraper (7 channels) | Last 3 posts per channel, sorted latest-first, post date shown |
+| 🎟️ **Kiasu SG Deals** | Telegram scraper (15 channels) | Posts within last 24 hours, sorted latest-first, post date shown |
 | 🌐 **Gov Portals** | Static registry | HDB, MOM, WSG, SWDA, ICA, MAS, NEA + direct portal buttons |
 
 ### 🏛️ Statutory Portals Directory
@@ -127,7 +127,9 @@ python mcp_server.py
 - ✅ **Last synced banners** — All sub-panes show retrieval timestamp
 - ✅ **HDB launch date** — BTO availability cards show `📅 June 2026 Launch` badge
 - ✅ **MOM retrenchment date** — "Data as of: Q1 2026 (Jan–Mar)" date badge added
-- ✅ **Last 3 posts** — Switched from 24-hr filter to always returning last 3 messages per channel
+- ✅ **Gov Updates: last 3 posts** — Always returns the 3 most recent posts regardless of age
+- ✅ **Kiasu Community: last 24 hours** — Returns all posts within the last 24 hours
+- ✅ **Tab renamed** — "Gov Updates & Transit" → "Gov Updates"
 - ✅ **SWDA portal** added to Gov Portals directory
 - ✅ On-demand loading — SG Hub sub-panels only fetch when tab is clicked
 

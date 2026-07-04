@@ -20,7 +20,7 @@ MerlionOS is a unified public-sector data intelligence portal that directly solv
 >
 > Powered by **Google Gemini 2.5 Flash** and a real-time data pipeline, MerlionOS accepts complex multi-intent queries and routes them through 10+ backend tools concurrently. It searches an indexed directory of 15+ statutory boards, performs live BeautifulSoup4 scraping of `.gov.sg` pages, queries **Google BigQuery** employment databases, and surfaces live weather/PSI metrics from the NEA data.gov.sg API and government Telegram channel feeds.
 >
-> The **SG Hub Live Dashboard** features a visual weather station (PSI gauge + 6-region forecast cards), HDB BTO listings with launch dates, MOM job market analysis, and Telegram-scraped government alerts and community deals — all sorted by post date, with retrieval timestamps so users always know data freshness.
+> The **SG Hub Live Dashboard** features a visual weather station (PSI gauge + 6-region forecast cards), HDB BTO listings with launch dates, MOM job market analysis, live government alerts sorted by post date (last 3 per channel), and Kiasu community deals from the last 24 hours — all with retrieval timestamps so users always know data freshness.
 >
 > A real-time **Operations Control Log** terminal visualizes live traces: BigQuery SQL queries, HTTP scraping responses, Telegram crawler logs, and API call chains — giving full transparency into AI operations for demo purposes.
 
@@ -86,8 +86,8 @@ MerlionOS is a unified public-sector data intelligence portal that directly solv
 3. **🏢 HDB BTO Tracker** — BTO availability cards with launch date badges + scraped press releases
 4. **📊 BigQuery Job Analytics** — Tech/Finance/Healthcare/General sector breakdown; vacancies, salaries, skills, retrenchment risk
 5. **⚠️ MOM Retrenchment Advisory** — Quarterly figures with "Data as of: Q1 2026" date badge
-6. **📢 Gov Alerts Feed** — 7 official Telegram channels, last 3 posts each, sorted newest-first with SGT timestamps
-7. **🎟️ Community Deals Feed** — 15 lifestyle channels, last 3 posts each, sorted newest-first with SGT timestamps
+6. **📢 Gov Updates (renamed from "Gov Updates & Transit"):** 7 official channels (govsg, HealthHub, ScamShield, MOE, NEA, GovTech, LTA) — last 3 posts per channel regardless of age, sorted newest-first, SGT timestamps shown
+7. **🎟️ Kiasu SG Deals:** 15 lifestyle channels — posts within the last 24 hours, sorted newest-first, SGT timestamps shown
 8. **🕒 Data Freshness Indicators** — "Last synced: DD MMM YYYY, HH:MM (SGT)" on every sub-panel
 9. **🌐 Gov Portals Directory** — 12+ agency cards including SWDA, with direct portal buttons
 10. **🖥️ Operations Control Terminal** — Live SQL, HTTP, scraping traces for full transparency

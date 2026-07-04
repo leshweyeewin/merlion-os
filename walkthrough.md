@@ -91,9 +91,11 @@ All sub-panel API calls print structured, colour-coded traces:
 
 ## 📢 Phase 4 — Gov & Community Feed Improvements
 
-### Last 3 Posts (Removed 24-hr Filter)
-- Previous: Only posts within last 24 hours were shown (often zero results)
-- Now: Always returns the **most recent 3 posts** per channel regardless of age
+### Separate Scraper Functions
+- **Gov Updates:** Uses `scrape_one_telegram_channel()` — always returns the **last 3 posts** regardless of post age
+- **Kiasu Community:** Uses `scrape_one_telegram_channel_24h()` — returns all posts within the **last 24 hours**
+- Two dedicated functions clearly separate the two different retrieval strategies
+- **Tab renamed:** "Gov Updates & Transit" → **"Gov Updates"** in the UI tab button and HTML comment
 
 ### SGT Timestamps on Every Post
 - Parses `<time datetime="...">` from Telegram widgets
