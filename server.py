@@ -1,7 +1,8 @@
 import os
 import sys
 import logging
-from fastapi import FastAPI, HTTPException
+import requests
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from google import genai
@@ -76,14 +77,14 @@ class ChatResponse(BaseModel):
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     user_prompt = request.message
-    
+
     # Request size limit check
     if len(user_prompt) > 2000:
         raise HTTPException(
             status_code=400,
             detail="Request message exceeds the maximum allowed length of 2000 characters."
         )
-        
+
     system_instruction = (
         "You are MerlionOS, the unified public sector AI coordination brain for Singapore Citizens. "
         "Your task is to parse citizen requests and route them to the correct agency tool functions or scrape official .gov.sg web pages. "
@@ -92,10 +93,10 @@ async def chat_endpoint(request: ChatRequest):
         "and then scrape the resulting URL using scrape_government_page to get the answer. "
         "Highlight concrete, actionable requirements (like deadlines, fees, or eligibility criteria) and provide the source URL links."
     )
-    
+
     available_tools = list(TOOL_MAP.values())
     logs = []
-    
+
     # Build contents representing conversation history
     contents = []
     for msg in request.history:
@@ -112,7 +113,7 @@ async def chat_endpoint(request: ChatRequest):
             parts=[types.Part.from_text(text=user_prompt)]
         )
     )
-    
+
     try:
         # Step 1: Initial Prompt Generation Loop (Asynchronous)
         response = await client.aio.models.generate_content(
@@ -125,29 +126,29 @@ async def chat_endpoint(request: ChatRequest):
                 automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
             )
         )
-        
+
         # Step 2: Handle Programmatic Tool Interception Loop
         if response.function_calls:
             tool_responses = []
-            
+
             for call in response.function_calls:
                 tool_name = call.name
                 args = call.args or {}
-                
+
                 # Execute tool
                 if tool_name in TOOL_MAP:
                     try:
                         # Helper to call tool dynamically with keyword arguments mapping
                         def execute_tool_call():
                             return call_tool_robustly(TOOL_MAP[tool_name], args)
-                                
+
                         # Run blocking network/search calls in a separate thread pool to preserve event loop concurrency
                         executed_text = await anyio.to_thread.run_sync(execute_tool_call)
                     except Exception as exc:
                         # Secure error handling - log full error details server-side, keep response generic
                         logger.exception(f"Error executing tool '{tool_name}' with args {args}")
                         executed_text = f"Error: Failed to execute tool '{tool_name}' due to an internal execution error ({type(exc).__name__})."
-                    
+
                     logs.append(
                         ToolLog(
                             tool=tool_name,
@@ -155,7 +156,7 @@ async def chat_endpoint(request: ChatRequest):
                             result=executed_text
                         )
                     )
-                    
+
                     tool_responses.append(
                         types.Part.from_function_response(
                             name=tool_name,
@@ -163,7 +164,7 @@ async def chat_endpoint(request: ChatRequest):
                         )
                     )
                 else:
-                    # Turn balance fallback: always return a function response if tool name is unregistered
+                    # Turn-balance fallback: always send a matching function response to avoid Gemini 400 errors
                     executed_text = f"Error: Tool '{tool_name}' is not registered."
                     logger.warning(f"Intercepted unregistered tool call: {tool_name}")
                     logs.append(
@@ -179,7 +180,7 @@ async def chat_endpoint(request: ChatRequest):
                             response={'result': executed_text}
                         )
                     )
-            
+
             # Step 3: Compile and Synthesize Final Output Response (Asynchronous)
             # Rebuild contents list including the function call and function response turns
             contents_sync = list(contents)
@@ -187,16 +188,16 @@ async def chat_endpoint(request: ChatRequest):
                 types.Content(role="model", parts=response.parts),
                 types.Content(role="user", parts=tool_responses)
             ])
-            
+
             final_response = await client.aio.models.generate_content(
                 model='gemini-2.5-flash',
                 contents=contents_sync,
                 config=types.GenerateContentConfig(system_instruction=system_instruction)
             )
             return ChatResponse(response=final_response.text or "Could not compile response.", logs=logs)
-            
+
         return ChatResponse(response=response.text or "Could not generate text.", logs=[])
-        
+
     except genai_errors.ClientError as e:
         if e.code == 429:
             logger.warning(f"Gemini API quota exceeded: {e.message}")
@@ -215,6 +216,34 @@ async def chat_endpoint(request: ChatRequest):
             status_code=500,
             detail="An error occurred while compiling your guidance sheet. Please check the server logs."
         )
+
+# Agency logos whose origin blocks cross-origin embedding (Cross-Origin-Resource-Policy)
+# and so must be fetched server-side and re-served from our own origin.
+LOGO_PROXY_SOURCES = {
+    "activesg": "https://activesg.gov.sg/assets/activesg-logo-full-color.png",
+}
+_logo_cache: dict[str, tuple[bytes, str]] = {}
+
+@app.get("/logos/{agency}.png")
+async def get_proxied_logo(agency: str):
+    source_url = LOGO_PROXY_SOURCES.get(agency)
+    if not source_url:
+        raise HTTPException(status_code=404, detail="Unknown logo requested.")
+
+    if agency not in _logo_cache:
+        def fetch_logo():
+            resp = requests.get(source_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+            resp.raise_for_status()
+            return resp.content, resp.headers.get("Content-Type", "image/png")
+
+        try:
+            _logo_cache[agency] = await anyio.to_thread.run_sync(fetch_logo)
+        except Exception:
+            logger.exception(f"Failed to proxy-fetch logo for '{agency}'")
+            raise HTTPException(status_code=502, detail="Logo could not be retrieved.")
+
+    content, content_type = _logo_cache[agency]
+    return Response(content=content, media_type=content_type)
 
 # Mount static folder (create if not exists)
 os.makedirs("static", exist_ok=True)
