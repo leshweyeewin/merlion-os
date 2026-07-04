@@ -316,8 +316,31 @@
 
             <!-- SG Hub Pane -->
             <div id="hub-pane" class="main-pane hidden">
-                <div class="hub-container">
-                    <!-- Weather / Environment Sub-panel -->
+                <!-- Sub-tab switcher for SG Hub -->
+                <div class="hub-sub-tabs" style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 8px; flex-wrap: wrap;">
+                    <button class="hub-sub-tab-btn active-hub-sub-tab" data-hub-sub-tab="hub-env-pane">
+                        <i class="fa-solid fa-cloud-sun"></i> Weather &amp; PSI
+                    </button>
+                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-mrt-pane">
+                        <i class="fa-solid fa-train-subway"></i> Transport &amp; MRT Alerts
+                    </button>
+                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-hdb-pane">
+                        <i class="fa-solid fa-house-chimney"></i> HDB &amp; BTO Portal
+                    </button>
+                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-gov-pane">
+                        <i class="fa-solid fa-shield-halved"></i> Official Gov Alerts
+                    </button>
+                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-community-pane">
+                        <i class="fa-solid fa-tags"></i> Kiasu SG Deals &amp; Meetups
+                    </button>
+                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-jobs-pane">
+                        <i class="fa-solid fa-chart-line"></i> Job Market Analytics
+                    </button>
+                </div>
+
+                <!-- Sub-panes -->
+                <!-- Weather & PSI Pane -->
+                <div class="hub-sub-pane" id="hub-env-pane">
                     <div class="hub-card">
                         <h3>
                             <i class="fa-solid fa-cloud-sun"></i> Live Weather &amp; Air Quality (NEA)
@@ -326,22 +349,88 @@
                             <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading environment advisories...</p>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Local Events Sub-panel -->
+                <!-- Transport & MRT Alerts Pane -->
+                <div class="hub-sub-pane hidden" id="hub-mrt-pane">
                     <div class="hub-card">
                         <h3>
-                            <i class="fa-brands fa-telegram"></i> Singapore Local Telegram Events
+                            <i class="fa-solid fa-train-subway"></i> Live Train &amp; Traffic advisories
                         </h3>
-                        <div id="hub-events-content">
-                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Retrieving community channels...</p>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Real-time MRT delays, service disruptions, and road alerts direct from LTA &amp; SMRT channels.</p>
+                        <div id="hub-mrt-events-content">
+                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading transit warnings...</p>
                         </div>
                     </div>
+                </div>
 
-                    <!-- BigQuery Jobs Sub-panel -->
+                <!-- HDB & BTO Portal Pane -->
+                <div class="hub-sub-pane hidden" id="hub-hdb-pane">
+                    <div class="hub-card" style="margin-bottom: 20px;">
+                        <h3>
+                            <i class="fa-solid fa-house-chimney"></i> Upcoming HDB BTO Launches
+                        </h3>
+                        <div id="hub-hdb-launches" style="font-size: 14px; color: var(--text-main); line-height: 1.6;">
+                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading BTO listings...</p>
+                        </div>
+                    </div>
+                    
                     <div class="hub-card">
                         <h3>
-                            <i class="fa-solid fa-database"></i> BigQuery Job Market Analytics
+                            <i class="fa-solid fa-calculator"></i> Enhanced CPF Housing Grant (EHG) Estimator
                         </h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Calculate your estimated housing grants instantly based on your average monthly household income.</p>
+                        <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 18px; display: flex; flex-direction: column; gap: 12px; max-width: 480px;">
+                            <div style="display:flex; flex-direction:column; gap:6px;">
+                                <label style="font-size:12px; font-weight:700; color:var(--text-muted);">Average Monthly Household Income:</label>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="font-weight:700; font-size:15px; color:var(--text-main);">S$</span>
+                                    <input type="number" id="hdb-income-input" placeholder="e.g. 5000" style="flex:1; background:var(--bg-panel); border:1px solid var(--border); border-radius:6px; padding:8px 12px; font-size:14px; font-family:var(--font-mono); color:var(--text-main);" value="4500">
+                                </div>
+                            </div>
+                            <button type="button" id="calc-hdb-grant-btn" style="background:var(--primary); color:#ffffff; font-weight:700; font-size:13px; padding:10px; border-radius:6px; border:none; cursor:pointer; transition:background 0.15s ease;">
+                                Estimate Grant Eligibility
+                            </button>
+                            <div id="hdb-grant-result" style="border-top:1px solid var(--border); padding-top:12px; margin-top:4px; font-size:13px; color:var(--text-main); font-weight:600;">
+                                Enter your household income to calculate EHG grants.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Official Gov Broadcasts Pane -->
+                <div class="hub-sub-pane hidden" id="hub-gov-pane">
+                    <div class="hub-card">
+                        <h3>
+                            <i class="fa-solid fa-shield-halved"></i> Official Government Broadcasts &amp; Warnings
+                        </h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Real-time broadcasts and safety updates direct from statutory channels like HealthHub, Gov.sg, ScamShield, and LTA.</p>
+                        <div id="hub-gov-events-content">
+                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading official broadcasts...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kiasu SG Pane -->
+                <div class="hub-sub-pane hidden" id="hub-community-pane">
+                    <div class="hub-card">
+                        <h3>
+                            <i class="fa-solid fa-tags"></i> Kiasu SG Deals &amp; Community Events
+                        </h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Discounts, activities, and local meetups from popular lifestyle and tech community channels.</p>
+                        <div id="hub-community-events-content">
+                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading community feeds...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BigQuery Jobs Pane -->
+                <div class="hub-sub-pane hidden" id="hub-jobs-pane">
+                    <div class="hub-card">
+                        <h3>
+                            <i class="fa-solid fa-chart-line"></i> BigQuery Job Market Analytics
+                        </h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">SQL-partitioned overview of Singapore Ministry of Manpower (MOM) employment databases.</p>
                         <div style="display: flex; gap: 8px; margin-bottom: 16px;">
                             <button class="sector-tab-btn active-sector" data-sector="tech">Tech</button>
                             <button class="sector-tab-btn" data-sector="finance">Finance</button>

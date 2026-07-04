@@ -464,9 +464,36 @@ function initSgHub() {
     const mainPanes = document.querySelectorAll(".main-pane");
 
     const weatherContent = document.getElementById("hub-weather-content");
-    const eventsContent = document.getElementById("hub-events-content");
+    const govEventsContent = document.getElementById("hub-gov-events-content");
+    const communityEventsContent = document.getElementById("hub-community-events-content");
+    const mrtEventsContent = document.getElementById("hub-mrt-events-content");
+    const hdbLaunchesContent = document.getElementById("hub-hdb-launches");
     const jobsContent = document.getElementById("hub-jobs-content");
     const sectorTabButtons = document.querySelectorAll(".sector-tab-btn");
+
+    // SG Hub sub-pane tab switching
+    const hubSubTabButtons = document.querySelectorAll(".hub-sub-tab-btn");
+    const hubSubPanes = document.querySelectorAll(".hub-sub-pane");
+
+    hubSubTabButtons.forEach(btn => {
+        btn.addEventListener("click", () => {
+            // Reset active style class
+            hubSubTabButtons.forEach(b => {
+                b.classList.remove("active-hub-sub-tab");
+            });
+            // Apply active class
+            btn.classList.add("active-hub-sub-tab");
+
+            const targetPaneId = btn.getAttribute("data-hub-sub-tab");
+            hubSubPanes.forEach(pane => {
+                if (pane.id === targetPaneId) {
+                    pane.classList.remove("hidden");
+                } else {
+                    pane.classList.add("hidden");
+                }
+            });
+        });
+    });
 
     // Main page tab switcher
     mainTabButtons.forEach(btn => {
@@ -489,6 +516,38 @@ function initSgHub() {
         });
     });
 
+    // CPF Grant Calculator binding
+    const incomeInput = document.getElementById("hdb-income-input");
+    const calcBtn = document.getElementById("calc-hdb-grant-btn");
+    const calcResult = document.getElementById("hdb-grant-result");
+
+    if (calcBtn && incomeInput && calcResult) {
+        calcBtn.addEventListener("click", () => {
+            const income = parseInt(incomeInput.value);
+            if (isNaN(income) || income < 0) {
+                calcResult.innerHTML = "⚠️ Please enter a valid household income.";
+                return;
+            }
+            
+            let grant = 0;
+            if (income <= 1500) grant = 80000;
+            else if (income <= 3000) grant = 65000;
+            else if (income <= 4500) grant = 50000;
+            else if (income <= 6000) grant = 35000;
+            else if (income <= 7500) grant = 20000;
+            else if (income <= 9000) grant = 10000;
+            else grant = 0;
+
+            if (grant > 0) {
+                calcResult.innerHTML = `<span style="color:var(--text-success); font-size:14px; font-weight:700;">🎯 Estimated CPF Grant: S$${grant.toLocaleString()}</span><br>
+                    <span style="font-size:11px; font-weight:normal; color:var(--text-muted); display:block; margin-top:2px;">Includes Enhanced CPF Housing Grant (EHG) eligibility.</span>`;
+            } else {
+                calcResult.innerHTML = `<span style="color:var(--text-error); font-size:14px; font-weight:700;">Estimated Grant: S$0</span><br>
+                    <span style="font-size:11px; font-weight:normal; color:var(--text-muted); display:block; margin-top:2px;">Household average income exceeds the S$9,000 ceiling.</span>`;
+            }
+        });
+    }
+
     async function loadSgHubData() {
         try {
             const res = await fetch("/api/sg-hub");
@@ -503,7 +562,6 @@ function initSgHub() {
                 const title = lines[0].replace(/---/g, '').trim();
                 let body = lines.slice(1).join("<br>");
                 
-                // Add icons/styling
                 if (title.includes("PSI")) {
                     body = body.replace("🍃", "<span style='font-size:16px;'>🍃</span>");
                     envHtml += `<div style="margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
@@ -520,20 +578,65 @@ function initSgHub() {
             });
             weatherContent.innerHTML = envHtml || "<p style='color: var(--text-subtle); margin:0;'>No active advisories.</p>";
 
-            // 2. Render Telegram Events
-            let eventsHtml = "";
-            data.events.forEach(evt => {
-                eventsHtml += `<div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 8px;">
+            // 2. Render Official Gov Broadcasts
+            let govHtml = "";
+            data.gov_events.forEach(evt => {
+                govHtml += `<div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 8px;">
                     <div style="display:flex; justify-content:space-between; margin-bottom: 6px; font-weight:600;">
                         <span style="color: var(--primary);"><i class="fa-solid fa-bullhorn"></i> ${escapeHTML(evt.source)}</span>
+                        <a href="${evt.link}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Alert</a>
+                    </div>
+                    <div style="color: var(--text-main); line-height:1.45;">${escapeHTML(evt.content)}</div>
+                </div>`;
+            });
+            govEventsContent.innerHTML = govHtml || "<p style='color: var(--text-subtle); margin:0;'>No official alerts within the last 24 hours.</p>";
+
+            // 3. Render Community Deals & Events (Kiasu SG)
+            let commHtml = "";
+            data.community_events.forEach(evt => {
+                commHtml += `<div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 8px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 6px; font-weight:600;">
+                        <span style="color: var(--link);"><i class="fa-solid fa-tags"></i> ${escapeHTML(evt.source)}</span>
                         <a href="${evt.link}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Post</a>
                     </div>
                     <div style="color: var(--text-main); line-height:1.45;">${escapeHTML(evt.content)}</div>
                 </div>`;
             });
-            eventsContent.innerHTML = eventsHtml || "<p style='color: var(--text-subtle); margin:0;'>No events listed.</p>";
+            communityEventsContent.innerHTML = commHtml || "<p style='color: var(--text-subtle); margin:0;'>No community updates within the last 24 hours.</p>";
 
-            // 3. Keep jobs data for dynamic switching
+            // 4. Filter & Render MRT / Transport alerts from gov and community events
+            let mrtHtml = "";
+            const transitKeywords = ["mrt", "lrt", "train", "track fault", "service delay", "smrt", "sbs transit", "lta", "road closure", "traffic accident", "delay", "disruption", "service recovery"];
+            const allEvents = [...data.gov_events, ...data.community_events];
+            let transitEvents = [];
+            
+            allEvents.forEach(evt => {
+                const textLower = evt.content.toLowerCase();
+                const matched = transitKeywords.some(kw => textLower.includes(kw));
+                if (matched && !transitEvents.some(te => te.content === evt.content)) {
+                    transitEvents.push(evt);
+                }
+            });
+
+            transitEvents.forEach(evt => {
+                mrtHtml += `<div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 8px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 6px; font-weight:600;">
+                        <span style="color: var(--primary);"><i class="fa-solid fa-train-subway"></i> ${escapeHTML(evt.source)}</span>
+                        <a href="${evt.link}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Alert</a>
+                    </div>
+                    <div style="color: var(--text-main); line-height:1.45;">${escapeHTML(evt.content)}</div>
+                </div>`;
+            });
+            mrtEventsContent.innerHTML = mrtHtml || `
+                <div style="display:flex; align-items:center; gap:8px; color: var(--text-success); background: var(--bg-muted); border: 1px solid var(--border); padding:16px; border-radius:8px; font-size:14px; font-weight:600;">
+                    <i class="fa-solid fa-circle-check" style="font-size:18px;"></i>
+                    🟢 All train services are operating normally. No active disruptions reported in the last 24 hours.
+                </div>`;
+
+            // 5. Render HDB BTO Launches list
+            hdbLaunchesContent.innerHTML = renderHdbLaunches(data.hdb);
+
+            // 6. Keep jobs data for dynamic switching
             sgHubJobsData = data.jobs;
             renderSectorDetails("tech"); // Default to Tech
             
@@ -541,37 +644,121 @@ function initSgHub() {
         } catch (err) {
             console.error("Failed to load SG Hub:", err);
             weatherContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load environment metrics.</p>";
-            eventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to retrieve community feeds.</p>";
+            govEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to retrieve official gov feeds.</p>";
+            communityEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to retrieve community feeds.</p>";
+            mrtEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load transit feeds.</p>";
+            hdbLaunchesContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load upcoming launches.</p>";
             jobsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load employment statistics.</p>";
         }
+    }
+
+    function renderHdbLaunches(text) {
+        if (!text) return "<p style='color: var(--text-subtle); margin:0;'>No launches listed.</p>";
+        let html = "";
+        const blocks = text.split("🏢");
+        blocks.forEach(block => {
+            if (!block.trim()) return;
+            const lines = block.split("\n");
+            const titleLine = lines[0].trim();
+            if (titleLine.includes("CPF HOUSING GRANTS")) return; // skip grant block in text
+            
+            let loc = "N/A";
+            let units = "N/A";
+            let pricing = "N/A";
+            lines.forEach(line => {
+                const clean = line.replace(/^\s*•\s*/, '').trim();
+                if (clean.includes("Location:")) loc = clean.split("Location:")[1].trim();
+                else if (clean.includes("Units:")) units = clean.split("Units:")[1].trim();
+                else if (clean.includes("Pricing:")) pricing = clean.split("Pricing:")[1].trim();
+            });
+            html += `<div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 12px;">
+                <strong style="color: var(--primary); font-size:15px; display:block; margin-bottom: 6px;">🏢 ${escapeHTML(titleLine)}</strong>
+                <div style="font-size:13px; line-height: 1.5; color: var(--text-main);">
+                    <strong>📍 Location:</strong> ${escapeHTML(loc)}<br>
+                    <strong>📊 Supply:</strong> ${escapeHTML(units)}<br>
+                    <strong>💵 Price Guide:</strong> <span style="color:var(--text-success); font-weight:700;">${escapeHTML(pricing)}</span>
+                </div>
+            </div>`;
+        });
+        return html;
     }
 
     function renderSectorDetails(sector) {
         if (!sgHubJobsData || !sgHubJobsData[sector]) return;
         const details = sgHubJobsData[sector];
+        
+        const vacNum = parseInt(details.vacancies.replace(/[^0-9]/g, '')) || 0;
+        const salNum = parseInt(details.salary.replace(/[^0-9]/g, '')) || 0;
+        
+        const vacPct = Math.min((vacNum / 30000) * 100, 100);
+        const salPct = Math.min((salNum / 12000) * 100, 100);
+
         jobsContent.innerHTML = `
-            <div style="display:flex; justify-content:space-between; margin-bottom: 8px; font-size:13px;">
-                <span>📂 Table Partition:</span>
-                <code style="background: var(--bg-panel); border: 1px solid var(--border); padding:2px 6px; border-radius:4px; font-size:11px; color: var(--text-success); font-family: monospace;">sg_employment.vacancies_${sector}</code>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom: 8px; font-size:13px;">
-                <span>📊 Active Vacancies:</span>
-                <strong style="color: var(--text-main);">${escapeHTML(details.vacancies)}</strong>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom: 8px; font-size:13px;">
-                <span>💵 Median Starting Salary:</span>
-                <strong style="color: var(--link);">${escapeHTML(details.salary)}</strong>
-            </div>
-            <div style="margin-bottom: 8px; font-size:13px;">
-                <span style="display:block; margin-bottom:6px; color: var(--text-muted);">🔑 Top Demanded Skills:</span>
-                <div style="display:flex; flex-wrap:wrap; gap:6px;">
-                    ${details.skills.split(",").map(sk => `<span style="background: var(--primary-soft); color: var(--primary); border:1px solid var(--border); border-radius:12px; padding:2px 10px; font-size:11px;">${escapeHTML(sk.trim())}</span>`).join("")}
+            <div style="margin-bottom: 16px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom: 6px; font-size:13px;">
+                    <strong>📊 Active Vacancies:</strong>
+                    <span style="color:var(--text-main); font-weight:700;">${escapeHTML(details.vacancies)}</span>
+                </div>
+                <div style="width:100%; background:var(--border); height:8px; border-radius:4px; overflow:hidden;">
+                    <div style="width:${vacPct}%; background:linear-gradient(90deg, var(--primary) 0%, #ff8882 100%); height:100%; border-radius:4px;"></div>
                 </div>
             </div>
-            <div style="border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; font-style:italic; color: var(--text-muted); font-size:12px; line-height:1.45;">
-                📈 Market Trend: ${escapeHTML(details.trend)}
+            
+            <div style="margin-bottom: 16px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom: 6px; font-size:13px;">
+                    <strong>💵 Median Starting Salary:</strong>
+                    <span style="color:var(--link); font-weight:700;">${escapeHTML(details.salary)}</span>
+                </div>
+                <div style="width:100%; background:var(--border); height:8px; border-radius:4px; overflow:hidden;">
+                    <div style="width:${salPct}%; background:linear-gradient(90deg, var(--link) 0%, #8bc4ff 100%); height:100%; border-radius:4px;"></div>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 16px; font-size:13px;">
+                <span style="display:block; margin-bottom:6px; color: var(--text-muted); font-weight:700;">🔑 Top Demanded Skills:</span>
+                <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                    ${details.skills.split(",").map(sk => `<span style="background: var(--primary-soft); color: var(--primary); border:1px solid var(--border); border-radius:12px; padding:2px 10px; font-size:11px; font-weight:600;">${escapeHTML(sk.trim())}</span>`).join("")}
+                </div>
+            </div>
+            
+            <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; font-size:12px; color: var(--text-muted); line-height:1.5;">
+                <strong>📈 Industry Outlook &amp; Partition:</strong><br>
+                <code style="background: var(--bg-panel); border: 1px solid var(--border); padding:2px 6px; border-radius:4px; font-size:10px; color: var(--text-success); font-family: monospace; display:inline-block; margin: 4px 0;">sg_employment.vacancies_${sector}</code><br>
+                ${escapeHTML(details.trend)}
+            </div>
+
+            <div style="margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; display:flex; justify-content:flex-end;">
+                <button class="chat-sector-btn" data-prompt="Analyze the YA 2026 job market trends, salaries and active vacancies in Singapore's ${sector} sector" style="background:var(--primary); color:#ffffff; font-weight:700; border:none; padding:8px 14px; border-radius:6px; font-size:12px; cursor:pointer; transition:all 0.2s ease;">
+                    <i class="fa-solid fa-robot"></i> Ask Co-Pilot to Analyze
+                </button>
             </div>
         `;
+
+        const chatSectorBtn = jobsContent.querySelector(".chat-sector-btn");
+        if (chatSectorBtn) {
+            chatSectorBtn.addEventListener("click", () => {
+                const prompt = chatSectorBtn.getAttribute("data-prompt");
+                const portalsBtn = document.getElementById("main-tab-portals-btn");
+                if (portalsBtn) portalsBtn.click();
+                
+                const widget = document.getElementById("chat-widget");
+                const trigger = document.getElementById("chat-trigger");
+                if (widget && widget.classList.contains("hidden")) {
+                    if (trigger) trigger.click();
+                }
+                
+                const input = document.getElementById("user-input");
+                if (input) {
+                    input.value = prompt;
+                    const form = document.getElementById("chat-form");
+                    if (form) {
+                        setTimeout(() => {
+                            form.dispatchEvent(new Event("submit"));
+                        }, 300);
+                    }
+                }
+            });
+        }
     }
 
     // Toggle Hub loading on main tab click

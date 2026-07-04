@@ -941,3 +941,36 @@ body {
     color: var(--primary) !important;
     border-color: var(--primary) !important;
 }
+
+/* ── SG Hub Sub-tab Button Aesthetics ────────────────────────────────────── */
+.hub-sub-tab-btn {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: var(--font-primary);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.hub-sub-tab-btn:hover {
+    border-color: var(--border-hover);
+    color: var(--text-main);
+    background: var(--bg-muted);
+}
+
+.hub-sub-tab-btn.active-hub-sub-tab {
+    background: var(--primary-soft) !important;
+    color: var(--primary) !important;
+    border-color: var(--primary) !important;
+}
+
+.hub-sub-pane {
+    margin-top: 10px;
+}

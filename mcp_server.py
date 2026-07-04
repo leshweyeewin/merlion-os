@@ -13,7 +13,8 @@ from tools import (
     search_singapore_government,
     scrape_government_page,
     get_singapore_live_environment_advisory,
-    query_singapore_job_statistics_via_bigquery
+    query_singapore_job_statistics_via_bigquery,
+    query_hdb_bto_launches_and_grants
 )
 
 # Initialize FastMCP Server
@@ -63,6 +64,11 @@ def mcp_get_singapore_live_environment_advisory(context_query: str = "general") 
 def mcp_query_singapore_job_statistics_via_bigquery(context_query: str = "general") -> str:
     """Queries Singapore's public job market and employment statistics database using Google BigQuery."""
     return query_singapore_job_statistics_via_bigquery(context_query)
+
+@mcp.tool(name="query_hdb_bto_launches_and_grants")
+def mcp_query_hdb_bto_launches_and_grants(context_query: str = "general") -> str:
+    """Processes upcoming HDB BTO launches, application cycles, CPF Enhanced Housing Grants (EHG) eligibility, and pricing tables."""
+    return query_hdb_bto_launches_and_grants(context_query)
 
 if __name__ == "__main__":
     mcp.run()
