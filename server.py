@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from google import genai
+from google.genai import errors as genai_errors
 from google.genai import types
 import anyio
 
@@ -196,6 +197,18 @@ async def chat_endpoint(request: ChatRequest):
             
         return ChatResponse(response=response.text or "Could not generate text.", logs=[])
         
+    except genai_errors.ClientError as e:
+        if e.code == 429:
+            logger.warning(f"Gemini API quota exceeded: {e.message}")
+            raise HTTPException(
+                status_code=429,
+                detail="MerlionOS has hit the Gemini API's free-tier request limit for now. Please wait a minute and try again."
+            )
+        logger.exception("Gemini client error occurred in chat_endpoint handler")
+        raise HTTPException(
+            status_code=502,
+            detail="The Gemini API rejected the request. Please check the server logs."
+        )
     except Exception as e:
         logger.exception("Exception occurred in chat_endpoint handler")
         raise HTTPException(

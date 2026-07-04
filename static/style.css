@@ -164,6 +164,44 @@ body {
     color: var(--text-muted);
 }
 
+.directory-toolbar {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.reorder-hint {
+    font-size: 13px;
+    color: var(--text-subtle);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.reset-layout-btn {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: border-color 0.2s, color 0.2s, background-color 0.2s;
+}
+
+.reset-layout-btn:hover {
+    border-color: var(--border-hover);
+    color: var(--text-main);
+    background: var(--bg-muted);
+}
+
 .grid-container {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
@@ -171,6 +209,7 @@ body {
 }
 
 .service-card {
+    position: relative;
     background: var(--bg-panel);
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -179,12 +218,47 @@ body {
     flex-direction: column;
     transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
     box-shadow: var(--shadow-sm);
+    cursor: grab;
 }
 
 .service-card:hover {
     border-color: var(--border-hover);
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
+}
+
+.drag-handle {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-subtle);
+    font-size: 13px;
+    opacity: 0.5;
+    cursor: grab;
+    transition: opacity 0.2s, color 0.2s, background-color 0.2s;
+    border-radius: 4px;
+}
+
+.drag-handle:hover {
+    opacity: 1;
+    color: var(--text-main);
+    background: var(--bg-muted);
+}
+
+.service-card.dragging {
+    opacity: 0.45;
+    cursor: grabbing;
+}
+
+.service-card.drag-over {
+    border-color: var(--primary);
+    background: var(--primary-soft);
+    box-shadow: 0 0 0 3px var(--primary), var(--shadow-md);
 }
 
 .agency-logo-wrap {
@@ -201,6 +275,8 @@ body {
     max-height: 48px;
     object-fit: contain;
     display: block;
+    -webkit-user-drag: none;
+    user-select: none;
 }
 
 .agency-logo-compact {
@@ -228,11 +304,10 @@ body {
     font-size: 15px;
 }
 
-/* CPF logo is white/transparent — needs brand teal background to be visible */
-.agency-logo-cpf {
-    background: #006B5E;
-    border-radius: 6px;
-    padding: 4px 14px;
+/* CPF's official logo asset is solid white with a transparent background —
+   invert it to a dark mark so it reads on the card's white background. */
+.agency-logo-invert {
+    filter: invert(1);
 }
 
 .service-card h3 {
@@ -747,6 +822,14 @@ body {
 
     .directory-header h2 {
         font-size: 25px;
+    }
+
+    .reorder-hint {
+        display: none;
+    }
+
+    .directory-toolbar {
+        justify-content: flex-end;
     }
 
     .chat-trigger {
