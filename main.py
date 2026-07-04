@@ -1,6 +1,11 @@
 import os
+import sys
 from google import genai
 from google.genai import types
+
+# Ensure UTF-8 output encoding to prevent Windows cp1252 print crashes
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
 from tools import (
     query_immigration_and_identity,
     query_singapore_journey_onboarding,
@@ -40,12 +45,13 @@ def run_merlion_engine(user_prompt: str):
     
     # 3. Fire Prompt Generation Loop
     response = client.models.generate_content(
-        model='gemini-1.5-pro',
+        model='gemini-2.5-flash',
         contents=user_prompt,
         config=types.GenerateContentConfig(
             system_instruction=system_instruction,
             tools=available_tools,
-            temperature=0.1
+            temperature=0.1,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
         )
     )
     
@@ -74,7 +80,7 @@ def run_merlion_engine(user_prompt: str):
         # 5. Compile and Synthesize Final Output Response
         print("✍️ Compiling cross-agency guidance sheet...")
         final_response = client.models.generate_content(
-            model='gemini-1.5-pro',
+            model='gemini-2.5-flash',
             contents=[
                 types.Content(role="user", parts=[types.Part.from_text(text=user_prompt)]),
                 types.Content(role="model", parts=response.parts),
