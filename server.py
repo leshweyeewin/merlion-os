@@ -1,10 +1,24 @@
 import os
 import sys
+import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from google import genai
 from google.genai import types
+import anyio
+
+# Set up logging format
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
+logger = logging.getLogger("merlion-os-server")
+
+# Fail-fast check for Gemini API credentials on startup
+if not os.environ.get("GEMINI_API_KEY") and not os.environ.get("GOOGLE_API_KEY"):
+    logger.error("Startup Failure: Neither GEMINI_API_KEY nor GOOGLE_API_KEY environment variable is defined.")
+    raise ValueError("CRITICAL: Gemini API credential environment variables are missing.")
 
 # Ensure UTF-8 output encoding
 if hasattr(sys.stdout, 'reconfigure'):
@@ -18,7 +32,8 @@ from tools import (
     query_welfare_and_skills_credits,
     query_supplementary_civic_utilities,
     search_singapore_government,
-    scrape_government_page
+    scrape_government_page,
+    call_tool_robustly
 )
 
 # Initialize FastAPI app
@@ -39,8 +54,13 @@ TOOL_MAP = {
 }
 
 # Request model
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
 class ChatRequest(BaseModel):
     message: str
+    history: list[ChatMessage] = []
 
 # Response model
 class ToolLog(BaseModel):
@@ -55,6 +75,14 @@ class ChatResponse(BaseModel):
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     user_prompt = request.message
+    
+    # Request size limit check
+    if len(user_prompt) > 2000:
+        raise HTTPException(
+            status_code=400,
+            detail="Request message exceeds the maximum allowed length of 2000 characters."
+        )
+        
     system_instruction = (
         "You are MerlionOS, the unified public sector AI coordination brain for Singapore Citizens. "
         "Your task is to parse citizen requests and route them to the correct agency tool functions or scrape official .gov.sg web pages. "
@@ -67,11 +95,28 @@ async def chat_endpoint(request: ChatRequest):
     available_tools = list(TOOL_MAP.values())
     logs = []
     
+    # Build contents representing conversation history
+    contents = []
+    for msg in request.history:
+        contents.append(
+            types.Content(
+                role=msg.role,
+                parts=[types.Part.from_text(text=msg.content)]
+            )
+        )
+    # Append current user prompt
+    contents.append(
+        types.Content(
+            role="user",
+            parts=[types.Part.from_text(text=user_prompt)]
+        )
+    )
+    
     try:
-        # Step 1: Initial Prompt Generation Loop
-        response = client.models.generate_content(
+        # Step 1: Initial Prompt Generation Loop (Asynchronous)
+        response = await client.aio.models.generate_content(
             model='gemini-2.5-flash',
-            contents=user_prompt,
+            contents=contents,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
                 tools=available_tools,
@@ -87,22 +132,20 @@ async def chat_endpoint(request: ChatRequest):
             for call in response.function_calls:
                 tool_name = call.name
                 args = call.args or {}
-                param_val = str(list(args.values())[0]) if args else "general"
                 
                 # Execute tool
                 if tool_name in TOOL_MAP:
                     try:
-                        # Special case for scrape which takes url, or search which takes query
-                        if tool_name == "scrape_government_page":
-                            url = args.get("url", param_val)
-                            executed_text = scrape_government_page(url)
-                        elif tool_name == "search_singapore_government":
-                            query = args.get("query", param_val)
-                            executed_text = search_singapore_government(query)
-                        else:
-                            executed_text = TOOL_MAP[tool_name](param_val)
+                        # Helper to call tool dynamically with keyword arguments mapping
+                        def execute_tool_call():
+                            return call_tool_robustly(TOOL_MAP[tool_name], args)
+                                
+                        # Run blocking network/search calls in a separate thread pool to preserve event loop concurrency
+                        executed_text = await anyio.to_thread.run_sync(execute_tool_call)
                     except Exception as exc:
-                        executed_text = f"Error executing tool: {str(exc)}"
+                        # Secure error handling - log full error details server-side, keep response generic
+                        logger.exception(f"Error executing tool '{tool_name}' with args {args}")
+                        executed_text = f"Error: Failed to execute tool '{tool_name}' due to an internal execution error ({type(exc).__name__})."
                     
                     logs.append(
                         ToolLog(
@@ -118,15 +161,35 @@ async def chat_endpoint(request: ChatRequest):
                             response={'result': executed_text}
                         )
                     )
+                else:
+                    # Turn balance fallback: always return a function response if tool name is unregistered
+                    executed_text = f"Error: Tool '{tool_name}' is not registered."
+                    logger.warning(f"Intercepted unregistered tool call: {tool_name}")
+                    logs.append(
+                        ToolLog(
+                            tool=tool_name,
+                            arguments=dict(args),
+                            result=executed_text
+                        )
+                    )
+                    tool_responses.append(
+                        types.Part.from_function_response(
+                            name=tool_name,
+                            response={'result': executed_text}
+                        )
+                    )
             
-            # Step 3: Compile and Synthesize Final Output Response
-            final_response = client.models.generate_content(
+            # Step 3: Compile and Synthesize Final Output Response (Asynchronous)
+            # Rebuild contents list including the function call and function response turns
+            contents_sync = list(contents)
+            contents_sync.extend([
+                types.Content(role="model", parts=response.parts),
+                types.Content(role="user", parts=tool_responses)
+            ])
+            
+            final_response = await client.aio.models.generate_content(
                 model='gemini-2.5-flash',
-                contents=[
-                    types.Content(role="user", parts=[types.Part.from_text(text=user_prompt)]),
-                    types.Content(role="model", parts=response.parts),
-                    types.Content(role="user", parts=tool_responses)
-                ],
+                contents=contents_sync,
                 config=types.GenerateContentConfig(system_instruction=system_instruction)
             )
             return ChatResponse(response=final_response.text or "Could not compile response.", logs=logs)
@@ -134,7 +197,11 @@ async def chat_endpoint(request: ChatRequest):
         return ChatResponse(response=response.text or "Could not generate text.", logs=[])
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Gemini API execution error: {str(e)}")
+        logger.exception("Exception occurred in chat_endpoint handler")
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while compiling your guidance sheet. Please check the server logs."
+        )
 
 # Mount static folder (create if not exists)
 os.makedirs("static", exist_ok=True)
@@ -142,5 +209,6 @@ app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
-    # Default port 8000
-    uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=True)
+    # Default port 8000 (reload disabled by default for production, enabled via environment variable)
+    reload = os.environ.get("RELOAD", "false").lower() == "true"
+    uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=reload)
