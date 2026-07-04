@@ -37,7 +37,8 @@ from tools import (
     scrape_government_page,
     call_tool_robustly,
     get_singapore_live_environment_advisory,
-    query_singapore_job_statistics_via_bigquery
+    query_singapore_job_statistics_via_bigquery,
+    query_hdb_bto_launches_and_grants
 )
 
 # Initialize FastAPI app
@@ -56,7 +57,8 @@ TOOL_MAP = {
     "search_singapore_government": search_singapore_government,
     "scrape_government_page": scrape_government_page,
     "get_singapore_live_environment_advisory": get_singapore_live_environment_advisory,
-    "query_singapore_job_statistics_via_bigquery": query_singapore_job_statistics_via_bigquery
+    "query_singapore_job_statistics_via_bigquery": query_singapore_job_statistics_via_bigquery,
+    "query_hdb_bto_launches_and_grants": query_hdb_bto_launches_and_grants
 }
 
 # Request model
@@ -256,6 +258,9 @@ async def get_sg_hub_data():
         # Retrieve Weather/PSI data via tools helper
         env_text = await anyio.to_thread.run_sync(get_singapore_live_environment_advisory, "general")
         
+        # Retrieve HDB housing launches and grants
+        hdb_text = await anyio.to_thread.run_sync(query_hdb_bto_launches_and_grants, "general")
+        
         # Retrieve Job statistics for tech, finance, healthcare, general
         job_sectors = {}
         for sector in ["tech", "finance", "healthcare", "general"]:
@@ -285,11 +290,12 @@ async def get_sg_hub_data():
         # Retrieve Singapore community and developer events (Telegram channels)
         from datetime import datetime, timezone, timedelta
         
-        TEG_CHANNELS = [
-            "HealthHubSG", "dailyvanity", "goodlobang", "triptalksSG", 
-            "dateideas", "kiasufoodies", "klooktravelsg", "youtripsg", 
-            "sgweekend", "confirmgood", "scamshieldalert", "moneydigest", 
-            "sgnewmovies", "greatdealssg", "danielfooddiary", "allsgpromo"
+        GOV_CHANNELS = ["HealthHubSG", "scamshieldalert", "govsg", "LTAsg", "NEAsg", "MOEsg", "GovTechSG"]
+        COMMUNITY_CHANNELS = [
+            "dailyvanity", "goodlobang", "triptalksSG", "dateideas", 
+            "kiasufoodies", "klooktravelsg", "youtripsg", "sgweekend", 
+            "confirmgood", "moneydigest", "sgnewmovies", "greatdealssg", 
+            "danielfooddiary", "allsgpromo", "sgmrt"
         ]
 
         def scrape_one_telegram_channel(channel: str) -> list:
@@ -315,7 +321,6 @@ async def get_sg_hub_data():
                         if not text_el:
                             continue
                         content = text_el.get_text(separator=' ').strip()
-                        # Clean up whitespaces
                         content = re.sub(r'\s+', ' ', content)
                         
                         # Extract date
@@ -327,7 +332,7 @@ async def get_sg_hub_data():
                                 now = datetime.now(timezone.utc)
                                 diff = now - dt
                                 
-                                # Only add if it was posted within the last 24 hours
+                                # Check if within last 24 hours
                                 if diff <= timedelta(hours=24):
                                     display_content = content
                                     if len(display_content) > 180:
@@ -344,21 +349,29 @@ async def get_sg_hub_data():
                 logger.warning(f"Error scraping telegram channel {channel}: {e}")
             return channel_events
 
-        events = []
-        async def fetch_channel(channel_name):
+        gov_events = []
+        community_events = []
+
+        async def fetch_gov_channel(channel_name):
             ch_events = await anyio.to_thread.run_sync(scrape_one_telegram_channel, channel_name)
-            events.extend(ch_events)
+            gov_events.extend(ch_events)
+
+        async def fetch_community_channel(channel_name):
+            ch_events = await anyio.to_thread.run_sync(scrape_one_telegram_channel, channel_name)
+            community_events.extend(ch_events)
 
         async with anyio.create_task_group() as tg:
-            for ch in TEG_CHANNELS:
-                tg.start_soon(fetch_channel, ch)
+            for ch in GOV_CHANNELS:
+                tg.start_soon(fetch_gov_channel, ch)
+            for ch in COMMUNITY_CHANNELS:
+                tg.start_soon(fetch_community_channel, ch)
 
-        # Fallback to the latest post of each channel if no posts were made in the last 24 hours
-        if not events:
-            logger.info("No Telegram events found within 24 hours, pulling fallback latest posts...")
-            fallback_channels = ["goodlobang", "kiasufoodies", "dateideas", "confirmgood", "allsgpromo"]
+        # Fallback for Official Gov Alerts
+        if not gov_events:
+            logger.info("No Gov broadcasts found within 24 hours, pulling fallback latest posts...")
+            gov_fallbacks = ["HealthHubSG", "scamshieldalert", "govsg"]
             
-            async def fetch_fallback(channel):
+            async def fetch_gov_fallback(channel):
                 url = f"https://t.me/s/{channel}"
                 headers = {'User-Agent': 'Mozilla/5.0'}
                 try:
@@ -380,22 +393,63 @@ async def get_sg_hub_data():
                                 content = re.sub(r'\s+', ' ', text_el.get_text(separator=' ').strip())
                                 if len(content) > 180:
                                     content = content[:177] + "..."
-                                events.append({
+                                gov_events.append({
                                     "source": f"@{channel} (Latest)",
                                     "content": content,
                                     "link": link
                                 })
                 except Exception as e:
-                    logger.warning(f"Failed to fetch fallback for {channel}: {e}")
+                    logger.warning(f"Failed to fetch Gov fallback for {channel}: {e}")
             
             async with anyio.create_task_group() as tg:
-                for channel in fallback_channels:
-                    tg.start_soon(fetch_fallback, channel)
+                for channel in gov_fallbacks:
+                    tg.start_soon(fetch_gov_fallback, channel)
+
+        # Fallback for Kiasu SG Deals & Community Events
+        if not community_events:
+            logger.info("No community events found within 24 hours, pulling fallback latest posts...")
+            community_fallbacks = ["goodlobang", "kiasufoodies", "confirmgood", "allsgpromo"]
+            
+            async def fetch_comm_fallback(channel):
+                url = f"https://t.me/s/{channel}"
+                headers = {'User-Agent': 'Mozilla/5.0'}
+                try:
+                    def fetch_tg():
+                        r = requests.get(url, headers=headers, timeout=6)
+                        return r.text if r.status_code == 200 else ""
+                    html = await anyio.to_thread.run_sync(fetch_tg)
+                    if html:
+                        import re
+                        from bs4 import BeautifulSoup
+                        soup = BeautifulSoup(html, 'html.parser')
+                        messages = soup.find_all("div", class_="tgme_widget_message")
+                        if messages:
+                            latest_msg = messages[-1]
+                            link_el = latest_msg.find("a", class_="tgme_widget_message_date")
+                            link = link_el["href"] if link_el and link_el.has_attr("href") else f"https://t.me/s/{channel}"
+                            text_el = latest_msg.find("div", class_="tgme_widget_message_text")
+                            if text_el:
+                                content = re.sub(r'\s+', ' ', text_el.get_text(separator=' ').strip())
+                                if len(content) > 180:
+                                    content = content[:177] + "..."
+                                community_events.append({
+                                    "source": f"@{channel} (Latest)",
+                                    "content": content,
+                                    "link": link
+                                })
+                except Exception as e:
+                    logger.warning(f"Failed to fetch community fallback for {channel}: {e}")
+            
+            async with anyio.create_task_group() as tg:
+                for channel in community_fallbacks:
+                    tg.start_soon(fetch_comm_fallback, channel)
             
         return {
             "environment": env_text,
             "jobs": job_sectors,
-            "events": events
+            "gov_events": gov_events,
+            "community_events": community_events,
+            "hdb": hdb_text
         }
     except Exception as e:
         logger.exception("Error loading SG Hub data")

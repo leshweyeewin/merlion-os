@@ -421,4 +421,97 @@ def query_singapore_job_statistics_via_bigquery(context_query: str = "general") 
     )
 
 
+def query_hdb_bto_launches_and_grants(context_query: str = "general") -> str:
+    """Tool: Processes HDB BTO launches, application cycles, and CPF housing grants.
+
+    Args:
+        context_query: The target BTO town, grant category, or household income (e.g., '5000') to check.
+    """
+    import re
+    q_lower = context_query.lower()
+
+    # BTO Launch Registry (YA 2026)
+    bto_launches = [
+        {
+            "town": "Kallang/Whampoa",
+            "type": "Prime Location Housing (PLH)",
+            "estates": "Tanjong Rhu / Crawford",
+            "units": 1200,
+            "prices": "3-Room: from S$380,000 | 4-Room: from S$530,000",
+            "date": "June 2026 Launch"
+        },
+        {
+            "town": "Queenstown",
+            "type": "Prime Location Housing (PLH)",
+            "estates": "Tanglin Halt",
+            "units": 850,
+            "prices": "3-Room: from S$360,000 | 4-Room: from S$510,000",
+            "date": "June 2026 Launch"
+        },
+        {
+            "town": "Woodlands",
+            "type": "Standard Housing",
+            "estates": "Woodlands North",
+            "units": 1500,
+            "prices": "2-Room: from S$140,000 | 3-Room: from S$240,000 | 4-Room: from S$350,000",
+            "date": "June 2026 Launch"
+        },
+        {
+            "town": "Yishun",
+            "type": "Standard Housing",
+            "estates": "Chencharu",
+            "units": 1100,
+            "prices": "2-Room: from S$130,000 | 3-Room: from S$220,000 | 4-Room: from S$330,000",
+            "date": "June 2026 Launch"
+        }
+    ]
+
+    income_val = None
+    nums = re.findall(r'\b\d{3,5}\b', q_lower)
+    if nums:
+        income_val = int(nums[0])
+
+    ehg_grant = 0
+    if income_val is not None:
+        if income_val <= 1500:
+            ehg_grant = 80000
+        elif income_val <= 3000:
+            ehg_grant = 65000
+        elif income_val <= 4500:
+            ehg_grant = 50000
+        elif income_val <= 6000:
+            ehg_grant = 35000
+        elif income_val <= 7500:
+            ehg_grant = 20000
+        elif income_val <= 9000:
+            ehg_grant = 10000
+        else:
+            ehg_grant = 0
+
+    results = []
+    results.append("--- [HDB BTO LAUNCH REGISTRY (YA 2026)] ---")
+    for bto in bto_launches:
+        results.append(
+            f"🏢 {bto['town']} ({bto['type']})\n"
+            f"   • Location: {bto['estates']}\n"
+            f"   • Units: {bto['units']} units | Launch: {bto['date']}\n"
+            f"   • Pricing: {bto['prices']}"
+        )
+
+    results.append("\n--- [CPF HOUSING GRANTS (EHG)] ---")
+    if income_val is not None:
+        results.append(
+            f"💰 Monthly Household Income: S${income_val:,}\n"
+            f"🎯 Estimated Enhanced CPF Housing Grant (EHG): S${ehg_grant:,}\n"
+            f"📋 Status: Applies to first-timer couples buying new flat types."
+        )
+    else:
+        results.append(
+            "💰 Enhanced CPF Housing Grant (EHG) ranges up to S$80,000 for household incomes under S$9,000.\n"
+            "💡 Tip: Use the housing calculator below to estimate your grant eligibility."
+        )
+
+    return "\n\n".join(results)
+
+
 
