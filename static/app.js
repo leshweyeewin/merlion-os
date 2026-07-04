@@ -1,3 +1,13 @@
+// Sanitize any string before inserting into innerHTML to prevent XSS
+function escapeHTML(str) {
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     initPortalReordering();
 
@@ -16,16 +26,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Conversation history for multi-turn context (kept client-side)
     const conversationHistory = [];
-
-    // Sanitize any string before inserting into innerHTML to prevent XSS
-    function escapeHTML(str) {
-        return String(str)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
 
     // Toggle Chat Widget open/close
     chatTrigger.addEventListener("click", () => {
@@ -506,32 +506,32 @@ function initSgHub() {
                 // Add icons/styling
                 if (title.includes("PSI")) {
                     body = body.replace("🍃", "<span style='font-size:16px;'>🍃</span>");
-                    envHtml += `<div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 8px;">
-                        <strong style="color: #3fb950; display:block; margin-bottom: 4px; font-size:14px;">${escapeHTML(title)}</strong>
-                        <span style="line-height:1.6; color:#c9d1d9;">${body}</span>
+                    envHtml += `<div style="margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
+                        <strong style="color: var(--text-success); display:block; margin-bottom: 4px; font-size:14px;">${escapeHTML(title)}</strong>
+                        <span style="line-height:1.6; color: var(--text-muted);">${body}</span>
                     </div>`;
                 } else {
                     body = body.replace("⛅", "<span style='font-size:16px;'>⛅</span>");
                     envHtml += `<div>
-                        <strong style="color: #58a6ff; display:block; margin-bottom: 4px; font-size:14px;">${escapeHTML(title)}</strong>
-                        <span style="line-height:1.6; color:#c9d1d9;">${body}</span>
+                        <strong style="color: var(--link); display:block; margin-bottom: 4px; font-size:14px;">${escapeHTML(title)}</strong>
+                        <span style="line-height:1.6; color: var(--text-muted);">${body}</span>
                     </div>`;
                 }
             });
-            weatherContent.innerHTML = envHtml || "<p style='color:#8b949e;margin:0;'>No active advisories.</p>";
+            weatherContent.innerHTML = envHtml || "<p style='color: var(--text-subtle); margin:0;'>No active advisories.</p>";
 
             // 2. Render Telegram Events
             let eventsHtml = "";
             data.events.forEach(evt => {
-                eventsHtml += `<div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 10px; font-size: 12px; margin-bottom: 8px;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom: 4px; font-weight:600;">
-                        <span style="color:#d2a8ff;"><i class="fa-solid fa-bullhorn"></i> ${escapeHTML(evt.source)}</span>
-                        <a href="${evt.link}" target="_blank" style="color:#58a6ff; text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> Join</a>
+                eventsHtml += `<div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 8px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 6px; font-weight:600;">
+                        <span style="color: var(--primary);"><i class="fa-solid fa-bullhorn"></i> ${escapeHTML(evt.source)}</span>
+                        <a href="${evt.link}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Post</a>
                     </div>
-                    <div style="color:#c9d1d9; line-height:1.4;">${escapeHTML(evt.content)}</div>
+                    <div style="color: var(--text-main); line-height:1.45;">${escapeHTML(evt.content)}</div>
                 </div>`;
             });
-            eventsContent.innerHTML = eventsHtml || "<p style='color:#8b949e;margin:0;'>No events listed.</p>";
+            eventsContent.innerHTML = eventsHtml || "<p style='color: var(--text-subtle); margin:0;'>No events listed.</p>";
 
             // 3. Keep jobs data for dynamic switching
             sgHubJobsData = data.jobs;
@@ -540,9 +540,9 @@ function initSgHub() {
             sgHubLoaded = true;
         } catch (err) {
             console.error("Failed to load SG Hub:", err);
-            weatherContent.innerHTML = "<p style='color:#f85149;margin:0;'>⚠️ Failed to load environment metrics.</p>";
-            eventsContent.innerHTML = "<p style='color:#f85149;margin:0;'>⚠️ Failed to retrieve community feeds.</p>";
-            jobsContent.innerHTML = "<p style='color:#f85149;margin:0;'>⚠️ Failed to load employment statistics.</p>";
+            weatherContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load environment metrics.</p>";
+            eventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to retrieve community feeds.</p>";
+            jobsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load employment statistics.</p>";
         }
     }
 
@@ -550,25 +550,25 @@ function initSgHub() {
         if (!sgHubJobsData || !sgHubJobsData[sector]) return;
         const details = sgHubJobsData[sector];
         jobsContent.innerHTML = `
-            <div style="display:flex; justify-content:space-between; margin-bottom: 8px; font-size:12px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom: 8px; font-size:13px;">
                 <span>📂 Table Partition:</span>
-                <code style="background:#21262d; padding:2px 6px; border-radius:4px; font-size:11px; color:#3fb950; font-family:monospace;">sg_employment.vacancies_${sector}</code>
+                <code style="background: var(--bg-panel); border: 1px solid var(--border); padding:2px 6px; border-radius:4px; font-size:11px; color: var(--text-success); font-family: monospace;">sg_employment.vacancies_${sector}</code>
             </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom: 8px; font-size:12px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom: 8px; font-size:13px;">
                 <span>📊 Active Vacancies:</span>
-                <strong style="color:#e6edf3;">${escapeHTML(details.vacancies)}</strong>
+                <strong style="color: var(--text-main);">${escapeHTML(details.vacancies)}</strong>
             </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom: 8px; font-size:12px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom: 8px; font-size:13px;">
                 <span>💵 Median Starting Salary:</span>
-                <strong style="color:#58a6ff;">${escapeHTML(details.salary)}</strong>
+                <strong style="color: var(--link);">${escapeHTML(details.salary)}</strong>
             </div>
-            <div style="margin-bottom: 8px; font-size:12px;">
-                <span style="display:block; margin-bottom:4px; color:#8b949e;">🔑 Top Demanded Skills:</span>
-                <div style="display:flex; flex-wrap:wrap; gap:4px;">
-                    ${details.skills.split(",").map(sk => `<span style="background:rgba(88,166,255,0.08); color:#58a6ff; border:1px solid rgba(88,166,255,0.15); border-radius:12px; padding:1px 8px; font-size:10px;">${escapeHTML(sk.trim())}</span>`).join("")}
+            <div style="margin-bottom: 8px; font-size:13px;">
+                <span style="display:block; margin-bottom:6px; color: var(--text-muted);">🔑 Top Demanded Skills:</span>
+                <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                    ${details.skills.split(",").map(sk => `<span style="background: var(--primary-soft); color: var(--primary); border:1px solid var(--border); border-radius:12px; padding:2px 10px; font-size:11px;">${escapeHTML(sk.trim())}</span>`).join("")}
                 </div>
             </div>
-            <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px; margin-top: 8px; font-style:italic; color:#8b949e; font-size:11px; line-height:1.4;">
+            <div style="border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; font-style:italic; color: var(--text-muted); font-size:12px; line-height:1.45;">
                 📈 Market Trend: ${escapeHTML(details.trend)}
             </div>
         `;

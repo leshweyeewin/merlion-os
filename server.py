@@ -283,57 +283,114 @@ async def get_sg_hub_data():
             }
 
         # Retrieve Singapore community and developer events (Telegram channels)
+        from datetime import datetime, timezone, timedelta
+        
+        TEG_CHANNELS = [
+            "HealthHubSG", "dailyvanity", "goodlobang", "triptalksSG", 
+            "dateideas", "kiasufoodies", "klooktravelsg", "youtripsg", 
+            "sgweekend", "confirmgood", "scamshieldalert", "moneydigest", 
+            "sgnewmovies", "greatdealssg", "danielfooddiary", "allsgpromo"
+        ]
+
+        def scrape_one_telegram_channel(channel: str) -> list:
+            url = f"https://t.me/s/{channel}"
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+            }
+            channel_events = []
+            try:
+                r = requests.get(url, headers=headers, timeout=6)
+                if r.status_code == 200:
+                    import re
+                    from bs4 import BeautifulSoup
+                    soup = BeautifulSoup(r.text, 'html.parser')
+                    messages = soup.find_all("div", class_="tgme_widget_message")
+                    for msg in messages:
+                        # Extract link
+                        link_el = msg.find("a", class_="tgme_widget_message_date")
+                        link = link_el["href"] if link_el and link_el.has_attr("href") else f"https://t.me/s/{channel}"
+                        
+                        # Extract text
+                        text_el = msg.find("div", class_="tgme_widget_message_text")
+                        if not text_el:
+                            continue
+                        content = text_el.get_text(separator=' ').strip()
+                        # Clean up whitespaces
+                        content = re.sub(r'\s+', ' ', content)
+                        
+                        # Extract date
+                        time_el = msg.find("time")
+                        if time_el and time_el.has_attr("datetime"):
+                            dt_str = time_el["datetime"]
+                            try:
+                                dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+                                now = datetime.now(timezone.utc)
+                                diff = now - dt
+                                
+                                # Only add if it was posted within the last 24 hours
+                                if diff <= timedelta(hours=24):
+                                    display_content = content
+                                    if len(display_content) > 180:
+                                        display_content = display_content[:177] + "..."
+                                    
+                                    channel_events.append({
+                                        "source": f"@{channel}",
+                                        "content": display_content,
+                                        "link": link
+                                    })
+                            except Exception as dt_err:
+                                logger.warning(f"Failed to parse datetime '{dt_str}' for channel {channel}: {dt_err}")
+            except Exception as e:
+                logger.warning(f"Error scraping telegram channel {channel}: {e}")
+            return channel_events
+
         events = []
-        try:
-            url = "https://t.me/s/googledevspacesg"
-            headers = {'User-Agent': 'Mozilla/5.0'}
-            
-            def fetch_tg():
-                req = requests.get(url, headers=headers, timeout=8)
-                return req.text
-                
-            html = await anyio.to_thread.run_sync(fetch_tg)
-            import re
-            from bs4 import BeautifulSoup
-            
-            posts = re.findall(
-                r'<div class="tgme_widget_message[^"]*"\s+data-post="([^"]+)"[^>]*>.*?<div class="tgme_widget_message_text[^"]*"[^>]*>(.*?)</div>',
-                html, re.DOTALL
-            )
-            for post_id, text in posts[-3:]:  # Last 3 posts
-                soup = BeautifulSoup(text, 'html.parser')
-                clean_text = soup.get_text(separator=' ').strip()
-                # Clean up multiple whitespaces
-                clean_text = re.sub(r'\s+', ' ', clean_text)
-                if len(clean_text) > 150:
-                    clean_text = clean_text[:147] + "..."
-                events.append({
-                    "source": "Google Dev Space (Telegram)",
-                    "content": clean_text,
-                    "link": f"https://t.me/{post_id}"
-                })
-        except Exception as e:
-            logger.warning(f"Failed to scrape Telegram events: {e}")
-            
-        # Fallback to simulated events if scraping failed or returned nothing
+        async def fetch_channel(channel_name):
+            ch_events = await anyio.to_thread.run_sync(scrape_one_telegram_channel, channel_name)
+            events.extend(ch_events)
+
+        async with anyio.create_task_group() as tg:
+            for ch in TEG_CHANNELS:
+                tg.start_soon(fetch_channel, ch)
+
+        # Fallback to the latest post of each channel if no posts were made in the last 24 hours
         if not events:
-            events = [
-                {
-                    "source": "SG AI Founders Community (Telegram)",
-                    "content": "Singapore AI Pitch Night & Networking: Cloud orchestration panel and investor matchings. July 12, 19:00.",
-                    "link": "https://t.me/s/googledevspacesg"
-                },
-                {
-                    "source": "Go-Singapore Dev Group (Telegram)",
-                    "content": "Go-Singapore Developer Meetup: Deep dive into Go 1.28 concurrent memory architectures. July 18, 18:30.",
-                    "link": "https://t.me/s/googledevspacesg"
-                },
-                {
-                    "source": "GovTech STACK (Community Portal)",
-                    "content": "STACK Meetup: Building Resilient Citizen Data Engine Pipelines on Google Cloud. July 22, 19:00.",
-                    "link": "https://t.me/s/googledevspacesg"
-                }
-            ]
+            logger.info("No Telegram events found within 24 hours, pulling fallback latest posts...")
+            fallback_channels = ["goodlobang", "kiasufoodies", "dateideas", "confirmgood", "allsgpromo"]
+            
+            async def fetch_fallback(channel):
+                url = f"https://t.me/s/{channel}"
+                headers = {'User-Agent': 'Mozilla/5.0'}
+                try:
+                    def fetch_tg():
+                        r = requests.get(url, headers=headers, timeout=6)
+                        return r.text if r.status_code == 200 else ""
+                    html = await anyio.to_thread.run_sync(fetch_tg)
+                    if html:
+                        import re
+                        from bs4 import BeautifulSoup
+                        soup = BeautifulSoup(html, 'html.parser')
+                        messages = soup.find_all("div", class_="tgme_widget_message")
+                        if messages:
+                            latest_msg = messages[-1]
+                            link_el = latest_msg.find("a", class_="tgme_widget_message_date")
+                            link = link_el["href"] if link_el and link_el.has_attr("href") else f"https://t.me/s/{channel}"
+                            text_el = latest_msg.find("div", class_="tgme_widget_message_text")
+                            if text_el:
+                                content = re.sub(r'\s+', ' ', text_el.get_text(separator=' ').strip())
+                                if len(content) > 180:
+                                    content = content[:177] + "..."
+                                events.append({
+                                    "source": f"@{channel} (Latest)",
+                                    "content": content,
+                                    "link": link
+                                })
+                except Exception as e:
+                    logger.warning(f"Failed to fetch fallback for {channel}: {e}")
+            
+            async with anyio.create_task_group() as tg:
+                for channel in fallback_channels:
+                    tg.start_soon(fetch_fallback, channel)
             
         return {
             "environment": env_text,
