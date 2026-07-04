@@ -35,18 +35,31 @@
 
         <!-- Services Directory Grid Main Content -->
         <main class="app-directory">
-            <div class="directory-header">
-                <h2>Singapore Government Digital Services Directory</h2>
-                <p>Ask anything about CPF, taxes, housing, health, and more — or use the assistant below to get answers across multiple agencies at once.</p>
-                <div class="directory-toolbar">
+            <div class="directory-header" style="margin-bottom: 20px;">
+                <h2>Singapore Government Digital Services Portal</h2>
+                <p>Access statutory directories and live data.gov.sg metrics in a unified dashboard.</p>
+            </div>
+
+            <!-- Main Web App Tab Switcher -->
+            <div class="main-tabs">
+                <button class="main-tab-btn active-main-tab" id="main-tab-portals-btn" data-main-tab="portals-pane">
+                    <i class="fa-solid fa-folder-open"></i> SG Portals
+                </button>
+                <button class="main-tab-btn" id="main-tab-hub-btn" data-main-tab="hub-pane">
+                    <i class="fa-solid fa-earth-asia"></i> SG Hub
+                </button>
+            </div>
+
+            <!-- Portal Pane -->
+            <div id="portals-pane" class="main-pane">
+                <div class="directory-toolbar" style="margin-bottom: 16px;">
                     <span class="reorder-hint"><i class="fa-solid fa-arrows-up-down-left-right"></i> Drag any card to rearrange your portal — your layout is saved automatically.</span>
                     <button type="button" class="reset-layout-btn" id="reset-layout-btn">
                         <i class="fa-solid fa-rotate-left"></i> Reset layout
                     </button>
                 </div>
-            </div>
-            
-            <div class="grid-container">
+                
+                <div class="grid-container">
                 <!-- ICA Card -->
                 <div class="service-card" draggable="true" data-agency="ica">
                     <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
@@ -299,6 +312,47 @@
                     </a>
                 </div>
             </div>
+            </div> <!-- End of portals-pane -->
+
+            <!-- SG Hub Pane -->
+            <div id="hub-pane" class="main-pane hidden">
+                <div class="hub-container">
+                    <!-- Weather / Environment Sub-panel -->
+                    <div class="hub-card">
+                        <h3>
+                            <i class="fa-solid fa-cloud-sun"></i> Live Weather &amp; Air Quality (NEA)
+                        </h3>
+                        <div id="hub-weather-content">
+                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading environment advisories...</p>
+                        </div>
+                    </div>
+
+                    <!-- Local Events Sub-panel -->
+                    <div class="hub-card">
+                        <h3>
+                            <i class="fa-brands fa-telegram"></i> Singapore Local Telegram Events
+                        </h3>
+                        <div id="hub-events-content">
+                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Retrieving community channels...</p>
+                        </div>
+                    </div>
+
+                    <!-- BigQuery Jobs Sub-panel -->
+                    <div class="hub-card">
+                        <h3>
+                            <i class="fa-solid fa-database"></i> BigQuery Job Market Analytics
+                        </h3>
+                        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                            <button class="sector-tab-btn active-sector" data-sector="tech">Tech</button>
+                            <button class="sector-tab-btn" data-sector="finance">Finance</button>
+                            <button class="sector-tab-btn" data-sector="healthcare">Healthcare</button>
+                        </div>
+                        <div id="hub-jobs-content" style="background: var(--bg-muted); border-radius: 8px; padding: 14px; border: 1px solid var(--border);">
+                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading employment metrics...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
 
         <!-- Floating Chat Trigger Button -->
@@ -321,9 +375,7 @@
                 <button class="minimize-btn" id="minimize-btn" aria-label="Minimize Assistant">
                     <i class="fa-solid fa-chevron-down"></i>
                 </button>
-            </div>
-
-            <!-- Tab Switcher Navigation -->
+            </div>            <!-- Tab Switcher Navigation -->
             <div class="widget-tabs">
                 <button class="tab-btn active" data-tab="assistant-pane">
                     <i class="fa-solid fa-comments"></i> Assistant
@@ -357,6 +409,12 @@
                         <button class="suggestion-chip" data-query="What are the Climate Vouchers and how do I claim them from gov.sg?">
                             Climate Vouchers
                         </button>
+                        <button class="suggestion-chip" data-query="Check live weather forecast and air quality PSI index">
+                            Weather/PSI
+                        </button>
+                        <button class="suggestion-chip" data-query="Analyse tech industry job vacancies and salaries using BigQuery">
+                            Job Vacancies
+                        </button>
                     </div>
 
                     <form class="input-form" id="chat-form">
@@ -367,7 +425,7 @@
                             </button>
                         </div>
                     </form>
-                </div>
+                </div>  </div>
 
                 <!-- Operations Console Pane -->
                 <div class="widget-pane hidden" id="logs-pane">

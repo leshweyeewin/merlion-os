@@ -44,6 +44,7 @@
     *   **Google Gemini 2.5 Flash:** Low-latency inference model chosen for outstanding speed, high context window efficiency, and stable parallel tool use.
     *   **google-genai SDK:** Modern async API client library used to communicate with the model.
     *   **Model Context Protocol (FastMCP):** Integrated the open MCP standard to allow standard API tool interoperability.
+    *   **Google BigQuery:** Leveraged as a data warehouse to query and store Singapore Ministry of Manpower (MOM) public employment statistics.
 *   **Real-World Impact:** Zero-overhead decision support. Instead of opening 4 different portal tabs to verify citizenship milestones, tax reliefs, and voting registers, a citizen gets a single synthesized, scan-ready guide in 3 seconds.
 
 ---
@@ -67,6 +68,7 @@
 4.  **XSS & Link Hardening:** Double-escaping of user/model variables before HTML rendering and automatic filtering of malicious `javascript:` or `data:` links.
 5.  **Multi-turn Conversation Memory:** Client-side stateless history arrays fed into Gemini's context window, allowing conversational follow-ups.
 6.  **FastMCP Tool Exporter:** Fully-integrated `mcp_server.py` that lets the toolset connect directly to standard clients like Cursor or Claude Desktop.
+7.  **BigQuery Job Analytics:** Direct SQL queries to BigQuery-partitioned employment tables to retrieve live vacancy counts, salaries, and sector demand trends.
 
 ---
 
@@ -100,24 +102,22 @@
 ---
 
 ### Slide 7: Wireframes / Mock Diagrams
-*   **Dashboard Layout:** Splitted into a balanced 2-column view to support developers and citizens alike.
-    *   **Left Column (Interactive Chat Panel):**
-        *   Sleek glassmorphism conversation feed.
-        *   Interactive suggestion chips ("What are my immediate requirements for the Singapore Journey?", "Check voting status and SP Group rules").
-        *   Typing state indicator with a clean lion avatar (`🦁`).
-    *   **Right Column (Operations Control Panel):**
-        *   Sleek command-line console layout.
-        *   Visual tag labels for logs: `[agent]` (blue), `[success]` (green), `[scrape]` (purple), `[error]` (red).
-        *   Collapsible detail drawers showing exact JSON arguments passed to and from tools.
+*   **Main Dashboard Layout:** Split into a tabbed main viewer and a floating conversational assistant.
+    *   **Main Tab Switcher:**
+        *   **Tab 1 - SG Portals:** Standard drag-and-drop grid of 12+ statutory agency cards (reorderable and persisted in localStorage).
+        *   **Tab 2 - SG Hub:** Live dashboard containing sub-panels for weather & PSI indices, crawled Telegram developer events, and interactive BigQuery job vacancy charts.
+    *   **Floating Co-Pilot Panel:**
+        *   **Assistant Tab:** Conversational interface with suggestion chips and Markdown responses.
+        *   **Operations Trace Tab:** Interactive command-line console logs showing live tool arguments.
 
 ---
 
 ### Slide 8: Architecture Diagram
 ```mermaid
 graph TD
-    User([Citizen User / Client]) -->|1. Submit Query| UI[Frontend UI / MCP Client]
-    UI -->|2. Request| API[server.py / mcp_server.py]
-    API -->|3. Initial Call with Tools| Gemini[Gemini 2.5 Flash client.aio]
+    User([Citizen User / Client]) -->|1. Select Tab / Send Query| UI[Frontend UI / Co-Pilot]
+    UI -->|2. GET api/sg-hub OR POST api/chat| API[server.py]
+    API -->|3. Route Tool Calls| Gemini[Gemini 2.5 Flash client.aio]
     Gemini -->|4. Parallel Function Calls| API
     API -->|5. Validate Args & Execute| Robust[call_tool_robustly Helper]
     Robust -->|6a. Query Static Data| DB[(Static Database)]
@@ -127,8 +127,8 @@ graph TD
     Robust -->|8. Balanced Tool Responses| API
     API -->|9. Final Content Synthesis| Gemini
     Gemini -->|10. Markdown Text + Logs| API
-    API -->|11. Send ChatResponse JSON| UI
-    UI -->|12. Safe HTML Escaping Render| User
+    API -->|11. Send JSON Response| UI
+    UI -->|12. Render Dashboard / HTML Escaping| User
 ```
 
 ---
@@ -136,6 +136,7 @@ graph TD
 ### Slide 9: Technologies Used & Scalability
 *   **Core AI Engine:** Google Gemini 2.5 Flash (`google-genai` SDK) - Selected for low latency, low token costs, and highly stable tool calling.
 *   **Asynchronous Backend:** FastAPI & Uvicorn - Utilizes an async event loop with `anyio.to_thread.run_sync` to run blocking scraping requests in a separate thread pool. This preserves event loop concurrency under heavy traffic.
+*   **Data Warehouse & Analytics:** Google BigQuery - Handles ingestion and fast execution of analytic queries on public employment data, partitioned by sector tables.
 *   **Interoperability Standard:** FastMCP (`mcp` library) - Seamlessly translates local python database and scraper functions into standardized MCP JSON-RPC schemas.
 *   **Clean Scraping Pipeline:** BeautifulSoup4 & requests - Follows redirects safely and extracts body elements while stripping scripts, stylesheet headers, and footers.
 *   **Secure Client-Side Rendering:** Vanilla JavaScript and CSS - Zero framework overhead, highly secure, fast loading, and responsive.

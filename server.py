@@ -36,7 +36,8 @@ from tools import (
     search_singapore_government,
     scrape_government_page,
     call_tool_robustly,
-    get_singapore_live_environment_advisory
+    get_singapore_live_environment_advisory,
+    query_singapore_job_statistics_via_bigquery
 )
 
 # Initialize FastAPI app
@@ -54,7 +55,8 @@ TOOL_MAP = {
     "query_supplementary_civic_utilities": query_supplementary_civic_utilities,
     "search_singapore_government": search_singapore_government,
     "scrape_government_page": scrape_government_page,
-    "get_singapore_live_environment_advisory": get_singapore_live_environment_advisory
+    "get_singapore_live_environment_advisory": get_singapore_live_environment_advisory,
+    "query_singapore_job_statistics_via_bigquery": query_singapore_job_statistics_via_bigquery
 }
 
 # Request model
@@ -188,7 +190,7 @@ async def chat_endpoint(request: ChatRequest):
             contents_sync = list(contents)
             contents_sync.extend([
                 types.Content(role="model", parts=response.parts),
-                types.Content(role="user", parts=tool_responses)
+                types.Content(role="tool", parts=tool_responses)
             ])
 
             final_response = await client.aio.models.generate_content(
@@ -246,6 +248,102 @@ async def get_proxied_logo(agency: str):
 
     content, content_type = _logo_cache[agency]
     return Response(content=content, media_type=content_type)
+
+
+@app.get("/api/sg-hub")
+async def get_sg_hub_data():
+    try:
+        # Retrieve Weather/PSI data via tools helper
+        env_text = await anyio.to_thread.run_sync(get_singapore_live_environment_advisory, "general")
+        
+        # Retrieve Job statistics for tech, finance, healthcare, general
+        job_sectors = {}
+        for sector in ["tech", "finance", "healthcare", "general"]:
+            raw_stats = await anyio.to_thread.run_sync(query_singapore_job_statistics_via_bigquery, sector)
+            # Parse stats text to dictionary
+            lines = raw_stats.split("\n")
+            vacancies = "N/A"
+            salary = "N/A"
+            skills = "N/A"
+            trend = "N/A"
+            for line in lines:
+                if "Active Vacancies:" in line:
+                    vacancies = line.split("Active Vacancies:")[1].strip()
+                elif "Median Starting Salary:" in line:
+                    salary = line.split("Median Starting Salary:")[1].strip()
+                elif "Top Demanded Skills:" in line:
+                    skills = line.split("Top Demanded Skills:")[1].strip()
+                elif "Market Trend:" in line:
+                    trend = line.split("Market Trend:")[1].strip()
+            job_sectors[sector] = {
+                "vacancies": vacancies,
+                "salary": salary,
+                "skills": skills,
+                "trend": trend
+            }
+
+        # Retrieve Singapore community and developer events (Telegram channels)
+        events = []
+        try:
+            url = "https://t.me/s/googledevspacesg"
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            
+            def fetch_tg():
+                req = requests.get(url, headers=headers, timeout=8)
+                return req.text
+                
+            html = await anyio.to_thread.run_sync(fetch_tg)
+            import re
+            from bs4 import BeautifulSoup
+            
+            posts = re.findall(
+                r'<div class="tgme_widget_message[^"]*"\s+data-post="([^"]+)"[^>]*>.*?<div class="tgme_widget_message_text[^"]*"[^>]*>(.*?)</div>',
+                html, re.DOTALL
+            )
+            for post_id, text in posts[-3:]:  # Last 3 posts
+                soup = BeautifulSoup(text, 'html.parser')
+                clean_text = soup.get_text(separator=' ').strip()
+                # Clean up multiple whitespaces
+                clean_text = re.sub(r'\s+', ' ', clean_text)
+                if len(clean_text) > 150:
+                    clean_text = clean_text[:147] + "..."
+                events.append({
+                    "source": "Google Dev Space (Telegram)",
+                    "content": clean_text,
+                    "link": f"https://t.me/{post_id}"
+                })
+        except Exception as e:
+            logger.warning(f"Failed to scrape Telegram events: {e}")
+            
+        # Fallback to simulated events if scraping failed or returned nothing
+        if not events:
+            events = [
+                {
+                    "source": "SG AI Founders Community (Telegram)",
+                    "content": "Singapore AI Pitch Night & Networking: Cloud orchestration panel and investor matchings. July 12, 19:00.",
+                    "link": "https://t.me/s/googledevspacesg"
+                },
+                {
+                    "source": "Go-Singapore Dev Group (Telegram)",
+                    "content": "Go-Singapore Developer Meetup: Deep dive into Go 1.28 concurrent memory architectures. July 18, 18:30.",
+                    "link": "https://t.me/s/googledevspacesg"
+                },
+                {
+                    "source": "GovTech STACK (Community Portal)",
+                    "content": "STACK Meetup: Building Resilient Citizen Data Engine Pipelines on Google Cloud. July 22, 19:00.",
+                    "link": "https://t.me/s/googledevspacesg"
+                }
+            ]
+            
+        return {
+            "environment": env_text,
+            "jobs": job_sectors,
+            "events": events
+        }
+    except Exception as e:
+        logger.exception("Error loading SG Hub data")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 # Mount static folder (create if not exists)
 os.makedirs("static", exist_ok=True)

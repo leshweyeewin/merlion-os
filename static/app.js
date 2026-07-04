@@ -452,3 +452,152 @@ function initPortalReordering() {
 
     loadSavedOrder();
 }
+
+// ── SG Hub Live Dashboard Data Loading ───────────────────────────────────
+function initSgHub() {
+    let sgHubLoaded = false;
+    let sgHubJobsData = null;
+
+    const mainTabHubBtn = document.getElementById("main-tab-hub-btn");
+    const mainTabPortalsBtn = document.getElementById("main-tab-portals-btn");
+    const mainTabButtons = document.querySelectorAll(".main-tab-btn");
+    const mainPanes = document.querySelectorAll(".main-pane");
+
+    const weatherContent = document.getElementById("hub-weather-content");
+    const eventsContent = document.getElementById("hub-events-content");
+    const jobsContent = document.getElementById("hub-jobs-content");
+    const sectorTabButtons = document.querySelectorAll(".sector-tab-btn");
+
+    // Main page tab switcher
+    mainTabButtons.forEach(btn => {
+        btn.addEventListener("click", () => {
+            // Reset active style class
+            mainTabButtons.forEach(b => {
+                b.classList.remove("active-main-tab");
+            });
+            // Apply active style class
+            btn.classList.add("active-main-tab");
+
+            const targetPaneId = btn.getAttribute("data-main-tab");
+            mainPanes.forEach(pane => {
+                if (pane.id === targetPaneId) {
+                    pane.classList.remove("hidden");
+                } else {
+                    pane.classList.add("hidden");
+                }
+            });
+        });
+    });
+
+    async function loadSgHubData() {
+        try {
+            const res = await fetch("/api/sg-hub");
+            if (!res.ok) throw new Error("API response error");
+            const data = await res.json();
+            
+            // 1. Render Weather / PSI
+            let envHtml = "";
+            const envLines = data.environment.split("\n\n");
+            envLines.forEach(block => {
+                const lines = block.split("\n");
+                const title = lines[0].replace(/---/g, '').trim();
+                let body = lines.slice(1).join("<br>");
+                
+                // Add icons/styling
+                if (title.includes("PSI")) {
+                    body = body.replace("🍃", "<span style='font-size:16px;'>🍃</span>");
+                    envHtml += `<div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 8px;">
+                        <strong style="color: #3fb950; display:block; margin-bottom: 4px; font-size:14px;">${escapeHTML(title)}</strong>
+                        <span style="line-height:1.6; color:#c9d1d9;">${body}</span>
+                    </div>`;
+                } else {
+                    body = body.replace("⛅", "<span style='font-size:16px;'>⛅</span>");
+                    envHtml += `<div>
+                        <strong style="color: #58a6ff; display:block; margin-bottom: 4px; font-size:14px;">${escapeHTML(title)}</strong>
+                        <span style="line-height:1.6; color:#c9d1d9;">${body}</span>
+                    </div>`;
+                }
+            });
+            weatherContent.innerHTML = envHtml || "<p style='color:#8b949e;margin:0;'>No active advisories.</p>";
+
+            // 2. Render Telegram Events
+            let eventsHtml = "";
+            data.events.forEach(evt => {
+                eventsHtml += `<div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 10px; font-size: 12px; margin-bottom: 8px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 4px; font-weight:600;">
+                        <span style="color:#d2a8ff;"><i class="fa-solid fa-bullhorn"></i> ${escapeHTML(evt.source)}</span>
+                        <a href="${evt.link}" target="_blank" style="color:#58a6ff; text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> Join</a>
+                    </div>
+                    <div style="color:#c9d1d9; line-height:1.4;">${escapeHTML(evt.content)}</div>
+                </div>`;
+            });
+            eventsContent.innerHTML = eventsHtml || "<p style='color:#8b949e;margin:0;'>No events listed.</p>";
+
+            // 3. Keep jobs data for dynamic switching
+            sgHubJobsData = data.jobs;
+            renderSectorDetails("tech"); // Default to Tech
+            
+            sgHubLoaded = true;
+        } catch (err) {
+            console.error("Failed to load SG Hub:", err);
+            weatherContent.innerHTML = "<p style='color:#f85149;margin:0;'>⚠️ Failed to load environment metrics.</p>";
+            eventsContent.innerHTML = "<p style='color:#f85149;margin:0;'>⚠️ Failed to retrieve community feeds.</p>";
+            jobsContent.innerHTML = "<p style='color:#f85149;margin:0;'>⚠️ Failed to load employment statistics.</p>";
+        }
+    }
+
+    function renderSectorDetails(sector) {
+        if (!sgHubJobsData || !sgHubJobsData[sector]) return;
+        const details = sgHubJobsData[sector];
+        jobsContent.innerHTML = `
+            <div style="display:flex; justify-content:space-between; margin-bottom: 8px; font-size:12px;">
+                <span>📂 Table Partition:</span>
+                <code style="background:#21262d; padding:2px 6px; border-radius:4px; font-size:11px; color:#3fb950; font-family:monospace;">sg_employment.vacancies_${sector}</code>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom: 8px; font-size:12px;">
+                <span>📊 Active Vacancies:</span>
+                <strong style="color:#e6edf3;">${escapeHTML(details.vacancies)}</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom: 8px; font-size:12px;">
+                <span>💵 Median Starting Salary:</span>
+                <strong style="color:#58a6ff;">${escapeHTML(details.salary)}</strong>
+            </div>
+            <div style="margin-bottom: 8px; font-size:12px;">
+                <span style="display:block; margin-bottom:4px; color:#8b949e;">🔑 Top Demanded Skills:</span>
+                <div style="display:flex; flex-wrap:wrap; gap:4px;">
+                    ${details.skills.split(",").map(sk => `<span style="background:rgba(88,166,255,0.08); color:#58a6ff; border:1px solid rgba(88,166,255,0.15); border-radius:12px; padding:1px 8px; font-size:10px;">${escapeHTML(sk.trim())}</span>`).join("")}
+                </div>
+            </div>
+            <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px; margin-top: 8px; font-style:italic; color:#8b949e; font-size:11px; line-height:1.4;">
+                📈 Market Trend: ${escapeHTML(details.trend)}
+            </div>
+        `;
+    }
+
+    // Toggle Hub loading on main tab click
+    if (mainTabHubBtn) {
+        mainTabHubBtn.addEventListener("click", () => {
+            if (!sgHubLoaded) {
+                loadSgHubData();
+            }
+        });
+    }
+
+    // Job Sector switcher click handling
+    sectorTabButtons.forEach(btn => {
+        btn.addEventListener("click", () => {
+            sectorTabButtons.forEach(b => {
+                b.classList.remove("active-sector");
+            });
+            btn.classList.add("active-sector");
+            
+            const sector = btn.getAttribute("data-sector");
+            renderSectorDetails(sector);
+        });
+    });
+}
+
+// Initialize SG Hub features on load
+document.addEventListener("DOMContentLoaded", () => {
+    initSgHub();
+});
