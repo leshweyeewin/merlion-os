@@ -228,6 +228,13 @@ body {
     font-size: 15px;
 }
 
+/* CPF logo is white/transparent — needs brand teal background to be visible */
+.agency-logo-cpf {
+    background: #006B5E;
+    border-radius: 6px;
+    padding: 4px 14px;
+}
+
 .service-card h3 {
     font-size: 21px;
     font-weight: 700;
