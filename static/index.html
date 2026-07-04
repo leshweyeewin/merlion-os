@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MerlionOS - Singapore Public Sector AI Coordination Brain</title>
-    <meta name="description" content="Unified AI coordination dashboard for Singapore citizens - search, check, and scrape official public sector information.">
+    <meta name="description" content="Unified AI assistant for Singapore citizens — ask anything about government services, benefits, and official information across all agencies.">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -37,7 +37,7 @@
         <main class="app-directory">
             <div class="directory-header">
                 <h2>Singapore Government Digital Services Directory</h2>
-                <p>Direct access to statutory boards. Use the bottom-right co-pilot for multi-agency coordination or page scraping.</p>
+                <p>Ask anything about CPF, taxes, housing, health, and more — or use the assistant below to get answers across multiple agencies at once.</p>
             </div>
             
             <div class="grid-container">
@@ -80,9 +80,7 @@
 
                 <!-- CPF Card -->
                 <div class="service-card">
-                    <div class="agency-logo-wrap">
-                        <img class="agency-logo" src="https://www.cpf.gov.sg/content/dam/web/global/global-header/cpf-logo.svg" alt="Central Provident Fund Board logo">
-                    </div>
+                    <div class="agency-logo-wrap agency-logo-text">CPF</div>
                     <h3>CPF</h3>
                     <p>Central Provident Fund Board</p>
                     <span class="card-desc">Retirement savings, MediSave sub-tiers, and employer allocations.</span>
@@ -259,8 +257,8 @@
                         <div class="message bot-message">
                             <div class="message-avatar"><i class="fa-solid fa-landmark"></i></div>
                             <div class="message-content">
-                                <p>Welcome, Citizen. I am **MerlionOS**, your unified AI co-pilot.</p>
-                                <p>Ask me parameters (e.g. *"Check ICA fees and HDB grant limits"*), or request that I scrape a public page (e.g. *"Scrape details from https://www.gov.sg/"*).</p>
+                                <p>Welcome, Citizen. I am <strong>MerlionOS</strong>, your unified Singapore government assistant.</p>
+                                <p>Ask me anything — e.g. <em>"What are the HDB grant limits?"</em> or <em>"How much SkillsFuture credit do I have?"</em> — and I'll look it up across all relevant agencies.</p>
                             </div>
                         </div>
                     </div>
@@ -272,8 +270,8 @@
                         <button class="suggestion-chip" data-query="How do I check my electoral voting status with ELD?">
                             ELD Voting
                         </button>
-                        <button class="suggestion-chip" data-query="Scrape details about Climate Vouchers from https://www.gov.sg">
-                            Scrape gov.sg
+                        <button class="suggestion-chip" data-query="What are the Climate Vouchers and how do I claim them from gov.sg?">
+                            Climate Vouchers
                         </button>
                     </div>
 
@@ -298,7 +296,7 @@
                         <div class="log-entry system-entry">
                             <span class="log-time">[17:00:00]</span>
                             <span class="log-tag tag-system">system</span>
-                            <span class="log-text">Scraper enabled for all official *.gov.sg domains.</span>
+                            <span class="log-text">Live data retrieval active for all official *.gov.sg domains.</span>
                         </div>
                     </div>
                 </div>
