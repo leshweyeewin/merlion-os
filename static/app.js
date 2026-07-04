@@ -468,6 +468,7 @@ function initSgHub() {
     const communityEventsContent = document.getElementById("hub-community-events-content");
     const mrtEventsContent = document.getElementById("hub-mrt-events-content");
     const hdbLaunchesContent = document.getElementById("hub-hdb-launches");
+    const hdbNewsContent = document.getElementById("hub-hdb-news");
     const jobsContent = document.getElementById("hub-jobs-content");
     const sectorTabButtons = document.querySelectorAll(".sector-tab-btn");
 
@@ -636,7 +637,20 @@ function initSgHub() {
             // 5. Render HDB BTO Launches list
             hdbLaunchesContent.innerHTML = renderHdbLaunches(data.hdb);
 
-            // 6. Keep jobs data for dynamic switching
+            // 6. Render HDB News releases
+            let hdbNewsHtml = "";
+            data.hdb_news.forEach(news => {
+                hdbNewsHtml += `<div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 8px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 6px; font-weight:600;">
+                        <span style="color: var(--primary); font-size: 11px;"><i class="fa-solid fa-calendar-day"></i> ${escapeHTML(news.date)}</span>
+                        <a href="${news.link}" target="_blank" style="color: var(--link); text-decoration:none; font-size: 11px;"><i class="fa-solid fa-up-right-from-square"></i> Read Release</a>
+                    </div>
+                    <div style="color: var(--text-main); line-height:1.45; font-weight:600;">${escapeHTML(news.title)}</div>
+                </div>`;
+            });
+            hdbNewsContent.innerHTML = hdbNewsHtml || "<p style='color: var(--text-subtle); margin:0;'>No active news releases.</p>";
+
+            // 7. Keep jobs data for dynamic switching
             sgHubJobsData = data.jobs;
             renderSectorDetails("tech"); // Default to Tech
             
@@ -648,6 +662,7 @@ function initSgHub() {
             communityEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to retrieve community feeds.</p>";
             mrtEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load transit feeds.</p>";
             hdbLaunchesContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load upcoming launches.</p>";
+            hdbNewsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load portal news.</p>";
             jobsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load employment statistics.</p>";
         }
     }
@@ -671,6 +686,11 @@ function initSgHub() {
                 else if (clean.includes("Units:")) units = clean.split("Units:")[1].trim();
                 else if (clean.includes("Pricing:")) pricing = clean.split("Pricing:")[1].trim();
             });
+            
+            const cleanTitle = titleLine.split('(')[0].trim();
+            const townParam = encodeURIComponent(cleanTitle);
+            const flatPortalUrl = `https://homes.hdb.gov.sg/home/finding-a-flat?search=${townParam}`;
+
             html += `<div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 12px;">
                 <strong style="color: var(--primary); font-size:15px; display:block; margin-bottom: 6px;">🏢 ${escapeHTML(titleLine)}</strong>
                 <div style="font-size:13px; line-height: 1.5; color: var(--text-main);">
@@ -678,7 +698,7 @@ function initSgHub() {
                     <strong>📊 Supply:</strong> ${escapeHTML(units)}<br>
                     <strong>💵 Price Guide:</strong> <span style="color:var(--text-success); font-weight:700;">${escapeHTML(pricing)}</span>
                 </div>
-                <a href="https://homes.hdb.gov.sg/home/finding-a-flat" target="_blank" style="color: var(--link); text-decoration: none; font-size: 12px; margin-top: 8px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;">
+                <a href="${flatPortalUrl}" target="_blank" style="color: var(--link); text-decoration: none; font-size: 12px; margin-top: 8px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;">
                     <i class="fa-solid fa-up-right-from-square"></i> Apply on HDB Flat Portal
                 </a>
             </div>`;
@@ -725,9 +745,7 @@ function initSgHub() {
             </div>
             
             <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; font-size:12px; color: var(--text-muted); line-height:1.5;">
-                <strong>📈 Industry Outlook &amp; Partition:</strong><br>
-                <code style="background: var(--bg-panel); border: 1px solid var(--border); padding:2px 6px; border-radius:4px; font-size:10px; color: var(--text-success); font-family: monospace; display:inline-block; margin: 4px 0;">sg_employment.vacancies_${sector}</code><br>
-                ${escapeHTML(details.trend)}
+                <strong>📈 Industry Outlook:</strong> ${escapeHTML(details.trend)}
             </div>
 
             <div style="margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; display:flex; justify-content:flex-end;">

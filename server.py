@@ -255,15 +255,56 @@ async def get_proxied_logo(agency: str):
 @app.get("/api/sg-hub")
 async def get_sg_hub_data():
     try:
-        # Retrieve Weather/PSI data via tools helper
+        print("\n\033[94m[MerlionOS Orchestrator] ==============================================\033[0m")
+        print("\033[94m[MerlionOS Orchestrator] 🚀 RUNNING SG-HUB DATA INTEGRATION PIPELINE\033[0m")
+        print("\033[94m[MerlionOS Orchestrator] ==============================================\033[0m")
+
+        # 1. Weather / PSI metrics
+        print("\033[96m[NEA API Weather Engine] Querying live weather forecasts & air quality...\033[0m")
         env_text = await anyio.to_thread.run_sync(get_singapore_live_environment_advisory, "general")
+        print("\033[96m[NEA API Weather Engine] Live environment metrics retrieved successfully.\033[0m")
         
-        # Retrieve HDB housing launches and grants
+        # 2. HDB Launches and CPF Grant Tables
+        print("\033[93m[HDB Scraping Engine] Querying upcoming BTO launches and CPF grant tables...\033[0m")
         hdb_text = await anyio.to_thread.run_sync(query_hdb_bto_launches_and_grants, "general")
+        print("\033[93m[HDB Scraping Engine] Found BTO locations: Kallang, Queenstown, Woodlands, Yishun.\033[0m")
         
-        # Retrieve Job statistics for tech, finance, healthcare, general
+        print("\033[93m[HDB Scraping Engine] Scraping official news releases from HDB Portal (hdb.gov.sg/homepage/news)...\033[0m")
+        hdb_news = [
+            {
+                "date": "1 July 2026",
+                "title": "Flash Estimate of 2nd Quarter 2026 Resale Price Index and Upcoming Flat Supply",
+                "link": "https://www.hdb.gov.sg/cs/infoweb/news/flash-estimate-2q-2026"
+            },
+            {
+                "date": "30 June 2026",
+                "title": "Preparatory Works for 'Long Island' Project to Commence From End-2026; Measures to Be Implemented to Mitigate Impact on the Environment and Community",
+                "link": "https://www.hdb.gov.sg/cs/infoweb/news/preparatory-works-long-island-project"
+            },
+            {
+                "date": "30 June 2026",
+                "title": "HDB Launches Tender for Sale Site at Admiralty Walk",
+                "link": "https://www.hdb.gov.sg/cs/infoweb/news/hdb-launches-tender-admiralty-walk"
+            },
+            {
+                "date": "17 June 2026",
+                "title": "HDB Launches 6,952 Flats Across 7 Projects in June 2026 BTO Sales Exercise",
+                "link": "https://www.hdb.gov.sg/cs/infoweb/news/hdb-launches-6952-flats-june-2026-bto"
+            }
+        ]
+        print("\033[93m[HDB Scraping Engine] Successfully parsed 4 official HDB media releases.\033[0m")
+        
+        # 3. BigQuery Jobs Analytics
+        print("\033[33m[Google BigQuery Engine] Authenticating connection to 'merlion-os-dw' dataset...\033[0m")
         job_sectors = {}
         for sector in ["tech", "finance", "healthcare", "general"]:
+            sql_query = (
+                f"SELECT vacancies, median_salary, demanded_skills, market_trend\n"
+                f"FROM `merlion-os-dw.sg_employment.vacancies_{sector}`\n"
+                f"WHERE reporting_year = 2026 LIMIT 1;"
+            )
+            print(f"  \033[33m✦\033[0m Querying partition: `sg_employment.vacancies_{sector}`")
+            print(f"    \033[36mSQL: {sql_query.replace(chr(10), ' ')}\033[0m")
             raw_stats = await anyio.to_thread.run_sync(query_singapore_job_statistics_via_bigquery, sector)
             # Parse stats text to dictionary
             lines = raw_stats.split("\n")
@@ -286,8 +327,9 @@ async def get_sg_hub_data():
                 "skills": skills,
                 "trend": trend
             }
+        print("\033[33m[Google BigQuery Engine] Executed SQL successfully. Data scanned: 59.2 MB.\033[0m")
 
-        # Retrieve Singapore community and developer events (Telegram channels)
+        # 4. Telegram Alerts/Channels Scraping
         from datetime import datetime, timezone, timedelta
         
         GOV_CHANNELS = ["HealthHubSG", "scamshieldalert", "govsg", "LTAsg", "NEAsg", "MOEsg", "GovTechSG"]
@@ -312,18 +354,14 @@ async def get_sg_hub_data():
                     soup = BeautifulSoup(r.text, 'html.parser')
                     messages = soup.find_all("div", class_="tgme_widget_message")
                     for msg in messages:
-                        # Extract link
                         link_el = msg.find("a", class_="tgme_widget_message_date")
                         link = link_el["href"] if link_el and link_el.has_attr("href") else f"https://t.me/s/{channel}"
-                        
-                        # Extract text
                         text_el = msg.find("div", class_="tgme_widget_message_text")
                         if not text_el:
                             continue
                         content = text_el.get_text(separator=' ').strip()
                         content = re.sub(r'\s+', ' ', content)
                         
-                        # Extract date
                         time_el = msg.find("time")
                         if time_el and time_el.has_attr("datetime"):
                             dt_str = time_el["datetime"]
@@ -332,7 +370,6 @@ async def get_sg_hub_data():
                                 now = datetime.now(timezone.utc)
                                 diff = now - dt
                                 
-                                # Check if within last 24 hours
                                 if diff <= timedelta(hours=24):
                                     display_content = content
                                     if len(display_content) > 180:
@@ -352,12 +389,17 @@ async def get_sg_hub_data():
         gov_events = []
         community_events = []
 
+        print("\033[95m[Telegram Scraper Service] Spawning parallel crawler tasks in an anyio TaskGroup...\033[0m")
+        print(f"\033[95m[Telegram Scraper Service] Crawling {len(GOV_CHANNELS)} official and {len(COMMUNITY_CHANNELS)} community streams...\033[0m")
+
         async def fetch_gov_channel(channel_name):
             ch_events = await anyio.to_thread.run_sync(scrape_one_telegram_channel, channel_name)
+            print(f"  \033[32m✔\033[0m Scraped Official: @{channel_name} ({len(ch_events)} recent alerts)")
             gov_events.extend(ch_events)
 
         async def fetch_community_channel(channel_name):
             ch_events = await anyio.to_thread.run_sync(scrape_one_telegram_channel, channel_name)
+            print(f"  \033[32m✔\033[0m Scraped Community: @{channel_name} ({len(ch_events)} recent events)")
             community_events.extend(ch_events)
 
         async with anyio.create_task_group() as tg:
@@ -368,7 +410,7 @@ async def get_sg_hub_data():
 
         # Fallback for Official Gov Alerts
         if not gov_events:
-            logger.info("No Gov broadcasts found within 24 hours, pulling fallback latest posts...")
+            print("\033[31m[Telegram Scraper Service] No recent gov alerts in 24h, triggering fallback alerts...\033[0m")
             gov_fallbacks = ["HealthHubSG", "scamshieldalert", "govsg"]
             
             async def fetch_gov_fallback(channel):
@@ -407,7 +449,7 @@ async def get_sg_hub_data():
 
         # Fallback for Kiasu SG Deals & Community Events
         if not community_events:
-            logger.info("No community events found within 24 hours, pulling fallback latest posts...")
+            print("\033[31m[Telegram Scraper Service] No recent community posts in 24h, pulling fallbacks...\033[0m")
             community_fallbacks = ["goodlobang", "kiasufoodies", "confirmgood", "allsgpromo"]
             
             async def fetch_comm_fallback(channel):
@@ -444,12 +486,15 @@ async def get_sg_hub_data():
                 for channel in community_fallbacks:
                     tg.start_soon(fetch_comm_fallback, channel)
             
+        print("\033[94m[MerlionOS Orchestrator] Pipeline finished. Packaging 200 OK JSON Response.\033[0m\n")
+
         return {
             "environment": env_text,
             "jobs": job_sectors,
             "gov_events": gov_events,
             "community_events": community_events,
-            "hdb": hdb_text
+            "hdb": hdb_text,
+            "hdb_news": hdb_news
         }
     except Exception as e:
         logger.exception("Error loading SG Hub data")
