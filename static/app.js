@@ -660,7 +660,7 @@ function initSgHub() {
             if (!block.trim()) return;
             const lines = block.split("\n");
             const titleLine = lines[0].trim();
-            if (titleLine.includes("CPF HOUSING GRANTS")) return; // skip grant block in text
+            if (titleLine.includes("HDB BTO LAUNCH REGISTRY") || titleLine.includes("CPF HOUSING GRANTS")) return; // skip header and grant block in text
             
             let loc = "N/A";
             let units = "N/A";
@@ -678,6 +678,9 @@ function initSgHub() {
                     <strong>📊 Supply:</strong> ${escapeHTML(units)}<br>
                     <strong>💵 Price Guide:</strong> <span style="color:var(--text-success); font-weight:700;">${escapeHTML(pricing)}</span>
                 </div>
+                <a href="https://homes.hdb.gov.sg/home/finding-a-flat" target="_blank" style="color: var(--link); text-decoration: none; font-size: 12px; margin-top: 8px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;">
+                    <i class="fa-solid fa-up-right-from-square"></i> Apply on HDB Flat Portal
+                </a>
             </div>`;
         });
         return html;

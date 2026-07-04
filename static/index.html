@@ -318,48 +318,45 @@
             <div id="hub-pane" class="main-pane hidden">
                 <!-- Sub-tab switcher for SG Hub -->
                 <div class="hub-sub-tabs" style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 8px; flex-wrap: wrap;">
-                    <button class="hub-sub-tab-btn active-hub-sub-tab" data-hub-sub-tab="hub-env-pane">
-                        <i class="fa-solid fa-cloud-sun"></i> Weather &amp; PSI
-                    </button>
-                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-mrt-pane">
-                        <i class="fa-solid fa-train-subway"></i> Transport &amp; MRT Alerts
+                    <button class="hub-sub-tab-btn active-hub-sub-tab" data-hub-sub-tab="hub-gov-transit-pane">
+                        <i class="fa-solid fa-bullhorn"></i> Gov Updates &amp; Transit
                     </button>
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-hdb-pane">
                         <i class="fa-solid fa-house-chimney"></i> HDB &amp; BTO Portal
                     </button>
-                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-gov-pane">
-                        <i class="fa-solid fa-shield-halved"></i> Official Gov Alerts
+                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-jobs-pane">
+                        <i class="fa-solid fa-chart-line"></i> Job Market Analysis
                     </button>
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-community-pane">
                         <i class="fa-solid fa-tags"></i> Kiasu SG Deals &amp; Meetups
                     </button>
-                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-jobs-pane">
-                        <i class="fa-solid fa-chart-line"></i> Job Market Analytics
+                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-env-pane">
+                        <i class="fa-solid fa-cloud-sun"></i> Weather &amp; PSI
                     </button>
                 </div>
 
                 <!-- Sub-panes -->
-                <!-- Weather & PSI Pane -->
-                <div class="hub-sub-pane" id="hub-env-pane">
-                    <div class="hub-card">
+                <!-- Gov Updates & Transit Pane -->
+                <div class="hub-sub-pane" id="hub-gov-transit-pane">
+                    <!-- Transit Card -->
+                    <div class="hub-card" style="margin-bottom: 20px;">
                         <h3>
-                            <i class="fa-solid fa-cloud-sun"></i> Live Weather &amp; Air Quality (NEA)
+                            <i class="fa-solid fa-train-subway"></i> Transit Delays &amp; Traffic Advisories
                         </h3>
-                        <div id="hub-weather-content">
-                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading environment advisories...</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Transport & MRT Alerts Pane -->
-                <div class="hub-sub-pane hidden" id="hub-mrt-pane">
-                    <div class="hub-card">
-                        <h3>
-                            <i class="fa-solid fa-train-subway"></i> Live Train &amp; Traffic advisories
-                        </h3>
-                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Real-time MRT delays, service disruptions, and road alerts direct from LTA &amp; SMRT channels.</p>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Real-time MRT delay reports, train disruptions, and road alerts direct from LTA &amp; SMRT channels.</p>
                         <div id="hub-mrt-events-content">
                             <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading transit warnings...</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Official Gov Bulletins Card -->
+                    <div class="hub-card">
+                        <h3>
+                            <i class="fa-solid fa-shield-halved"></i> Official Government Broadcasts &amp; Updates
+                        </h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Official broadcasts, healthcare advisories, and security alerts from govsg, HealthHub, and ScamShield.</p>
+                        <div id="hub-gov-events-content">
+                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading official broadcasts...</p>
                         </div>
                     </div>
                 </div>
@@ -398,15 +395,20 @@
                     </div>
                 </div>
 
-                <!-- Official Gov Broadcasts Pane -->
-                <div class="hub-sub-pane hidden" id="hub-gov-pane">
+                <!-- Job Market Analysis Pane -->
+                <div class="hub-sub-pane hidden" id="hub-jobs-pane">
                     <div class="hub-card">
                         <h3>
-                            <i class="fa-solid fa-shield-halved"></i> Official Government Broadcasts &amp; Warnings
+                            <i class="fa-solid fa-chart-line"></i> BigQuery Job Market Analysis
                         </h3>
-                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Real-time broadcasts and safety updates direct from statutory channels like HealthHub, Gov.sg, ScamShield, and LTA.</p>
-                        <div id="hub-gov-events-content">
-                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading official broadcasts...</p>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">SQL-partitioned overview of Singapore Ministry of Manpower (MOM) employment databases.</p>
+                        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                            <button class="sector-tab-btn active-sector" data-sector="tech">Tech</button>
+                            <button class="sector-tab-btn" data-sector="finance">Finance</button>
+                            <button class="sector-tab-btn" data-sector="healthcare">Healthcare</button>
+                        </div>
+                        <div id="hub-jobs-content" style="background: var(--bg-muted); border-radius: 8px; padding: 14px; border: 1px solid var(--border);">
+                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading employment metrics...</p>
                         </div>
                     </div>
                 </div>
@@ -424,20 +426,14 @@
                     </div>
                 </div>
 
-                <!-- BigQuery Jobs Pane -->
-                <div class="hub-sub-pane hidden" id="hub-jobs-pane">
+                <!-- Weather & PSI Pane -->
+                <div class="hub-sub-pane hidden" id="hub-env-pane">
                     <div class="hub-card">
                         <h3>
-                            <i class="fa-solid fa-chart-line"></i> BigQuery Job Market Analytics
+                            <i class="fa-solid fa-cloud-sun"></i> Live Weather &amp; Air Quality (NEA)
                         </h3>
-                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">SQL-partitioned overview of Singapore Ministry of Manpower (MOM) employment databases.</p>
-                        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                            <button class="sector-tab-btn active-sector" data-sector="tech">Tech</button>
-                            <button class="sector-tab-btn" data-sector="finance">Finance</button>
-                            <button class="sector-tab-btn" data-sector="healthcare">Healthcare</button>
-                        </div>
-                        <div id="hub-jobs-content" style="background: var(--bg-muted); border-radius: 8px; padding: 14px; border: 1px solid var(--border);">
-                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading employment metrics...</p>
+                        <div id="hub-weather-content">
+                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading environment advisories...</p>
                         </div>
                     </div>
                 </div>
@@ -514,7 +510,7 @@
                             </button>
                         </div>
                     </form>
-                </div>  </div>
+                </div>
 
                 <!-- Operations Console Pane -->
                 <div class="widget-pane hidden" id="logs-pane">
