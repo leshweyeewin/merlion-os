@@ -261,6 +261,7 @@ COMMUNITY_CHANNELS = [
 ]
 
 def scrape_one_telegram_channel(channel: str) -> list:
+    """Scrapes the last 3 posts from a Telegram channel (used for Gov Updates)."""
     url = f"https://t.me/s/{channel}"
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
@@ -286,7 +287,6 @@ def scrape_one_telegram_channel(channel: str) -> list:
                 content = text_el.get_text(separator=' ').strip()
                 content = re.sub(r'\s+', ' ', content)
                 
-                # Parse date
                 date_str = "N/A"
                 iso_date = ""
                 time_el = msg.find("time")
@@ -313,12 +313,76 @@ def scrape_one_telegram_channel(channel: str) -> list:
                     "iso_date": iso_date
                 })
             
-            # Retrieve last 3 messages
+            # Return last 3 messages (for Gov Updates)
             channel_events = valid_msgs[-3:]
             print(f"  \033[32m✔\033[0m Parsed @{channel}: Found {len(messages)} messages, returning last {len(channel_events)}.")
     except Exception as e:
         logger.warning(f"Error scraping telegram channel {channel}: {e}")
     return channel_events
+
+
+def scrape_one_telegram_channel_24h(channel: str) -> list:
+    """Scrapes posts from the last 24 hours from a Telegram channel (used for Kiasu community feeds)."""
+    url = f"https://t.me/s/{channel}"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+    }
+    print(f"  \033[90m[Scraper Task] HTTP GET {url}\033[0m")
+    channel_events = []
+    try:
+        r = requests.get(url, headers=headers, timeout=6)
+        print(f"  \033[90m[Scraper Task] HTTP RESPONSE: {r.status_code} ({len(r.text)} bytes) from @{channel}\033[0m")
+        if r.status_code == 200:
+            import re
+            from bs4 import BeautifulSoup
+            from datetime import datetime, timezone, timedelta
+            soup = BeautifulSoup(r.text, 'html.parser')
+            messages = soup.find_all("div", class_="tgme_widget_message")
+            
+            now = datetime.now(timezone.utc)
+            for msg in messages:
+                link_el = msg.find("a", class_="tgme_widget_message_date")
+                link = link_el["href"] if link_el and link_el.has_attr("href") else f"https://t.me/s/{channel}"
+                text_el = msg.find("div", class_="tgme_widget_message_text")
+                if not text_el:
+                    continue
+                content = text_el.get_text(separator=' ').strip()
+                content = re.sub(r'\s+', ' ', content)
+                
+                date_str = "N/A"
+                iso_date = ""
+                time_el = msg.find("time")
+                if time_el and time_el.has_attr("datetime"):
+                    dt_str = time_el["datetime"]
+                    iso_date = dt_str
+                    try:
+                        dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+                        diff = now - dt
+                        if diff > timedelta(hours=24):
+                            continue  # skip posts older than 24h
+                        sgt = dt.astimezone(timezone(timedelta(hours=8)))
+                        date_str = sgt.strftime("%d %b %Y, %I:%M %p")
+                    except Exception as dt_err:
+                        logger.warning(f"Failed to parse datetime '{dt_str}' for channel {channel}: {dt_err}")
+                        continue
+                
+                display_content = content
+                if len(display_content) > 180:
+                    display_content = display_content[:177] + "..."
+                
+                channel_events.append({
+                    "source": f"@{channel}",
+                    "content": display_content,
+                    "link": link,
+                    "date": date_str,
+                    "iso_date": iso_date
+                })
+            
+            print(f"  \033[32m✔\033[0m Parsed @{channel}: Found {len(messages)} messages, {len(channel_events)} within 24h.")
+    except Exception as e:
+        logger.warning(f"Error scraping community channel {channel}: {e}")
+    return channel_events
+
 
 
 @app.get("/api/sg-hub/weather")
@@ -564,7 +628,7 @@ async def get_sg_hub_community():
 
         community_events = []
         async def fetch_community_channel(channel_name):
-            ch_events = await anyio.to_thread.run_sync(scrape_one_telegram_channel, channel_name)
+            ch_events = await anyio.to_thread.run_sync(scrape_one_telegram_channel_24h, channel_name)
             community_events.extend(ch_events)
 
         async with anyio.create_task_group() as tg:
