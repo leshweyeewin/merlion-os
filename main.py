@@ -17,7 +17,8 @@ from tools import (
     search_singapore_government,
     scrape_government_page,
     call_tool_robustly,
-    get_singapore_live_environment_advisory
+    get_singapore_live_environment_advisory,
+    query_singapore_job_statistics_via_bigquery
 )
 
 # 1. Initialize Cloud Workspace Handshake
@@ -35,7 +36,8 @@ TOOL_MAP = {
     "query_supplementary_civic_utilities": query_supplementary_civic_utilities,
     "search_singapore_government": search_singapore_government,
     "scrape_government_page": scrape_government_page,
-    "get_singapore_live_environment_advisory": get_singapore_live_environment_advisory
+    "get_singapore_live_environment_advisory": get_singapore_live_environment_advisory,
+    "query_singapore_job_statistics_via_bigquery": query_singapore_job_statistics_via_bigquery
 }
 
 def run_merlion_engine(user_prompt: str):

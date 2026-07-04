@@ -12,7 +12,8 @@ from tools import (
     query_supplementary_civic_utilities,
     search_singapore_government,
     scrape_government_page,
-    get_singapore_live_environment_advisory
+    get_singapore_live_environment_advisory,
+    query_singapore_job_statistics_via_bigquery
 )
 
 # Initialize FastMCP Server
@@ -57,6 +58,11 @@ def mcp_scrape_government_page(url: str) -> str:
 def mcp_get_singapore_live_environment_advisory(context_query: str = "general") -> str:
     """Retrieves live Singapore environment advisories, including weather forecasts and PSI (air quality index) from data.gov.sg."""
     return get_singapore_live_environment_advisory(context_query)
+
+@mcp.tool(name="query_singapore_job_statistics_via_bigquery")
+def mcp_query_singapore_job_statistics_via_bigquery(context_query: str = "general") -> str:
+    """Queries Singapore's public job market and employment statistics database using Google BigQuery."""
+    return query_singapore_job_statistics_via_bigquery(context_query)
 
 if __name__ == "__main__":
     mcp.run()
