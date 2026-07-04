@@ -169,7 +169,7 @@ document.addEventListener("DOMContentLoaded", () => {
         indicator.className = "message bot-message typing-container";
         indicator.id = "typing-indicator";
         indicator.innerHTML = `
-            <div class="message-avatar">🦁</div>
+            <div class="message-avatar"><i class="fa-solid fa-landmark"></i></div>
             <div class="message-content">
                 <div class="typing-indicator">
                     <div class="typing-dot"></div>
@@ -264,7 +264,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const botMsg = document.createElement("div");
             botMsg.className = "message bot-message";
             botMsg.innerHTML = `
-                <div class="message-avatar">🦁</div>
+                <div class="message-avatar"><i class="fa-solid fa-landmark"></i></div>
                 <div class="message-content">
                     ${renderMarkdown(data.response)}
                 </div>
@@ -284,7 +284,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const errorMsg = document.createElement("div");
             errorMsg.className = "message bot-message";
             errorMsg.innerHTML = `
-                <div class="message-avatar">🦁</div>
+                <div class="message-avatar"><i class="fa-solid fa-landmark"></i></div>
                 <div class="message-content">
                     <p style="color: var(--text-error);"><i class="fa-solid fa-triangle-exclamation"></i> <strong>Execution Error:</strong> Failed to fetch guidance coordinates. Please check your network or server logs.</p>
                 </div>
