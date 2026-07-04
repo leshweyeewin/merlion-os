@@ -39,10 +39,11 @@
 ---
 
 ### Slide 3: Solution Approach & Google Cloud Stack
-*   **Approach:** Built a stateless FastAPI web server that maps user queries to Python tool registries. Gemini 2.5 Flash handles orchestration via native parallel function calling.
+*   **Approach:** Built a stateless FastAPI web server that maps user queries to Python tool registries. Gemini 2.5 Flash handles orchestration via native parallel function calling. The entire toolset is also wrapped into a plug-and-play Model Context Protocol (MCP) server.
 *   **Google Cloud / GenAI Stack:**
     *   **Google Gemini 2.5 Flash:** Low-latency inference model chosen for outstanding speed, high context window efficiency, and stable parallel tool use.
     *   **google-genai SDK:** Modern async API client library used to communicate with the model.
+    *   **Model Context Protocol (FastMCP):** Integrated the open MCP standard to allow standard API tool interoperability.
 *   **Real-World Impact:** Zero-overhead decision support. Instead of opening 4 different portal tabs to verify citizenship milestones, tax reliefs, and voting registers, a citizen gets a single synthesized, scan-ready guide in 3 seconds.
 
 ---
@@ -50,11 +51,12 @@
 ### Slide 4: Opportunities, USP & Key Differentiators
 *   **Key Differences:**
     *   *Traditional Portals:* Passive FAQ directories with external link lists.
-    *   *MerlionOS:* Active, agentic assistant that reads, scrapes, and aggregates official pages on the fly.
+    *   *MerlionOS:* Active, agentic assistant that reads, scrapes, and aggregates official pages on the fly, with standard integrations.
 *   **Unique Selling Proposition (USP):**
-    *   **1. Zero-Trust Transparency:** Exposes raw model inputs and scraper outputs in the live UI Operations Log, boosting trust in AI-generated advice.
-    *   **2. Dynamic Redirect Domain Validation:** Scraper follows redirects but strictly verifies that the final landing page is a `.gov.sg` domain, preventing domain hijacking and phishing.
-    *   **3. Robust Argument Matching:** A signature-inspecting execution helper resolves parameter drifts and mismatched arguments, preventing API failures.
+    *   **1. Dual-Operational Model (Web UI + MCP Server):** Serves end-users via a premium dashboard and developers/enterprises as a standardized Model Context Protocol (MCP) tool server.
+    *   **2. Zero-Trust Transparency:** Exposes raw model inputs and scraper outputs in the live UI Operations Log, boosting trust in AI-generated advice.
+    *   **3. Dynamic Redirect Validation:** Scraper follows redirects but strictly verifies that the final landing page is a `.gov.sg` domain, preventing domain hijacking.
+    *   **4. Robust Argument Matching:** A signature-inspecting execution helper resolves parameter drifts and mismatched arguments, preventing API failures.
 
 ---
 
@@ -64,32 +66,35 @@
 3.  **Real-Time Operations Log:** Live display of tool parameters, arguments, extraction metrics, and response execution.
 4.  **XSS & Link Hardening:** Double-escaping of user/model variables before HTML rendering and automatic filtering of malicious `javascript:` or `data:` links.
 5.  **Multi-turn Conversation Memory:** Client-side stateless history arrays fed into Gemini's context window, allowing conversational follow-ups.
+6.  **FastMCP Tool Exporter:** Fully-integrated `mcp_server.py` that lets the toolset connect directly to standard clients like Cursor or Claude Desktop.
 
 ---
 
 ### Slide 6: Process Flow Diagram
 ```text
-[Citizen Query] ──> [Frontend Chat UI (app.js)]
-                           │  (Appends Stateless History)
-                           ▼
-                    [FastAPI Server (server.py)]
-                           │
-                           ▼
-               [Gemini 2.5 Flash Orchestrator]
-                (Analyzes intents & matches tools)
-               /               |                 \
-              ▼                ▼                  ▼
-      [Static db tool]  [Gov Directory]   [gov.sg Scraper]
-      (IRAS, ICA, CPF)   (ELD, HDB, MOE)   (BeautifulSoup4)
-              \                |                  /
-               ▼               ▼                 ▼
-          [call_tool_robustly Helper maps arguments]
-                           │  (Runs in non-blocking Threadpool)
-                           ▼
-               [Final Response Compiled]
-                           │
-                           ▼
-     [Frontend renders markdown + appends Operations Logs]
+[Citizen Query] ──> [Frontend Chat UI (app.js)] OR [MCP Client (Cursor/Claude)]
+                           │                               │
+                           ▼                               ▼
+              [FastAPI Server (server.py)]    [mcp_server.py (FastMCP)]
+                           │                               │
+                           └───────────────┬───────────────┘
+                                           │
+                                           ▼
+                             [Gemini 2.5 Flash Orchestrator]
+                              (Analyzes intents & matches tools)
+                             /               |                 \
+                            ▼                ▼                  ▼
+                    [Static db tool]  [Gov Directory]   [gov.sg Scraper]
+                    (IRAS, ICA, CPF)   (ELD, HDB, MOE)   (BeautifulSoup4)
+                            \                |                  /
+                             ▼               ▼                 ▼
+                        [call_tool_robustly Helper maps arguments]
+                                           │  (Runs in non-blocking Threadpool)
+                                           ▼
+                             [Final Response Compiled]
+                                           │
+                                           ▼
+                   [Renders markdown / returns JSON to client]
 ```
 
 ---
@@ -110,8 +115,8 @@
 ### Slide 8: Architecture Diagram
 ```mermaid
 graph TD
-    User([Citizen User]) -->|1. Submit Query| UI[Frontend app.js]
-    UI -->|2. POST JSON Chat + History| API[FastAPI server.py]
+    User([Citizen User / Client]) -->|1. Submit Query| UI[Frontend UI / MCP Client]
+    UI -->|2. Request| API[server.py / mcp_server.py]
     API -->|3. Initial Call with Tools| Gemini[Gemini 2.5 Flash client.aio]
     Gemini -->|4. Parallel Function Calls| API
     API -->|5. Validate Args & Execute| Robust[call_tool_robustly Helper]
@@ -131,6 +136,7 @@ graph TD
 ### Slide 9: Technologies Used & Scalability
 *   **Core AI Engine:** Google Gemini 2.5 Flash (`google-genai` SDK) - Selected for low latency, low token costs, and highly stable tool calling.
 *   **Asynchronous Backend:** FastAPI & Uvicorn - Utilizes an async event loop with `anyio.to_thread.run_sync` to run blocking scraping requests in a separate thread pool. This preserves event loop concurrency under heavy traffic.
+*   **Interoperability Standard:** FastMCP (`mcp` library) - Seamlessly translates local python database and scraper functions into standardized MCP JSON-RPC schemas.
 *   **Clean Scraping Pipeline:** BeautifulSoup4 & requests - Follows redirects safely and extracts body elements while stripping scripts, stylesheet headers, and footers.
 *   **Secure Client-Side Rendering:** Vanilla JavaScript and CSS - Zero framework overhead, highly secure, fast loading, and responsive.
 
