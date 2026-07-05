@@ -1,0 +1,16 @@
+name = "merlion-os"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+
+[[containers]]
+max_instances = 3
+class_name = "MerlionContainer"
+image = "./Dockerfile"
+
+[[durable_objects.bindings]]
+name = "MERLION_CONTAINER"
+class_name = "MerlionContainer"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["MerlionContainer"]

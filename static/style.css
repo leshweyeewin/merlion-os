@@ -101,6 +101,11 @@ body {
     flex-shrink: 0;
 }
 
+.merlion-mark {
+    width: 26px;
+    height: 26px;
+}
+
 .logo-text h1 {
     font-family: var(--font-primary);
     font-size: 22px;
