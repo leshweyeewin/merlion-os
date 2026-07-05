@@ -461,30 +461,86 @@ async def get_sg_hub_hdb():
         hdb_text = await anyio.to_thread.run_sync(query_hdb_bto_launches_and_grants, "general")
         print("\033[93m[HDB Scraping Engine] Found BTO locations: Kallang, Queenstown, Woodlands, Yishun.\033[0m")
         
-        print("\033[93m[HDB Scraping Engine] Fetching official news releases from HDB Portal (hdb.gov.sg)...\033[0m")
-        hdb_news = [
-            {
-                "date": "1 July 2026",
-                "title": "Flash Estimate of 2nd Quarter 2026 Resale Price Index and Upcoming Flat Supply",
-                "link": "https://www.hdb.gov.sg/hdb-pulse/news/2026/flash-estimate-of-2nd-quarter-2026-resale-price-index-and-upcoming-flat-supply"
-            },
-            {
-                "date": "30 June 2026",
-                "title": "Preparatory Works for 'Long Island' Project to Commence From End-2026; Measures to Be Implemented to Mitigate Impact on the Environment and Community",
-                "link": "https://www.hdb.gov.sg/hdb-pulse/news/2026/preparatory-works-for-long-island-project-to-commence-from-end-2026-measures-to-be-implemented-to-mitigate-impact-on-the-environment-and-community"
-            },
-            {
-                "date": "30 June 2026",
-                "title": "HDB Launches Tender for Sale Site at Admiralty Walk",
-                "link": "https://www.hdb.gov.sg/hdb-pulse/news/2026/hdb-launches-tender-for-sale-site-at-admiralty-walk"
-            },
-            {
-                "date": "17 June 2026",
-                "title": "HDB Launches 6,952 Flats Across 7 Projects in June 2026 BTO Sales Exercise",
-                "link": "https://www.hdb.gov.sg/hdb-pulse/news/2026/hdb-launches-6952-flats-across-7-projects-in-june-2026-bto-sales-exercise"
+        def scrape_hdb_news():
+            """Live-scrape HDB newsroom by parsing the embedded __NEXT_DATA__ JSON which contains
+            exact article paths and published dates — avoids any URL guessing."""
+            import json as _json
+            from bs4 import BeautifulSoup
+            from datetime import datetime, timezone, timedelta
+            HDB_BASE = "https://www.hdb.gov.sg"
+            url = f"{HDB_BASE}/hdb-pulse/news"
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             }
-        ]
-        print("\033[93m[HDB Scraping Engine] Successfully parsed 4 official HDB media releases.\033[0m")
+            print(f"  \033[90m[HDB News Scraper] HTTP GET {url}\033[0m")
+            r = requests.get(url, headers=headers, timeout=10)
+            print(f"  \033[90m[HDB News Scraper] HTTP RESPONSE: {r.status_code} ({len(r.text)} bytes)\033[0m")
+            r.raise_for_status()
+            soup = BeautifulSoup(r.text, 'html.parser')
+            
+            # HDB uses Next.js — all data is embedded in a <script id="__NEXT_DATA__"> tag
+            next_data_tag = soup.find("script", {"id": "__NEXT_DATA__"})
+            if not next_data_tag:
+                raise ValueError("__NEXT_DATA__ script tag not found on HDB news page")
+            
+            next_data = _json.loads(next_data_tag.string)
+            
+            # Articles are in props.pageProps.listingYearData, sorted by publishedDate desc
+            articles = next_data.get("props", {}).get("pageProps", {}).get("listingYearData", [])
+            print(f"  \033[90m[HDB News Scraper] Found {len(articles)} total articles in __NEXT_DATA__\033[0m")
+            
+            results = []
+            
+            # Parse all valid articles first so we can sort newest-first
+            parsed = []
+            for article in articles:
+                url_path = article.get("url", {}).get("path", "")
+                if not url_path:
+                    continue
+                
+                # Build fields dict from array
+                fields = {f["name"]: f["value"] for f in article.get("fields", [])}
+                title = fields.get("navigationTitle", fields.get("pageTitle", "")).strip()
+                pub_date_raw = fields.get("publishedDate", "")  # e.g. "20260701T160000Z"
+                hidden = fields.get("hidePage", "")
+                
+                if hidden or not title:
+                    continue
+                
+                # Parse date for sorting + display
+                dt_obj = None
+                date_str = "N/A"
+                if pub_date_raw:
+                    try:
+                        dt_obj = datetime.strptime(pub_date_raw, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+                        sgt = dt_obj.astimezone(timezone(timedelta(hours=8)))
+                        # Cross-platform: strip leading zero from day
+                        date_str = sgt.strftime("%d %B %Y").lstrip("0")
+                    except Exception:
+                        try:
+                            dt_obj = datetime.strptime(pub_date_raw[:8], "%Y%m%d").replace(tzinfo=timezone.utc)
+                            date_str = dt_obj.strftime("%d %B %Y").lstrip("0")
+                        except Exception:
+                            date_str = pub_date_raw
+                
+                parsed.append({
+                    "date": date_str,
+                    "title": title,
+                    "link": f"{HDB_BASE}{url_path}",
+                    "_sort_key": pub_date_raw  # raw string sorts correctly as YYYYMMDD...
+                })
+            
+            # Sort newest-first then take top 4
+            parsed.sort(key=lambda x: x["_sort_key"], reverse=True)
+            for item in parsed[:4]:
+                results.append({"date": item["date"], "title": item["title"], "link": item["link"]})
+            
+            print(f"  \033[32m✔\033[0m [HDB News Scraper] Returning {len(results)} latest news articles with real embedded URLs.")
+            return results
+
+        hdb_news = await anyio.to_thread.run_sync(scrape_hdb_news)
+        print(f"\033[93m[HDB Scraping Engine] Successfully fetched {len(hdb_news)} live HDB news articles.\033[0m")
         return {"hdb": hdb_text, "hdb_news": hdb_news}
     except Exception as e:
         logger.exception("Error loading HDB data")
