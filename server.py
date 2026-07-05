@@ -454,22 +454,25 @@ def scrape_one_telegram_channel(channel: str) -> list:
                 text_el = msg.find("div", class_="tgme_widget_message_text")
                 if not text_el:
                     continue
+                
+                time_el = msg.find("time")
+                if not time_el or not time_el.has_attr("datetime"):
+                    continue # Skip pinned or service messages without timestamps
+                
                 content = text_el.get_text(separator=' ').strip()
                 content = re.sub(r'\s+', ' ', content)
                 
+                dt_str = time_el["datetime"]
+                iso_date = dt_str
                 date_str = "N/A"
-                iso_date = ""
-                time_el = msg.find("time")
-                if time_el and time_el.has_attr("datetime"):
-                    dt_str = time_el["datetime"]
-                    iso_date = dt_str
-                    try:
-                        from datetime import datetime, timezone, timedelta
-                        dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-                        sgt = dt.astimezone(timezone(timedelta(hours=8)))
-                        date_str = sgt.strftime("%d %b %Y, %I:%M %p")
-                    except Exception as dt_err:
-                        logger.warning(f"Failed to parse datetime '{dt_str}' for channel {channel}: {dt_err}")
+                try:
+                    from datetime import datetime, timezone, timedelta
+                    dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+                    sgt = dt.astimezone(timezone(timedelta(hours=8)))
+                    date_str = sgt.strftime("%d %b %Y, %I:%M %p")
+                except Exception as dt_err:
+                    logger.warning(f"Failed to parse datetime '{dt_str}' for channel {channel}: {dt_err}")
+                    continue # Skip if parsing fails to avoid invalid dates
                 
                 display_content = content
                 if len(display_content) > 180:
@@ -516,25 +519,27 @@ def scrape_one_telegram_channel_24h(channel: str) -> list:
                 text_el = msg.find("div", class_="tgme_widget_message_text")
                 if not text_el:
                     continue
+                
+                time_el = msg.find("time")
+                if not time_el or not time_el.has_attr("datetime"):
+                    continue # Skip pinned or service messages without timestamps
+                
                 content = text_el.get_text(separator=' ').strip()
                 content = re.sub(r'\s+', ' ', content)
                 
+                dt_str = time_el["datetime"]
+                iso_date = dt_str
                 date_str = "N/A"
-                iso_date = ""
-                time_el = msg.find("time")
-                if time_el and time_el.has_attr("datetime"):
-                    dt_str = time_el["datetime"]
-                    iso_date = dt_str
-                    try:
-                        dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-                        diff = now - dt
-                        if diff > timedelta(hours=24):
-                            continue  # skip posts older than 24h
-                        sgt = dt.astimezone(timezone(timedelta(hours=8)))
-                        date_str = sgt.strftime("%d %b %Y, %I:%M %p")
-                    except Exception as dt_err:
-                        logger.warning(f"Failed to parse datetime '{dt_str}' for channel {channel}: {dt_err}")
-                        continue
+                try:
+                    dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+                    diff = now - dt
+                    if diff > timedelta(hours=24):
+                        continue  # skip posts older than 24h
+                    sgt = dt.astimezone(timezone(timedelta(hours=8)))
+                    date_str = sgt.strftime("%d %b %Y, %I:%M %p")
+                except Exception as dt_err:
+                    logger.warning(f"Failed to parse datetime '{dt_str}' for channel {channel}: {dt_err}")
+                    continue
                 
                 display_content = content
                 if len(display_content) > 180:
