@@ -1,143 +1,97 @@
 # 🇸🇬 MerlionOS: Unified Singapore Public Sector AI Coordination Brain
 *APAC GenAI Academy (APAC Edition) — Cohort 2 Hackathon Project*
 
-**MerlionOS** is a state-of-the-art, unified digital assistant portal built for Singapore Citizens. It simplifies access to fragmented public sector resources by orchestrating a **Gemini 2.5 Flash** agentic brain that routes questions, scrapes official government portals (`.gov.sg`), and surfaces live civic data — all in one clean, modern dashboard.
+---
 
-Built with a premium white-background UI with a responsive card grid layout, it features a main-view tab switcher between the statutory portals directory and a **live SG Hub data dashboard**, alongside a floating **Co-Pilot chat assistant** with a real-time **Operations Control** terminal.
+## 🎯 Developer Intent & Project Motivation
+I recently became a Singaporean citizen. Previously as a permanent resident, my digital interactions with the government were limited—I only ever needed to check **CPF**, file taxes with **IRAS**, and occasionally access **HealthHub**. 
+
+However, upon receiving citizenship, I realized the vast landscape of statutory boards I now had to navigate: registering for compulsory voting with the **Elections Department (ELD)**, searching for housing with the **Housing & Development Board (HDB)**, claiming CDC tranches on **RedeemSG**, and checking learning credits on **MySkillsFuture**. 
+
+Searching for these portals one-by-one via Google felt scattered and uncoordinated. While portals like *LifeSG* exist, they aren't fully accessible or comprehensive for all demographic needs. I built **MerlionOS** to act as a **one-stop government coordination portal** to unify this experience. 
+
+Furthermore, as a working professional in Singapore, staying updated on **transport disruptions** and **employment/job market trends** is critical to my daily routine. Therefore, I consolidated live transit statuses and sector job metrics directly into the interface to create the ultimate daily utility portal.
 
 ---
 
-## 🚀 Key Features
+## 🗺️ Live Data Dashboard & Exact Data Sources
+All data panels in the **SG Hub Dashboard** load on-demand when clicked and show a **"Last synced"** SGT timestamp. Below are the exact sources and APIs feeding the UI:
 
-### 🤖 AI Co-Pilot (Gemini 2.5 Flash)
-- **Agentic Multi-Agency Coordination:** Parses complex multi-intent citizen queries across 15+ departments simultaneously and returns a unified briefing sheet.
-- **Parallel Tool Calling:** Triggers multiple backend tools concurrently (e.g. CPF + IRAS + ICA) in a single model turn.
-- **Conversational Memory:** Client-side multi-turn history fed into Gemini's context window for follow-up questions.
-- **Operations Control Terminal:** Live developer console showing tool arguments, SQL queries, scraping logs, and API response traces under the hood.
-
-### 🗺️ SG Hub — Live Data Dashboard
-All sub-panels load **on-demand** (only when selected) and show a **"Last synced: DD MMM YYYY, HH:MM (SGT)"** banner:
-
-| Sub-Panel | Data Source | Detail |
+| UI Sub-Panel | Data Source / API Endpoint | Display Details |
 |---|---|---|
-| 🌤️ **Weather & Air Quality** | NEA data.gov.sg API | PSI gauge card + 6-region 2-hr forecast cards |
-| 🏢 **HDB BTO Launches** | HDB static registry + HDB Newsroom | Launch date badge per listing; scraped press releases with dates |
-| 📊 **Job Market Analysis** | Google BigQuery MOM dataset | Sector vacancies, salaries, retrenchment risk, MOM support schemes |
-| 📢 **Gov Updates** | Telegram scraper (7 channels) + **LTA DataMall API** | Last 3 posts per channel + **structured live MRT line status grid (EWL, NSL, NEL, CCL, DTL, TEL)** with detailed disruption reports and bus shuttle details |
-| 🎟️ **Kiasu SG Deals** | Telegram scraper (15 channels) | Posts within last 24 hours, sorted latest-first, post date shown |
-| 🌐 **Gov Portals** | Static registry | HDB, MOM, WSG, SWDA, ICA, MAS, NEA + direct portal buttons |
-
-### 🏛️ Statutory Portals Directory
-- Drag-and-drop reorderable grid of 12+ agency cards (ICA, CPF, IRAS, MOM, HDB, NEA, ELD, MAS, WSG, SWDA, etc.)
-- **HDB Flat Portal** button with auto-populated search filters for BTO towns
-- **CPF/IRAS calculators** embedded with pre-filled parameters
-- Card order persisted in `localStorage`
-
-### 🔐 Security & Reliability
-- **XSS Hardening:** `escapeHTML` sanitizes all user/model content before DOM insertion
-- **Link Safety:** Strips `javascript:` and `data:` URI schemes from scraped links
-- **gov.sg Domain Validation:** Scraper verifies final redirect lands on `.gov.sg`
-- **Async Threadpool:** All blocking I/O runs in `anyio.to_thread.run_sync`, keeping the event loop non-blocking
-- **MCP Interoperability:** FastMCP server (`mcp_server.py`) exposes all tools as JSON-RPC endpoints
+| 🌤️ **Weather & Air Quality** | **NEA API** (`https://api-open.data.gov.sg/v2/real-time/api/psi` & `/two-hr-forecast`) | Visual PSI gauge progress bar + 6-region 2-hour forecast emoji cards. |
+| 🚇 **Transit & Rail Alerts** | **LTA DataMall API** (`https://datamall2.mytransport.sg/ltaodataservice/TrainServiceAlerts`) | Live line-by-line status grid (EWL, NSL, NEL, CCL, DTL, TEL, LRTs) with disruption logs, free public bus boarding notices, and free MRT shuttle routes. |
+| 📢 **Gov Updates** | **Telegram Scraper** (7 Channels: `@govsg`, `@HealthHubSG`, `@scamshieldalert`, `@LTAsg`, `@NEAsg`, `@MOEsg`, `@GovTechSG`) | Last 3 posts per channel, sorted chronologically descending by SGT post date. |
+| 🏢 **HDB BTO Tracker** | **HDB Pulse & Newsroom Scraper** (`https://www.hdb.gov.sg/hdb-pulse/news`) | Live BTO launch tables + BeautifulSoup HDB newsroom Next.js `__NEXT_DATA__` JSON extraction (resolving real CMS URLs dynamically). |
+| 📊 **Job Market Analysis** | **Google BigQuery** (MOM Employment Dataset) | Vacancies, median starting salaries, top demanded skills, and industry trends partitioned by sector (Tech, Finance, Healthcare, General). |
+| ⚠️ **MOM Retrenchment** | **MOM Advisory Index** | Active retrenchment numbers with Q1 2026 data freshness indicators. |
+| 🎟️ **Kiasu SG Deals** | **Telegram Scraper** (15 Channels: `@confirmgood`, `@goodlobang`, `@kiasufoodies`, `@sgweekend`, `@moneydigest`, etc.) | Community deals and lifestyle news posted strictly within the last 24 hours, sorted newest-first. |
 
 ---
 
-## 🛠️ Technology Stack
+## 🏛️ Statutory Portals Directory
+MerlionOS features a drag-and-drop reorderable grid representing all **15 statutory board portals** required for citizen life:
+1. **ICA** (Immigration & Checkpoints Authority) — Passport, NRIC, Re-entry permits
+2. **ELD** (Elections Department) — Voter registration & compulsory voting registers
+3. **IRAS** (Inland Revenue Authority of Singapore) — Income tax & property tax filings
+4. **CPF** (Central Provident Fund Board) — Retirement savings, MediSave, housing allocations
+5. **MOM** (Ministry of Manpower) — Work passes, employment rules, labor laws
+6. **MOH** (Ministry of Health / HealthHub) — Centralized electronic health records (NEHR)
+7. **HDB** (Housing & Development Board) — BTO flat portals & housing grants
+8. **MOE** (Ministry of Education) — Primary school registration & scholarships
+9. **LTA** (Land Transport Authority / OneMotoring) — COE, road tax, vehicle licensing
+10. **NEA** (National Environment Agency) — Air quality, weather alerts, public hygiene
+11. **RedeemSG** — CDC voucher claims & Climate voucher redemptions
+12. **SP Group** — Home electricity, water, and gas utilities setup
+13. **MySkillsFuture** — Mid-career subsidies & course registries
+14. **Gov.sg** — Budget announcements and key national policies
+15. **WSG / SWDA** (Workforce Singapore) — Career conversion and job transition portals
 
-| Layer | Technology |
-|---|---|
-| AI Orchestration | Google Gemini 2.5 Flash (`google-genai` SDK) |
-| Backend | FastAPI + Uvicorn |
-| Data Warehouse | Google BigQuery (MOM employment dataset) |
-| Live Feeds | NEA data.gov.sg API, **LTA DataMall TrainServiceAlerts API**, HDB Newsroom, Telegram web scraper |
-| HTML Parser | BeautifulSoup4 + `requests` |
-| MCP Protocol | FastMCP (`mcp` library) |
-| Frontend | Semantic HTML5, Vanilla CSS (glassmorphism), Vanilla JS |
+*Layout orders are automatically persisted across sessions in browser `localStorage`.*
+
+---
+
+## 🤖 AI Co-Pilot & Security Hardening
+The floating **Co-Pilot Chat Assistant** runs on **Gemini 2.5 Flash** with native parallel tool routing. It is hardened with enterprise-grade security layers:
+* **Google Search Grounding Fallback:** If the primary Gemini 2.5 Flash API hits a 429 quota limit, the chat automatically fails-over to `gemini-2.0-flash` with Google Search grounding to guarantee continuous response uptime.
+* **XSS Sanitization (`safeURL`):** Client-side Javascript filters URLs starting with `javascript:`, `data:`, or `vbscript:` and escapes double/single quotes to prevent HTML attribute breakouts.
+* **Redirection Verification:** The backend BeautifulSoup scraper follows redirect chains but validates that the final landing domain belongs to the `.gov.sg` domain or trusted public domains (`healthhub.sg`, `wsg.sg`, `cdc.gov.sg`). 
+* **Auth Protection:** URLs matching authentication keywords (`singpass`, `login`, `signin`, `auth`, `corppass`) are blocked from scraping.
 
 ---
 
 ## 💻 Local Quickstart
 
-### 1. Folder Structure
-```text
-merlion-os/
-├── server.py             # FastAPI Production Web Server & Chat API
-├── mcp_server.py         # Standardised FastMCP Tool Server
-├── tools.py              # Agency DB, Scraper & Environment Tools
-├── requirements.txt      # Project dependencies
-├── static/
-│   ├── index.html        # Main tabbed HTML layout
-│   ├── style.css         # Custom stylesheet
-│   └── app.js            # UI handler & SG Hub data binding
-```
-
-### 2. Install Dependencies
+### 1. Project Dependencies
+Ensure you are in the project root folder.
 ```bash
 pip install -r requirements.txt
 ```
 
-Or manually:
-```bash
-pip install fastapi uvicorn google-genai beautifulsoup4 requests pydantic mcp anyio
-```
+### 2. Set API Keys & Start Server
+Set the required API keys (Gemini and LTA DataMall) in your environment variables.
 
 **Windows PowerShell:**
 ```powershell
 $env:GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
-$env:LTA_DATAMALL_API_KEY="YOUR_LTA_DATAMALL_API_KEY"
+$env:LTA_DATAMALL_API_KEY="yXnznUMqQMWa0EIWqJMwpw=="
+$env:PORT="8080"
 python server.py
 ```
 
 **Linux/macOS:**
 ```bash
 export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
-export LTA_DATAMALL_API_KEY="YOUR_LTA_DATAMALL_API_KEY"
+export LTA_DATAMALL_API_KEY="yXnznUMqQMWa0EIWqJMwpw=="
+export PORT="8080"
 python server.py
 ```
 
-Open your browser: **`http://127.0.0.1:8000/`**
+Open your browser to: **`http://127.0.0.1:8080/`**
+*(Note: If port 8000 is occupied on your machine, you can change the `PORT` env variable to run the server on any free port).*
 
-### 4. Run FastMCP Server (Cursor / Claude Desktop)
+### 3. Run FastMCP Tool Server
+To load the statutory tools inside development agents (like Cursor or Claude Desktop):
 ```bash
 python mcp_server.py
 ```
-
----
-
-## ☁️ Cloud Deployment (Render)
-
-1. Push repository to GitHub
-2. Sign in to [Render](https://render.com) → **New > Web Service**
-3. Link your GitHub repository
-4. Set:
-   - **Runtime:** Python 3
-   - **Build Command:** `pip install -r requirements.txt`
-   - **Start Command:** `python -m uvicorn server:app --host 0.0.0.0 --port $PORT`
-5. Add Environment Variable: `GEMINI_API_KEY = [Your Key]`
-6. Click **Deploy**
-
----
-
-## 📋 Changelog (Latest)
-
-### v2.0 — SG Hub Full Dashboard (July 2026)
-- ✅ **Weather dashboard** — PSI gauge card + animated fill bar + 6-region forecast icon cards (replaces plain text)
-- ✅ **LTA DataMall dynamic transit** — Live MRT/LRT line status grid (EWL, NSL, NEL, CCL, DTL, TEL, BPL, Sengkang LRT, Punggol LRT) with structured shuttle bus details and official advisories (Status code 1/2 mapping)
-- ✅ **Alerts sorted latest-first** — Gov and community Telegram feeds sorted by ISO post datetime descending
-- ✅ **Post date badges** — Every Telegram feed item shows `DD MMM YYYY, HH:MM AM/PM` (SGT)
-- ✅ **Last synced banners** — All sub-panes show retrieval timestamp
-- ✅ **HDB launch date** — BTO availability cards show `📅 June 2026 Launch` badge
-- ✅ **MOM retrenchment date** — "Data as of: Q1 2026 (Jan–Mar)" date badge added
-- ✅ **Gov Updates: last 3 posts** — Always returns the 3 most recent posts regardless of age
-- ✅ **Kiasu Community: last 24 hours** — Returns all posts within the last 24 hours
-- ✅ **Tab renamed** — "Gov Updates & Transit" → "Gov Updates"
-- ✅ **SWDA portal** added to Gov Portals directory
-- ✅ On-demand loading — SG Hub sub-panels only fetch when tab is clicked
-
-### v1.0 — Initial Hackathon Build
-- Gemini 2.5 Flash agentic multi-tool orchestration
-- BigQuery job analytics (Tech / Finance / Healthcare / General)
-- HDB BTO calculator + CPF grant estimator
-- FastMCP interoperability server
-- XSS hardening + gov.sg redirect validation
-- Multi-turn conversational memory

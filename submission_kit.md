@@ -9,18 +9,18 @@
 ### Selected: **AI for Better Living and Smarter Communities**
 
 **Why this track fits perfectly:**
-MerlionOS is a unified public-sector data intelligence portal that directly solves public service navigation friction for Singapore citizens. It aggregates live data from 15+ statutory boards (ICA, CPF, IRAS, MOM, HDB, NEA, ELD, WSG, SWDA, MAS, etc.), performs real-time official page scraping, and surfaces a live civic dashboard — all through a single conversational AI engine. Citizens no longer need to visit multiple fragmented portals; MerlionOS does the navigation, retrieval, and synthesis for them.
+MerlionOS is a unified public-sector data coordination portal designed to simplify access to fragmented government resources. Developed from a personal user journey of becoming a Singapore citizen, it aggregates live data from **15 statutory board portals** (ICA, ELD, IRAS, CPF, MOM, MOH, HDB, MOE, LTA, NEA, RedeemSG, SP Group, MySkillsFuture, Gov.sg, and WSG/SWDA), performs redirect-safe BeautifulSoup4 scraping, and exposes a live civic dashboard with LTA and NEA metrics. It addresses daily resident friction by unifying information retrieval under a single conversational brain.
 
 ---
 
 ## 📝 Submission Brief Description
-> **MerlionOS** is a unified public sector AI coordination brain built for Singapore Citizens to navigate fragmented government portals and access live civic data in one place.
+*Copy and paste into the "Brief description" field:*
+
+> **MerlionOS** is a unified, redirect-hardened Singapore public sector AI coordination brain and live dashboard. Inspired by a developer's transition to citizenship—moving from simple CPF/IRAS checks to managing ELD registers, HDB launches, SkillsFuture learning credits, and RedeemSG CDC tranches—it acts as a one-stop utility portal.
 >
-> Powered by **Google Gemini 2.5 Flash** and a real-time data pipeline, MerlionOS accepts complex multi-intent queries and routes them through 10+ backend tools concurrently. It searches an indexed directory of 15+ statutory boards, performs live BeautifulSoup4 scraping of trusted `.gov.sg` pages, queries **Google BigQuery** employment databases, and surfaces live weather/PSI metrics from the NEA data.gov.sg API.
+> Powered by **Google Gemini 2.5 Flash** with native parallel tool calls, the Co-Pilot routes queries to 10+ backend tools, queries partitioned **Google BigQuery** employment databases, and scrapes official pages securely. It handles redirects safely by restricting scraped endpoints to `.gov.sg` and trusted domains (`healthhub.sg`, `wsg.sg`, `cdc.gov.sg`), blocking authentication logins.
 >
-> The **SG Hub Live Dashboard** features a visual weather station (PSI gauge + 6-region forecast cards), HDB BTO listings with launch dates, MOM job market analysis, and a live **Transit Status Grid** integrated directly with the official **LTA DataMall API** (displaying real-time line-by-line EWL/NSL/NEL/CCL/DTL/TEL MRT status, disruption details, and free bus shuttle routing).
->
-> A real-time **Operations Control Log** terminal visualizes live traces: BigQuery SQL queries, HTTP scraping responses, LTA DataMall API requests, and API call chains — giving full transparency into AI operations for demo purposes.
+> The **SG Hub Live Dashboard** consolidates critical daily parameters: a live **Transit Status Grid** (LTA DataMall API) for line-by-line MRT status, rain and air quality metrics (NEA API), upcoming BTO launches with date badges (HDB Newsroom Next.js script extraction), and date-sorted Telegram updates. An **Operations Terminal** prints live SQL queries and crawler traces for full transparency.
 
 ---
 
@@ -28,9 +28,9 @@ MerlionOS is a unified public-sector data intelligence portal that directly solv
 
 ### Slide 1: Title Slide
 - **Project Name:** MerlionOS — Singapore Public Sector AI Coordination Brain
-- **Subtitle:** Live civic data + agentic AI for smarter citizen decision-making
+- **Subtitle:** One-stop citizen coordination, live transit monitoring, and agentic AI
 - **Track:** AI for Better Living and Smarter Communities
-- **Problem:** Singapore public services span 15+ independent portals. Citizens manually navigate ICA, CPF, IRAS, HDB, MOM, NEA separately — wasting time, missing deadlines, and struggling with policy complexity.
+- **Intent Story:** As a resident, I only accessed CPF, IRAS, and HealthHub. Becoming a citizen meant dealing with 15+ statutory boards (ELD, HDB, RedeemSG, SkillsFuture) scattered across Google searches. I built MerlionOS to aggregate this complexity into one dashboard, adding live transit and job market metrics crucial to my daily working life.
 
 ---
 
@@ -38,60 +38,56 @@ MerlionOS is a unified public-sector data intelligence portal that directly solv
 
 | Pain Point | Impact |
 |---|---|
-| 15+ siloed government portals | Citizens waste hours cross-referencing |
-| Static FAQ pages | No personalized, context-aware answers |
-| No unified data view | Can't see weather + jobs + housing together |
-| Fragmented Telegram feeds | Alerts scattered across many channels |
-| No transparency in AI advice | Citizens distrust AI-generated guidance |
+| 15+ scattered government portals | Citizens waste time search-indexing bookmarks |
+| Post-citizenship complexity | Compulsory voting, BTO launches, voucher tranches are scattered |
+| Transport & job vulnerability | No consolidated feed for MRT delays & employment trends |
+| Untrusted/Hijacked redirects | Scraping FAQ pages is vulnerable to phishing/auth leaks |
+| Black-box AI | Users cannot verify query-to-database routing |
 
-**Opportunity:** One intelligent portal that aggregates, scrapes, and explains — with full transparency.
+**Opportunity:** A unified coordination dashboard combining statutory registries, live APIs, and sanitised scraping with full operations transparency.
 
 ---
 
 ### Slide 3: Solution Approach & Google Stack
 
-**Approach:** A stateless FastAPI server maps citizen queries to Python tool registries. Gemini 2.5 Flash orchestrates parallel function calling. Data is retrieved on-demand from live APIs, BigQuery, web scrapers, and Telegram feeds — then rendered in a premium dark-mode dashboard.
+**Approach:** A stateless FastAPI server maps citizen inquiries to registered Python tools. Gemini 2.5 Flash acts as the coordinator, calling tools in parallel. Weather, rail alerts, housing press releases, and job trends are retrieved on-demand and validated securely before UI rendering.
 
 **Google Technologies Used:**
-- **Google Gemini 2.5 Flash** — Low-latency AI orchestration with native parallel tool calling
-- **google-genai SDK** — Modern async model client
-- **Google BigQuery** — Queries MOM employment statistics partitioned by sector (Tech, Finance, Healthcare, General)
-- **Model Context Protocol (FastMCP)** — Exposes all tools as standard JSON-RPC endpoints for Cursor/Claude Desktop
-
-**Proven Impact:** Instead of opening 4+ portal tabs, a citizen gets a synthesized guidance brief in under 5 seconds.
+- **Google Gemini 2.5 Flash** — Orchestration agent with native parallel tool calls
+- **google_genai SDK** — High-performance async model interface
+- **Google Search Grounding Fallback** — Automatic failover to `gemini-2.0-flash` with search grounding on 429 quota limits to guarantee 100% uptime
+- **Google BigQuery** — Analyzes MOM employment datasets partitioned by sector (Tech, Finance, Healthcare, General)
+- **Model Context Protocol (FastMCP)** — Exposes tools for Cursor/Claude Desktop
 
 ---
 
 ### Slide 4: Key Differentiators
 
-| Feature | Traditional Portals | MerlionOS |
+| Feature | Traditional Portals / search | MerlionOS |
 |---|---|---|
-| Data access | Static FAQ links | Live API + scraper + BigQuery |
-| Query handling | Keyword search | Multi-intent AI routing |
-| Weather data | Separate NEA site | Live PSI gauge + forecast cards |
-| Job market | Separate MOM site | BigQuery-powered sector analytics |
-| Transit alerts | Scattered Telegram channels | **LTA DataMall API** (Structured line-by-line status) |
-| HDB info | Separate HDB site + portal | BTO cards with dates + portal link |
-| AI transparency | None | Live Operations Terminal |
-| Data freshness | Unknown | "Last synced" timestamp on all panels |
+| Aggregation | Search portals one-by-one | One-stop directory of 15 statutory boards |
+| AI Search Uptime | Quota error block | Google Search Grounding fallback |
+| Air Quality/Weather | Separate NEA site | Live PSI gauge + 6-region forecast cards |
+| Rail Alerts | Check multiple channels | LTA DataMall API line-by-line grid (EWL/NSL/NEL/DTL/etc) |
+| Job statistics | Separate MOM portal | Partitioned BigQuery MOM dataset |
+| Link Safety | Redirects vulnerable to hijack | BeautifulSoup redirect validation + safeURL XSS sanitization |
 
 ---
 
 ### Slide 5: Feature List (v2.0)
 
-1. **🤖 Multi-Intent Parallel AI Routing** — Single query triggers 5+ tools simultaneously
-2. **🌤️ Weather Dashboard** — PSI gauge card with animated bar + 6-region emoji forecast cards (live NEA API)
-3. **🏢 HDB BTO Tracker** — BTO availability cards with launch date badges + scraped press releases
-4. **📊 BigQuery Job Analytics** — Tech/Finance/Healthcare/General sector breakdown; vacancies, salaries, skills, retrenchment risk
-5. **🚇 LTA DataMall Train Status** — Structured MRT/LRT line grid (EWL, NSL, NEL, DTL, CCL, TEL) showing 🟢/🔴 status with free bus shuttle locations and official advisory notes (Status 1/2 mapping)
-6. **📢 Gov Updates:** 7 official channels (govsg, HealthHub, ScamShield, MOE, NEA, GovTech, LTA) — last 3 posts per channel regardless of age, sorted newest-first, SGT timestamps shown
-7. **🎟️ Kiasu SG Deals:** 15 lifestyle channels — posts within the last 24 hours, sorted newest-first, SGT timestamps & SGT date badges shown
-8. **🕒 Data Freshness Indicators** — "Last synced: DD MMM YYYY, HH:MM (SGT)" on every sub-panel
-9. **🌐 Gov Portals Directory** — 12+ agency cards including SWDA, with direct portal buttons
-10. **🖥️ Operations Control Terminal** — Live SQL, HTTP, scraping traces for full transparency
-11. **🔌 FastMCP Server** — Plug-and-play MCP tool server for Cursor/Claude Desktop
-12. **🔐 URL Hardening (safeURL)** — Client-side HTML sanitation blocking `javascript:`/`data:` links & escaping quotes
-13. **🔒 Redirection Security** — BeautifulSoup scraper re-validates landing domain to only allow `.gov.sg` or trusted domains (`healthhub.sg`, `wsg.sg`, `cdc.gov.sg`) and blocks authentication endpoints.
+1. **🤖 Multi-Intent Coordinator** — Gemini 2.5 Flash calls multiple statutory tools concurrently
+2. **🌤️ Weather Station** — Live PSI gauge + 6-region emoji forecast cards (NEA API)
+3. **🚇 Transit Operations Grid** — Real-time MRT/LRT line statuses, disruption details, and bus bridge info (LTA DataMall API)
+4. **🏢 BTO Launch Tracker** — Availability tables with date badges (HDB Newsroom Next.js script extraction)
+5. **📊 Job Market Analytics** — Tech/Finance/Healthcare/General sector statistics (Google BigQuery)
+6. **⚠️ MOM Retrenchment Index** — Active figures with "Data as of: Q1 2026" date badge
+7. **📢 Gov Updates:** Last 3 posts from 7 official Telegram channels, chronologically sorted by SGT date
+8. **🎟️ Kiasu Deals:** Lifestyle deals from the last 24 hours (15 Telegram channels)
+9. **🌐 15 Statutory Portals** — Drag-and-drop persistent cards (ELD, ICA, IRAS, CPF, MOM, MOH, HDB, MOE, LTA, NEA, etc.)
+10. **🖥️ Operations Terminal** — Live logging of SQL queries, crawler requests, and scraper HTTP responses
+11. **🔐 safeURL Sanitization** — Client-side HTML cleanup blocking `javascript:`/`data:` links & escaping quotes
+12. **🔒 Scraper Hardening** — Restricts scraping to `.gov.sg`, `healthhub.sg`, `wsg.sg`, `cdc.gov.sg` and blocks auth endpoints
 
 ---
 
@@ -103,33 +99,32 @@ MerlionOS is a unified public-sector data intelligence portal that directly solv
         ▼
 [FastAPI Server (server.py)]
         │
-        ├──► On-demand sub-panel APIs:
+        ├──► On-demand Hub APIs:
         │       • GET /api/sg-hub/weather      → NEA PSI + 2-hr forecast
-        │       • GET /api/sg-hub/hdb          → BTO registry + HDB newsroom
+        │       • GET /api/sg-hub/hdb          → BTO registry + HDB pulse
         │       • GET /api/sg-hub/jobs         → BigQuery MOM dataset
-        │       • GET /api/sg-hub/gov-transit  → Telegram gov channels + LTA DataMall API (parallel)
-        │       • GET /api/sg-hub/community    → Telegram community channels (sorted)
+        │       • GET /api/sg-hub/gov-transit  → Telegram gov channels + LTA DataMall Train Alerts
+        │       • GET /api/sg-hub/community    → Telegram community channels (last 24h)
         │
         └──► Chat API:
                 POST /api/chat
                         │
                         ▼
               [Gemini 2.5 Flash Orchestrator]
-              (Parallel function calling)
+              (429 Fallback: Gemini 2.0 + Search Grounding)
               /           |           \
              ▼            ▼            ▼
-      [Static DB]  [Gov Scraper]  [BigQuery]
-      ICA/CPF/IRAS  BeautifulSoup4   MOM data
+       [Static DB]  [Gov Scraper]  [BigQuery]
+       15 statutory BeautifulSoup4  MOM data
              \            |            /
               ▼            ▼           ▼
-         [call_tool_robustly — arg mapping helper]
+          [call_tool_robustly — arg mapping helper]
                         │
                         ▼
               [Synthesized Markdown Response]
                         │
                         ▼
-         [Frontend: escapeHTML → safe render]
-         [Operations Log: trace display]
+          [Frontend: safeURL → escapeHTML render]
 ```
 
 ---
@@ -140,17 +135,17 @@ MerlionOS is a unified public-sector data intelligence portal that directly solv
 ┌─────────────────────────────────────────────────────┐
 │  SG Hub        [Weather][HDB][Jobs][Gov][Community]  │
 ├─────────────────────────────────────────────────────┤
-│  🕒 Last synced: 05 Jul 2026, 04:47 AM (SGT)        │
+│  🕒 Last synced: 05 Jul 2026, 06:48 PM (SGT)        │
 │                                                      │
-│  ┌── PSI Gauge ──────────────────────────────────┐  │
-│  │  🍃 28   [████░░░░░░░░░░░░░░]  ✅ Good        │  │
+│  ┌── LTA DataMall Train Status ──────────────────┐  │
+│  │ EWL 🟢 Normal   NSL 🟢 Normal   NEL 🟢 Normal    │  │
+│  │ CCL 🟢 Normal   DTL 🟢 Normal   TEL 🟢 Normal    │  │
 │  └──────────────────────────────────────────────┘  │
 │                                                      │
-│  ⛅ 2-Hr Regional Forecast                           │
-│  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐     │
-│  │  ⛅  │ │  ☀️  │ │ 🌧️  │ │  ☁️ │ │ ⛈️  │     │
-│  │Orchard│ │Jurong│ │Tampines│ │Woodl│ │Punggol│    │
-│  └──────┘ └──────┘ └──────┘ └──────┘ └──────┘     │
+│  ⚠️ Official Advisory (2026-04-18 11:50)             │
+│  ┌──────────────────────────────────────────────┐  │
+│  │ Sengkang West LRT Inner Loop Closed...       │  │
+│  └──────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -169,10 +164,10 @@ graph TD
     Tools -->|PSI + Forecast| NEA[NEA data.gov.sg API]
     Tools -->|BTO + News| HDB[HDB Registry + Newsroom]
     Tools -->|SQL| BQ[Google BigQuery - MOM]
-    Tools -->|Scrape + parse| TG[Telegram Web Scraper - anyio TaskGroup]
-    Tools -->|Train Alerts| LTA[LTA DataMall API]
+    Tools -->|MRT Status| LTA[LTA DataMall API]
+    Tools -->|Scrape + parse| TG[Telegram Web Scraper]
     Tools -->|gov.sg pages| BS4[BeautifulSoup4 Scraper]
-    NEA & HDB & BQ & TG & LTA & BS4 --> API
+    NEA & HDB & BQ & LTA & TG & BS4 --> API
     API -->|JSON response| UI
     UI -->|escapeHTML + safeURL render| User
     API -.->|MCP JSON-RPC| MCP[mcp_server.py - FastMCP]
@@ -185,17 +180,17 @@ graph TD
 
 | Component | Technology | Why |
 |---|---|---|
-| AI Engine | Gemini 2.5 Flash | Low latency, high context, stable parallel tool calling |
+| AI Engine | Gemini 2.5 Flash | Fast orchestrator, high context, stable parallel tool calling |
+| Fallback Engine | Gemini 2.0 Flash | Search Grounding fallback on 429 quota exhaustion |
 | Backend | FastAPI + Uvicorn | Async event loop; `anyio.to_thread` for non-blocking I/O |
-| Data Warehouse | Google BigQuery | Fast analytic queries on MOM employment data |
-| Live APIs | NEA data.gov.sg | Real-time PSI + 2-hr forecast JSON |
-| Feed Scraper | BeautifulSoup4 + anyio TaskGroup | Parallel Telegram channel crawlers |
-| MCP Protocol | FastMCP | Standard JSON-RPC interoperability |
-| Frontend | Vanilla HTML/CSS/JS | Zero-overhead, XSS-safe, fast |
-
-**Scalability path:** BigQuery naturally scales to handle full MOM public employment datasets. The Telegram scraper uses parallel `anyio` task groups — easily extended to more channels. The FastAPI backend is stateless and horizontally scalable on Render/Cloud Run.
+| Data Warehouse | Google BigQuery | Scalable analytical storage for MOM employment datasets |
+| Live APIs | NEA & LTA DataMall | Structured weather and train service alerts |
+| HTML Parser | BeautifulSoup4 | Re-validates redirected domains and filters auth endpoints |
+| Frontend | Vanilla JS (safeURL) | Sandbox sanitization, localStorage grid reordering |
 
 ---
+
+### Slide 10: Demo Highlights
 
 **Operations Terminal traces visible during demo:**
 ```
@@ -208,25 +203,18 @@ graph TD
 ```
 
 **UI Features to highlight:**
-- Live MRT/LRT line grid (EWL, NSL, NEL, CCL, DTL, TEL) with colour-coded status badges
-- Sengkang LRT planned loop closure warning advisory banner at the top of the Transit card
-- PSI animated gauge with colour-coded threshold bar (live NEA data)
-- Regional forecast emoji cards (live NEA data)
-- HDB BTO cards with `📅 June 2026 Launch` date badges
-- HDB news releases live scraper with SGT dates and real embedded links
-- MOM retrenchment "Data as of: Q1 2026" date badge
-- safeURL client-side XSS sanitization of all scraped links
-- Redirect domain validation block traces for scraper security
+- Live MRT/LRT grid showing 🟢/🔴 status with Sengkang LRT closure warning alert card
+- PSI animated gauge progress bar + regional forecast emoji cards (live NEA data)
+- HDB BTO registry with launch date badges + HDB Newsroom Next.js scraper links
+- MOM retrenchment Q1 2026 data freshness index
+- Real-time tool query logs and SQL statements on the Operations Console
+- safeURL XSS block warnings and redirected domain validation logs
 
 ---
 
 ### Slide 11: Thank You
 
 **MerlionOS — Singapore Public Sector AI Coordination Brain**
-*Unified. Transparent. Always Fresh.*
-
-- 🔗 **GitHub:** [Your Repository URL]
-- 🌐 **Live Demo:** [Your Render / Cloud Run URL]
-- 📧 **Contact:** [Your Email]
+*Unified. Hardened. Transparent.*
 
 *Built with Google Gemini 2.5 Flash, BigQuery, FastAPI, FastMCP, and ❤️ for Singapore.*
