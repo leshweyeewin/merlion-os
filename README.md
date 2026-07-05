@@ -61,6 +61,12 @@ The floating **Co-Pilot Chat Assistant** runs on **Gemini 2.5 Flash** with nativ
 * **Redirection Verification:** The backend BeautifulSoup scraper follows redirect chains but validates that the final landing domain belongs to the `.gov.sg` domain or trusted public domains (`healthhub.sg`, `wsg.sg`, `cdc.gov.sg`). 
 * **Auth Protection:** URLs matching authentication keywords (`singpass`, `login`, `signin`, `auth`, `corppass`) are blocked from scraping.
 
+<p align="center">
+  <img src="docs/screenshots/chat-widget.png" alt="MerlionOS Co-Pilot chat widget showing the welcome message and quick-prompt suggestions" width="420">
+  <img src="docs/screenshots/operations-trace.png" alt="MerlionOS Co-Pilot Operations Trace tab showing system routing, live query matching, and error-handling logs" width="420">
+</p>
+<p align="center"><em>Left: the Assistant tab. Right: the Operations Trace tab, which exposes the routing brain's live decision log for auditability.</em></p>
+
 ---
 
 ## 💻 Local Quickstart
@@ -92,6 +98,17 @@ python server.py
 
 Open your browser to: **`http://127.0.0.1:8080/`**
 *(Note: If port 8000 is occupied on your machine, you can change the `PORT` env variable to run the server on any free port).*
+
+A successful startup looks like this in your terminal:
+```
+INFO:     Started server process [16864]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8080 (Press CTRL+C to quit)
+INFO:     127.0.0.1:64638 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64638 - "GET /style.css HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64638 - "GET /app.js HTTP/1.1" 200 OK
+```
 
 ### 3. Run FastMCP Tool Server
 To load the statutory tools inside development agents (like Cursor or Claude Desktop):
