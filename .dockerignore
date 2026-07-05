@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+*.db
+*.pyc
+.git/
+.gitignore
+node_modules/

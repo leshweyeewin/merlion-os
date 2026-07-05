@@ -1,0 +1,13 @@
+{
+  "name": "merlion-os",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "^0.0.13"
+  }
+}

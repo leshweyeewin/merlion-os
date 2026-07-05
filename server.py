@@ -459,9 +459,10 @@ def scrape_one_telegram_channel(channel: str) -> list:
                 if not time_el or not time_el.has_attr("datetime"):
                     continue # Skip pinned or service messages without timestamps
                 
-                content = text_el.get_text(separator=' ').strip()
-                content = re.sub(r'\s+', ' ', content)
-                
+                content = text_el.get_text(separator='\n').strip()
+                lines = [re.sub(r'[ \t]+', ' ', line).strip() for line in content.split('\n')]
+                content = '\n'.join(line for line in lines if line)
+
                 dt_str = time_el["datetime"]
                 iso_date = dt_str
                 date_str = "N/A"
@@ -473,7 +474,7 @@ def scrape_one_telegram_channel(channel: str) -> list:
                 except Exception as dt_err:
                     logger.warning(f"Failed to parse datetime '{dt_str}' for channel {channel}: {dt_err}")
                     continue # Skip if parsing fails to avoid invalid dates
-                
+
                 display_content = content
                 if len(display_content) > 180:
                     display_content = display_content[:177] + "..."
@@ -816,7 +817,9 @@ async def get_sg_hub_gov_transit():
                                 text_el = msg.find("div", class_="tgme_widget_message_text")
                                 if not text_el:
                                     continue
-                                content = re.sub(r'\s+', ' ', text_el.get_text(separator=' ').strip())
+                                content_lines = text_el.get_text(separator='\n').strip().split('\n')
+                                content_lines = [re.sub(r'[ \t]+', ' ', line).strip() for line in content_lines]
+                                content = '\n'.join(line for line in content_lines if line)
                                 if len(content) > 180:
                                     content = content[:177] + "..."
                                 

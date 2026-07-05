@@ -733,7 +733,7 @@ function initSgHub() {
                     </span>
                     <a href="${safeURL(evt.link)}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Alert</a>
                 </div>
-                <div style="color: var(--text-main); line-height:1.45;">${escapeHTML(evt.content)}</div>
+                <div style="color: var(--text-main); line-height:1.45; white-space: pre-wrap;">${escapeHTML(evt.content)}</div>
             </div>`;
         });
         govEventsContent.innerHTML = banner + (govHtml || "<p style='color: var(--text-subtle); margin:0;'>No official alerts.</p>");
