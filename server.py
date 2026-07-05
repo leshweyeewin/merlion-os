@@ -209,7 +209,7 @@ async def chat_endpoint(request: ChatRequest):
             logger.warning(f"Gemini API quota exceeded — attempting Google Search grounding fallback: {e.message}")
             # ── Google Search Grounding Fallback ──────────────────────────────────────
             # When the primary Gemini 2.5 Flash quota is exhausted, retry the same
-            # question using gemini-2.0-flash-lite with Google Search grounding enabled.
+            # question using gemini-3.1-flash-lite with Google Search grounding enabled.
             # This gives a live, web-cited answer without hitting the tool-calling quota.
             try:
                 print("\n\033[93m[MerlionOS Fallback] Primary quota exceeded — activating Google Search Grounding mode...\033[0m")
@@ -224,21 +224,21 @@ async def chat_endpoint(request: ChatRequest):
                     temperature=0.1,
                 )
                 fallback_response = await client.aio.models.generate_content(
-                    model="gemini-2.0-flash",
+                    model="gemini-3.1-flash-lite",
                     contents=contents,
                     config=search_config,
                 )
                 fallback_text = fallback_response.text or "Could not retrieve grounded search results."
                 fallback_note = (
                     "\n\n---\n> ⚡ **Fallback Mode:** Primary AI quota reached. "
-                    "This response was generated using **Google Search Grounding** (gemini-2.0-flash)."
+                    "This response was generated using **Google Search Grounding** (gemini-3.1-flash-lite)."
                 )
                 print("\033[93m[MerlionOS Fallback] Google Search Grounding response compiled successfully.\033[0m")
                 return ChatResponse(
                     response=fallback_text + fallback_note,
                     logs=[ToolLog(
                         tool="google_search_grounding",
-                        arguments={"query": user_prompt, "model": "gemini-2.0-flash"},
+                        arguments={"query": user_prompt, "model": "gemini-3.1-flash-lite"},
                         result="[Google Search grounding activated — web-cited response returned]"
                     )]
                 )
