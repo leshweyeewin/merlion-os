@@ -23,7 +23,7 @@ All sub-panels load **on-demand** (only when selected) and show a **"Last synced
 | 🌤️ **Weather & Air Quality** | NEA data.gov.sg API | PSI gauge card + 6-region 2-hr forecast cards |
 | 🏢 **HDB BTO Launches** | HDB static registry + HDB Newsroom | Launch date badge per listing; scraped press releases with dates |
 | 📊 **Job Market Analysis** | Google BigQuery MOM dataset | Sector vacancies, salaries, retrenchment risk, MOM support schemes |
-| 📢 **Gov Updates** | Telegram scraper (7 channels) | Last 3 posts per channel, sorted latest-first, post date shown |
+| 📢 **Gov Updates** | Telegram scraper (7 channels) + **LTA DataMall API** | Last 3 posts per channel + **structured live MRT line status grid (EWL, NSL, NEL, CCL, DTL, TEL)** with detailed disruption reports and bus shuttle details |
 | 🎟️ **Kiasu SG Deals** | Telegram scraper (15 channels) | Posts within last 24 hours, sorted latest-first, post date shown |
 | 🌐 **Gov Portals** | Static registry | HDB, MOM, WSG, SWDA, ICA, MAS, NEA + direct portal buttons |
 
@@ -49,7 +49,7 @@ All sub-panels load **on-demand** (only when selected) and show a **"Last synced
 | AI Orchestration | Google Gemini 2.5 Flash (`google-genai` SDK) |
 | Backend | FastAPI + Uvicorn |
 | Data Warehouse | Google BigQuery (MOM employment dataset) |
-| Live Feeds | NEA data.gov.sg API, HDB Newsroom, Telegram web scraper |
+| Live Feeds | NEA data.gov.sg API, **LTA DataMall TrainServiceAlerts API**, HDB Newsroom, Telegram web scraper |
 | HTML Parser | BeautifulSoup4 + `requests` |
 | MCP Protocol | FastMCP (`mcp` library) |
 | Frontend | Semantic HTML5, Vanilla CSS (glassmorphism), Vanilla JS |
@@ -81,17 +81,17 @@ Or manually:
 pip install fastapi uvicorn google-genai beautifulsoup4 requests pydantic mcp anyio
 ```
 
-### 3. Set Environment Variables & Run
-
 **Windows PowerShell:**
 ```powershell
 $env:GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
+$env:LTA_DATAMALL_API_KEY="YOUR_LTA_DATAMALL_API_KEY"
 python server.py
 ```
 
 **Linux/macOS:**
 ```bash
 export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
+export LTA_DATAMALL_API_KEY="YOUR_LTA_DATAMALL_API_KEY"
 python server.py
 ```
 
@@ -122,6 +122,7 @@ python mcp_server.py
 
 ### v2.0 — SG Hub Full Dashboard (July 2026)
 - ✅ **Weather dashboard** — PSI gauge card + animated fill bar + 6-region forecast icon cards (replaces plain text)
+- ✅ **LTA DataMall dynamic transit** — Live MRT/LRT line status grid (EWL, NSL, NEL, CCL, DTL, TEL, BPL, Sengkang LRT, Punggol LRT) with structured shuttle bus details and official advisories (Status code 1/2 mapping)
 - ✅ **Alerts sorted latest-first** — Gov and community Telegram feeds sorted by ISO post datetime descending
 - ✅ **Post date badges** — Every Telegram feed item shows `DD MMM YYYY, HH:MM AM/PM` (SGT)
 - ✅ **Last synced banners** — All sub-panes show retrieval timestamp

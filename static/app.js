@@ -731,35 +731,115 @@ function initSgHub() {
         });
         govEventsContent.innerHTML = banner + (govHtml || "<p style='color: var(--text-subtle); margin:0;'>No official alerts.</p>");
 
+        // ── Transit section: DataMall structured view OR Telegram keyword-filter fallback ──
         let mrtHtml = "";
-        const transitKeywords = ["mrt", "lrt", "train", "track fault", "service delay", "smrt", "sbs transit", "lta", "road closure", "traffic accident", "delay", "disruption", "service recovery"];
-        let transitEvents = [];
-        
-        data.gov_events.forEach(evt => {
-            const textLower = evt.content.toLowerCase();
-            const matched = transitKeywords.some(kw => textLower.includes(kw));
-            if (matched && !transitEvents.some(te => te.content === evt.content)) {
-                transitEvents.push(evt);
-            }
-        });
 
-        transitEvents.forEach(evt => {
-            mrtHtml += `<div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 8px;">
-                <div style="display:flex; justify-content:space-between; margin-bottom: 6px; font-weight:600; flex-wrap:wrap; gap:8px;">
-                    <span style="color: var(--primary); display:inline-flex; align-items:center; gap:6px;">
-                        <i class="fa-solid fa-train-subway"></i> ${escapeHTML(evt.source)}
-                        ${evt.date ? `<span style="font-size:10px; font-weight:normal; color:var(--text-muted); background:var(--border); padding:2px 6px; border-radius:4px;">${escapeHTML(evt.date)}</span>` : ''}
-                    </span>
-                    <a href="${evt.link}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Alert</a>
-                </div>
-                <div style="color: var(--text-main); line-height:1.45;">${escapeHTML(evt.content)}</div>
+        if (data.train_alerts) {
+            // ── LTA DataMall: structured per-line MRT status dashboard ──
+            const ta = data.train_alerts;
+            const overallNormal = ta.status === "Normal";
+            const apiTimestamp = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display:flex; align-items:center; gap:6px; font-weight:600;">
+                <i class="fa-solid fa-satellite-dish" style="color:#005EC4;"></i>
+                <span>LTA DataMall Live Feed</span>
+                <span style="font-size:10px; font-weight:normal; color:var(--text-muted); background:var(--border); padding:2px 7px; border-radius:4px;">Retrieved: ${escapeHTML(ta.retrieved_at)}</span>
             </div>`;
-        });
-        mrtEventsContent.innerHTML = banner + (mrtHtml || `
-            <div style="display:flex; align-items:center; gap:8px; color: var(--text-success); background: var(--bg-muted); border: 1px solid var(--border); padding:16px; border-radius:8px; font-size:14px; font-weight:600;">
-                <i class="fa-solid fa-circle-check" style="font-size:18px;"></i>
-                🟢 All train services are operating normally. No active disruptions reported.
-            </div>`);
+
+            if (overallNormal) {
+                mrtHtml += `<div style="display:flex; align-items:center; gap:8px; color: #1a7f3c; background: #eafaf1; border: 1px solid #a3d9b1; padding:14px 16px; border-radius:10px; font-size:14px; font-weight:700; margin-bottom:14px;">
+                    <i class="fa-solid fa-circle-check" style="font-size:18px;"></i>
+                    🟢 All MRT & LRT Lines Operating Normally
+                </div>`;
+            } else {
+                mrtHtml += `<div style="display:flex; align-items:center; gap:8px; color: #c0392b; background: #fdecea; border: 1px solid #e8b4b1; padding:14px 16px; border-radius:10px; font-size:14px; font-weight:700; margin-bottom:14px;">
+                    <i class="fa-solid fa-triangle-exclamation" style="font-size:18px;"></i>
+                    ⚠️ Train Service Disruptions / Minor Delays Active
+                </div>`;
+            }
+
+            // Display general alert messages if present
+            if (ta.messages && ta.messages.length > 0) {
+                mrtHtml += `<div style="margin-bottom:16px;">`;
+                ta.messages.forEach(msg => {
+                    mrtHtml += `<div style="background:#fffbeb; border:1px solid #fef3c7; border-left:4px solid #d97706; border-radius:8px; padding:12px; font-size:13px; margin-bottom:8px; line-height:1.5; color:#92400e;">
+                        <div style="font-weight:700; margin-bottom:4px; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:#b45309;">
+                            <i class="fa-solid fa-bullhorn"></i> Official Advisory (${escapeHTML(msg.created_date)})
+                        </div>
+                        <div>${escapeHTML(msg.content)}</div>
+                    </div>`;
+                });
+                mrtHtml += `</div>`;
+            }
+
+            // Per-line status grid
+            mrtHtml += `<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:10px; margin-bottom:16px;">`;
+            ta.lines.forEach(line => {
+                const isDisrupted = line.status === "Disrupted";
+                const statusColor   = isDisrupted ? "#c0392b" : "#1a7f3c";
+                const statusBg      = isDisrupted ? "#fdecea" : "#eafaf1";
+                const statusBorder  = isDisrupted ? "#e8b4b1" : "#a3d9b1";
+                const statusIcon    = isDisrupted ? "🔴" : "🟢";
+                mrtHtml += `<div style="background:${statusBg}; border:1px solid ${statusBorder}; border-radius:8px; padding:10px 12px;">
+                    <div style="display:flex; align-items:center; gap:7px; margin-bottom:4px;">
+                        <span style="background:${escapeHTML(line.line_color)}; color:#fff; font-size:10px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">${escapeHTML(line.line_code)}</span>
+                        <span style="font-size:12px; font-weight:700; color:${statusColor};">${statusIcon} ${isDisrupted ? "Affected" : "Normal"}</span>
+                    </div>
+                    <div style="font-size:11px; color:var(--text-muted);">${escapeHTML(line.line_name)}</div>
+                </div>`;
+            });
+            mrtHtml += `</div>`;
+
+            // Disruption detail cards (using exact LTA guide parameters)
+            const disruptedLines = ta.lines.filter(l => l.status === "Disrupted");
+            if (disruptedLines.length > 0) {
+                mrtHtml += `<div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Disruption Scope</div>`;
+                disruptedLines.forEach(line => {
+                    line.affected_segments.forEach(seg => {
+                        mrtHtml += `<div style="background:var(--bg-muted); border:1px solid #e8b4b1; border-left: 4px solid ${escapeHTML(line.line_color)}; border-radius:8px; padding:12px; font-size:13px; margin-bottom:8px; line-height:1.5;">
+                            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; font-weight:700;">
+                                <span style="background:${escapeHTML(line.line_color)}; color:#fff; font-size:10px; font-weight:800; padding:2px 8px; border-radius:4px;">${escapeHTML(line.line_code)}</span>
+                                <span style="color:#c0392b;">${escapeHTML(line.line_name)}</span>
+                                ${seg.direction ? `<span style="font-size:11px; color:var(--text-muted);">• Direction: ${escapeHTML(seg.direction)}</span>` : ''}
+                            </div>
+                            ${seg.stations ? `<div style="font-size:12px; color:var(--text-main); margin-bottom:6px; font-weight:600;"><i class="fa-solid fa-location-dot" style="color:var(--text-muted);"></i> Affected Stations: <span style="color:#c0392b;">${escapeHTML(seg.stations)}</span></div>` : ''}
+                            
+                            ${seg.free_public_bus ? `<div style="font-size:12px; color:#1a7f3c; margin-bottom:4px; font-weight:600;"><i class="fa-solid fa-bus"></i> Free Public Bus Boarding: <span>${escapeHTML(seg.free_public_bus)}</span></div>` : ''}
+                            ${seg.free_mrt_shuttle ? `<div style="font-size:12px; color:#005EC4; margin-bottom:4px; font-weight:600;"><i class="fa-solid fa-bus-simple"></i> Free MRT Shuttle: <span>${escapeHTML(seg.free_mrt_shuttle)}</span> (${escapeHTML(seg.mrt_shuttle_direction)})</div>` : ''}
+                        </div>`;
+                    });
+                });
+            }
+
+            mrtEventsContent.innerHTML = apiTimestamp + mrtHtml;
+
+        } else {
+            // ── Fallback: keyword-filter Telegram posts (no DataMall key) ──
+            const transitKeywords = ["mrt", "lrt", "train", "track fault", "service delay", "smrt", "sbs transit", "lta", "road closure", "traffic accident", "delay", "disruption", "service recovery"];
+            let transitEvents = [];
+            data.gov_events.forEach(evt => {
+                const textLower = evt.content.toLowerCase();
+                const matched = transitKeywords.some(kw => textLower.includes(kw));
+                if (matched && !transitEvents.some(te => te.content === evt.content)) {
+                    transitEvents.push(evt);
+                }
+            });
+            transitEvents.forEach(evt => {
+                mrtHtml += `<div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 8px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 6px; font-weight:600; flex-wrap:wrap; gap:8px;">
+                        <span style="color: var(--primary); display:inline-flex; align-items:center; gap:6px;">
+                            <i class="fa-solid fa-train-subway"></i> ${escapeHTML(evt.source)}
+                            ${evt.date ? `<span style="font-size:10px; font-weight:normal; color:var(--text-muted); background:var(--border); padding:2px 6px; border-radius:4px;">${escapeHTML(evt.date)}</span>` : ''}
+                        </span>
+                        <a href="${evt.link}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Alert</a>
+                    </div>
+                    <div style="color: var(--text-main); line-height:1.45;">${escapeHTML(evt.content)}</div>
+                </div>`;
+            });
+            mrtEventsContent.innerHTML = banner + (mrtHtml || `
+                <div style="display:flex; align-items:center; gap:8px; color: var(--text-success); background: var(--bg-muted); border: 1px solid var(--border); padding:16px; border-radius:8px; font-size:14px; font-weight:600;">
+                    <i class="fa-solid fa-circle-check" style="font-size:18px;"></i>
+                    🟢 All train services are operating normally. No active disruptions reported.
+                </div>`);
+        }
     }
 
     function renderCommunityPane(data) {
