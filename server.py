@@ -206,11 +206,48 @@ async def chat_endpoint(request: ChatRequest):
 
     except genai_errors.ClientError as e:
         if e.code == 429:
-            logger.warning(f"Gemini API quota exceeded: {e.message}")
-            raise HTTPException(
-                status_code=429,
-                detail="MerlionOS has hit the Gemini API's free-tier request limit for now. Please wait a minute and try again."
-            )
+            logger.warning(f"Gemini API quota exceeded — attempting Google Search grounding fallback: {e.message}")
+            # ── Google Search Grounding Fallback ──────────────────────────────────────
+            # When the primary Gemini 2.5 Flash quota is exhausted, retry the same
+            # question using gemini-2.0-flash-lite with Google Search grounding enabled.
+            # This gives a live, web-cited answer without hitting the tool-calling quota.
+            try:
+                print("\n\033[93m[MerlionOS Fallback] Primary quota exceeded — activating Google Search Grounding mode...\033[0m")
+                search_config = types.GenerateContentConfig(
+                    system_instruction=(
+                        "You are MerlionOS, a Singapore public sector AI assistant. "
+                        "Answer the citizen's question using your grounded Google Search results. "
+                        "Focus on official Singapore government sources (.gov.sg) where possible. "
+                        "Be concise, cite sources, and highlight key deadlines, fees, or eligibility."
+                    ),
+                    tools=[types.Tool(google_search=types.GoogleSearch())],
+                    temperature=0.1,
+                )
+                fallback_response = await client.aio.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=contents,
+                    config=search_config,
+                )
+                fallback_text = fallback_response.text or "Could not retrieve grounded search results."
+                fallback_note = (
+                    "\n\n---\n> ⚡ **Fallback Mode:** Primary AI quota reached. "
+                    "This response was generated using **Google Search Grounding** (gemini-2.0-flash)."
+                )
+                print("\033[93m[MerlionOS Fallback] Google Search Grounding response compiled successfully.\033[0m")
+                return ChatResponse(
+                    response=fallback_text + fallback_note,
+                    logs=[ToolLog(
+                        tool="google_search_grounding",
+                        arguments={"query": user_prompt, "model": "gemini-2.0-flash"},
+                        result="[Google Search grounding activated — web-cited response returned]"
+                    )]
+                )
+            except Exception as fallback_err:
+                logger.exception(f"Google Search grounding fallback also failed: {fallback_err}")
+                raise HTTPException(
+                    status_code=429,
+                    detail="MerlionOS has hit the Gemini API's free-tier request limit. Google Search fallback also failed. Please wait a minute and try again."
+                )
         logger.exception("Gemini client error occurred in chat_endpoint handler")
         raise HTTPException(
             status_code=502,
@@ -259,6 +296,139 @@ COMMUNITY_CHANNELS = [
     "confirmgood", "moneydigest", "sgnewmovies", "greatdealssg", 
     "danielfooddiary", "allsgpromo", "sgmrt"
 ]
+
+# LTA DataMall — MRT line metadata for display
+MRT_LINE_META = {
+    "EWL": {"name": "East-West Line",     "color": "#009645"},
+    "NSL": {"name": "North-South Line",   "color": "#D42E12"},
+    "NEL": {"name": "North-East Line",    "color": "#9900AA"},
+    "CCL": {"name": "Circle Line",        "color": "#FA9E0D"},
+    "DTL": {"name": "Downtown Line",      "color": "#005EC4"},
+    "TEL": {"name": "Thomson-East Coast", "color": "#9D5B25"},
+    "BPL": {"name": "Bukit Panjang LRT",  "color": "#748477"},
+    "SLRT": {"name": "Sengkang LRT",      "color": "#748477"},
+    "PLRT": {"name": "Punggol LRT",       "color": "#748477"},
+}
+
+def fetch_lta_train_alerts() -> dict | None:
+    """
+    Calls the LTA DataMall TrainServiceAlerts API.
+    Returns structured train alert data or None if the key is missing / call fails.
+
+    Response shape:
+    {
+        "status": "Normal" | "Disrupted",
+        "messages": [{"content": "...", "created_date": "..."}],
+        "lines": [
+            {
+                "line_code": "EWL",
+                "line_name": "East-West Line",
+                "line_color": "#009645",
+                "status": "Normal" | "Disrupted",
+                "affected_segments": [
+                    {
+                        "direction": "...",
+                        "stations": "...",
+                        "free_public_bus": "...",
+                        "free_mrt_shuttle": "...",
+                        "mrt_shuttle_direction": "..."
+                    }
+                ]
+            }
+        ],
+        "retrieved_at": "05 Jul 2026, 05:40 PM"
+    }
+    """
+    api_key = os.environ.get("LTA_DATAMALL_API_KEY", "").strip()
+    if not api_key or api_key == "LTA_DATAMALL_API_KEY":
+        logger.warning("[LTA DataMall] LTA_DATAMALL_API_KEY not set — skipping train alert fetch.")
+        return None
+
+    from datetime import datetime, timezone, timedelta
+    url = "https://datamall2.mytransport.sg/ltaodataservice/TrainServiceAlerts"
+    headers = {
+        "AccountKey": api_key,
+        "accept": "application/json"
+    }
+    print(f"  \033[90m[LTA DataMall] HTTP GET {url}\033[0m")
+    try:
+        r = requests.get(url, headers=headers, timeout=8)
+        print(f"  \033[90m[LTA DataMall] HTTP RESPONSE: {r.status_code}\033[0m")
+        r.raise_for_status()
+        data = r.json()
+
+        overall_value = data.get("value", {})
+        
+        # 1 = Normal or Minor Delays, 2 = Disrupted or Major Delays
+        raw_status = overall_value.get("Status", 1)
+        overall_status_str = "Disrupted" if raw_status == 2 else "Normal"
+        
+        affected_segments = overall_value.get("AffectedSegments", [])
+        messages_list = overall_value.get("Message", [])
+
+        # Parse general messages
+        parsed_messages = []
+        for msg in messages_list:
+            parsed_messages.append({
+                "content": msg.get("Content", ""),
+                "created_date": msg.get("CreatedDate", "")
+            })
+
+        # Group affected segments by line code
+        # Normalise lines (e.g. SK -> SLRT, PG -> PLRT) to match our display metadata keys
+        line_mappings = {
+            "SK": "SLRT",
+            "PG": "PLRT",
+            "SGP": "SLRT", # fallback
+            "PGL": "PLRT"  # fallback
+        }
+
+        segments_by_line: dict[str, list] = {}
+        for seg in affected_segments:
+            line_code = seg.get("Line", "").upper().strip()
+            # Map codes to match MRT_LINE_META
+            line_code = line_mappings.get(line_code, line_code)
+            
+            if line_code not in segments_by_line:
+                segments_by_line[line_code] = []
+            
+            segments_by_line[line_code].append({
+                "direction": seg.get("Direction", ""),
+                "stations": seg.get("Stations", ""),
+                "free_public_bus": seg.get("FreePublicBus", ""),
+                "free_mrt_shuttle": seg.get("FreeMRTShuttle", ""),
+                "mrt_shuttle_direction": seg.get("MRTShuttleDirection", "")
+            })
+
+        # Build output: all known lines, mark each as Normal or Disrupted
+        lines_out = []
+        for code, meta in MRT_LINE_META.items():
+            segs = segments_by_line.get(code, [])
+            lines_out.append({
+                "line_code":          code,
+                "line_name":          meta["name"],
+                "line_color":         meta["color"],
+                "status":             "Disrupted" if segs else "Normal",
+                "affected_segments":  segs
+            })
+
+        # SGT timestamp
+        sgt = datetime.now(timezone(timedelta(hours=8)))
+        retrieved_at = sgt.strftime("%d %b %Y, %I:%M %p")
+
+        print(f"  \033[32m✔\033[0m [LTA DataMall] Overall status: {overall_status_str} ({raw_status}). "
+              f"{len(affected_segments)} segment(s) affected, {len(parsed_messages)} message(s) retrieved.")
+        return {
+            "status":       overall_status_str,
+            "messages":     parsed_messages,
+            "lines":        lines_out,
+            "retrieved_at": retrieved_at
+        }
+
+    except Exception as e:
+        logger.warning(f"[LTA DataMall] Train alert fetch failed: {e}")
+        return None
+
 
 def scrape_one_telegram_channel(channel: str) -> list:
     """Scrapes the last 3 posts from a Telegram channel (used for Gov Updates)."""
@@ -600,13 +770,22 @@ async def get_sg_hub_gov_transit():
         print(f"\033[95m[Telegram Scraper Service] Crawling {len(GOV_CHANNELS)} official streams...\033[0m")
 
         gov_events = []
+        train_alerts = None
+
         async def fetch_gov_channel(channel_name):
             ch_events = await anyio.to_thread.run_sync(scrape_one_telegram_channel, channel_name)
             gov_events.extend(ch_events)
 
+        async def fetch_datamall_alerts():
+            nonlocal train_alerts
+            print("  \033[90m[LTA DataMall] Running in parallel with Telegram scrapers...\033[0m")
+            train_alerts = await anyio.to_thread.run_sync(fetch_lta_train_alerts)
+
+        # Run Telegram scrapers + DataMall API in parallel
         async with anyio.create_task_group() as tg:
             for ch in GOV_CHANNELS:
                 tg.start_soon(fetch_gov_channel, ch)
+            tg.start_soon(fetch_datamall_alerts)
 
         # Fallback for Official Gov Alerts
         if not gov_events:
@@ -669,7 +848,7 @@ async def get_sg_hub_gov_transit():
                     tg.start_soon(fetch_gov_fallback, channel)
                     
         gov_events.sort(key=lambda x: x.get("iso_date", ""), reverse=True)
-        return {"gov_events": gov_events}
+        return {"gov_events": gov_events, "train_alerts": train_alerts}
     except Exception as e:
         logger.exception("Error loading Gov updates data")
         raise HTTPException(status_code=500, detail=str(e))
@@ -785,6 +964,7 @@ app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
-    # Default port 8000 (reload disabled by default for production, enabled via environment variable)
+    # Default port 8000, overrideable via PORT env variable (reload disabled by default)
     reload = os.environ.get("RELOAD", "false").lower() == "true"
-    uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=reload)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("server:app", host="127.0.0.1", port=port, reload=reload)

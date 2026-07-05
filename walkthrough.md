@@ -163,6 +163,22 @@ Applied to: Weather, Gov Alerts, MRT/Transit, Community Deals, HDB Launches, HDB
 
 ---
 
+## 🚇 Phase 7 — LTA DataMall Dynamic Transit Integration
+
+### Live MRT Status Dashboard
+- **Backend API call (`server.py`):** Added `fetch_lta_train_alerts()`. Queries `https://datamall2.mytransport.sg/ltaodataservice/TrainServiceAlerts` using the official `AccountKey` header.
+- **Overall Status Mapping:** Decodes LTA `Status` code integer (`1` for Normal/Minor, `2` for Disrupted/Major) to string status.
+- **Line Mappings:** Automatically groups and normalises LTA LRT line codes (like `SK` for Sengkang LRT, `PG` for Punggol LRT) to internal line metadata keys.
+- **UI Grid Render (`app.js`):** Renders a structured grid of all MRT/LRT lines showing colour-coded status badges (EWL, NSL, NEL, CCL, DTL, TEL, BPL, Sengkang LRT, Punggol LRT).
+- **Disruption Detail Cards:** Displays station codes, directions, free public bus boarding availability, and free MRT shuttle bus directions when disruptions are active.
+- **Official Advisories:** Extracts general service advisories from `value.Message` and prints them as orange notification callouts at the top of the pane.
+- **Graceful Fallback:** If `LTA_DATAMALL_API_KEY` is not present, is invalid, or the API call fails, the UI falls back to the keyword-filtered Telegram alert stream without regression.
+
+#### Render Screenshot:
+![Live Train Status Dashboard](file:///C:/Users/LESHW/.gemini/antigravity-ide/brain/9ed2f300-e8a6-47c5-88ac-641891a98d78/live_train_status_1783246410051.png)
+
+---
+
 ## 🔍 Validation
 
 | Check | Status |
@@ -176,4 +192,8 @@ Applied to: Weather, Gov Alerts, MRT/Transit, Community Deals, HDB Launches, HDB
 | HDB LaunchDate field parsing | ✅ Rendered in UI |
 | MOM date badge | ✅ Rendered in index.html |
 | PSI gauge + forecast cards render | ✅ Live data binding |
+| **LTA DataMall TrainServiceAlerts** | ✅ Verified with real key parsing & normalized LRT codes |
+| **DataMall overall Status decoding** | ✅ decodes Status: 1 to Normal & Status: 2 to Disrupted |
+| **Transit UI fallback mode** | ✅ Falls back to Telegram keywords if key is missing/failed |
 | FastAPI server restart | ✅ Running on :8000 |
+
