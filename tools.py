@@ -189,13 +189,36 @@ def scrape_government_page(url: str) -> str:
     from bs4 import BeautifulSoup
     from urllib.parse import urlparse
     
+    # Safety check: prevent scraping authentication or credentials entry portals
+    url_lower = url.lower()
+    if any(kw in url_lower for kw in ["login", "signin", "auth", "singpass", "corppass"]):
+        return "Error: Scraping authentication or login portals is disabled for security reasons."
+
+    TRUSTED_SG_DOMAINS = {
+        "healthhub.sg",
+        "wsg.sg",
+        "cdc.gov.sg"
+    }
+
+    def is_trusted_sg_domain(domain_str: str) -> bool:
+        d = domain_str.lower().strip()
+        # Remove port if present
+        if ":" in d:
+            d = d.split(":")[0]
+        if d.endswith(".gov.sg") or d == "gov.sg":
+            return True
+        for trusted in TRUSTED_SG_DOMAINS:
+            if d == trusted or d.endswith("." + trusted):
+                return True
+        return False
+
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
         
     try:
         parsed_url = urlparse(url)
         domain = parsed_url.netloc.lower()
-        if not (domain.endswith(".gov.sg") or domain == "gov.sg"):
+        if not is_trusted_sg_domain(domain):
             return "Error: For security and policy reasons, only official Singapore Government websites (.gov.sg) can be scraped."
             
         headers = {
@@ -210,7 +233,7 @@ def scrape_government_page(url: str) -> str:
         final_url = response.url
         parsed_final = urlparse(final_url)
         domain_final = parsed_final.netloc.lower()
-        if not (domain_final.endswith(".gov.sg") or domain_final == "gov.sg"):
+        if not is_trusted_sg_domain(domain_final):
             return "Error: Security policy prevents scraping non-government websites after redirects."
             
         soup = BeautifulSoup(response.text, 'html.parser')
