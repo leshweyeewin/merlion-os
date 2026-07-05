@@ -1,6 +1,9 @@
 # 🇸🇬 MerlionOS: Unified Singapore Public Sector AI Coordination Brain
 *APAC GenAI Academy (APAC Edition) — Cohort 2 Hackathon Project*
 
+**🔗 Live Demo:** [merlion-os.onrender.com](https://merlion-os.onrender.com)
+*(Hosted on Render's free tier — if the instance has spun down from inactivity, the first request can take ~30-60 seconds to wake up before the page loads.)*
+
 ---
 
 ## 🎯 Developer Intent & Project Motivation
