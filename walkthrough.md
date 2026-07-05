@@ -175,7 +175,19 @@ Applied to: Weather, Gov Alerts, MRT/Transit, Community Deals, HDB Launches, HDB
 - **Graceful Fallback:** If `LTA_DATAMALL_API_KEY` is not present, is invalid, or the API call fails, the UI falls back to the keyword-filtered Telegram alert stream without regression.
 
 #### Render Screenshot:
-![Live Train Status Dashboard](file:///C:/Users/LESHW/.gemini/antigravity-ide/brain/9ed2f300-e8a6-47c5-88ac-641891a98d78/live_train_status_1783246410051.png)
+![Live Train Status Dashboard](file:///C:/Users/LESHW/.gemini/antigravity-ide/brain/9ed2f300-e8a6-47c5-88ac-641891a98d78/train_status_grid_1783248524206.png)
+
+---
+
+## 🔒 Phase 8 — Redirection & XSS Hardening
+
+### Trusted Non-Gov.sg Domains
+- **Scraper Hardening (`tools.py`):** Added a trusted domain validator that allows official Singapore public services that don't end in `.gov.sg` (specifically `healthhub.sg`, `wsg.sg`, and `cdc.gov.sg`) alongside standard `.gov.sg` domains. This accommodates official redirects without opening up arbitrary external scraping.
+- **Authentication Protection:** Prevents scraping endpoints that match authentication keywords (like `login`, `signin`, `auth`, `singpass`, `corppass`) to protect user credentials.
+
+### Client-side URL Sanitization
+- **safeURL Utility (`app.js`):** Added a client-side URL sanitization helper that blocks `javascript:`, `data:`, and `vbscript:` schemes and escapes quotes to prevent HTML attribute breakout.
+- **Applied to UI Renderers:** Wrapped all dynamically rendered event, news, and markdown links (`evt.link`, `news.link`, and markdown link tokens) inside `safeURL()` to ensure robust protection against XSS injection vectors.
 
 ---
 
@@ -195,5 +207,8 @@ Applied to: Weather, Gov Alerts, MRT/Transit, Community Deals, HDB Launches, HDB
 | **LTA DataMall TrainServiceAlerts** | ✅ Verified with real key parsing & normalized LRT codes |
 | **DataMall overall Status decoding** | ✅ decodes Status: 1 to Normal & Status: 2 to Disrupted |
 | **Transit UI fallback mode** | ✅ Falls back to Telegram keywords if key is missing/failed |
-| FastAPI server restart | ✅ Running on :8000 |
+| **XSS Protection (safeURL)** | ✅ Blocks javascript:/data:/vbscript: schemes & escapes quotes |
+| **Redirection Validator (Scraper)** | ✅ Allows trusted domains (healthhub.sg, wsg.sg, cdc.gov.sg) |
+| **Auth Scraper Hardening** | ✅ Blocks scraping of login/auth keywords (singpass, login) |
+| FastAPI server restart | ✅ Running on :8080 |
 

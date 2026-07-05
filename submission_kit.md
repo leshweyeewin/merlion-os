@@ -14,15 +14,13 @@ MerlionOS is a unified public-sector data intelligence portal that directly solv
 ---
 
 ## 📝 Submission Brief Description
-*Copy and paste into the "Brief description" field:*
-
 > **MerlionOS** is a unified public sector AI coordination brain built for Singapore Citizens to navigate fragmented government portals and access live civic data in one place.
 >
-> Powered by **Google Gemini 2.5 Flash** and a real-time data pipeline, MerlionOS accepts complex multi-intent queries and routes them through 10+ backend tools concurrently. It searches an indexed directory of 15+ statutory boards, performs live BeautifulSoup4 scraping of `.gov.sg` pages, queries **Google BigQuery** employment databases, and surfaces live weather/PSI metrics from the NEA data.gov.sg API and government Telegram channel feeds.
+> Powered by **Google Gemini 2.5 Flash** and a real-time data pipeline, MerlionOS accepts complex multi-intent queries and routes them through 10+ backend tools concurrently. It searches an indexed directory of 15+ statutory boards, performs live BeautifulSoup4 scraping of trusted `.gov.sg` pages, queries **Google BigQuery** employment databases, and surfaces live weather/PSI metrics from the NEA data.gov.sg API.
 >
-> The **SG Hub Live Dashboard** features a visual weather station (PSI gauge + 6-region forecast cards), HDB BTO listings with launch dates, MOM job market analysis, live government alerts sorted by post date (last 3 per channel), and Kiasu community deals from the last 24 hours — all with retrieval timestamps so users always know data freshness.
+> The **SG Hub Live Dashboard** features a visual weather station (PSI gauge + 6-region forecast cards), HDB BTO listings with launch dates, MOM job market analysis, and a live **Transit Status Grid** integrated directly with the official **LTA DataMall API** (displaying real-time line-by-line EWL/NSL/NEL/CCL/DTL/TEL MRT status, disruption details, and free bus shuttle routing).
 >
-> A real-time **Operations Control Log** terminal visualizes live traces: BigQuery SQL queries, HTTP scraping responses, Telegram crawler logs, and API call chains — giving full transparency into AI operations for demo purposes.
+> A real-time **Operations Control Log** terminal visualizes live traces: BigQuery SQL queries, HTTP scraping responses, LTA DataMall API requests, and API call chains — giving full transparency into AI operations for demo purposes.
 
 ---
 
@@ -72,7 +70,7 @@ MerlionOS is a unified public-sector data intelligence portal that directly solv
 | Query handling | Keyword search | Multi-intent AI routing |
 | Weather data | Separate NEA site | Live PSI gauge + forecast cards |
 | Job market | Separate MOM site | BigQuery-powered sector analytics |
-| Gov alerts | Multiple Telegram channels | Unified feed, date-sorted |
+| Transit alerts | Scattered Telegram channels | **LTA DataMall API** (Structured line-by-line status) |
 | HDB info | Separate HDB site + portal | BTO cards with dates + portal link |
 | AI transparency | None | Live Operations Terminal |
 | Data freshness | Unknown | "Last synced" timestamp on all panels |
@@ -85,14 +83,15 @@ MerlionOS is a unified public-sector data intelligence portal that directly solv
 2. **🌤️ Weather Dashboard** — PSI gauge card with animated bar + 6-region emoji forecast cards (live NEA API)
 3. **🏢 HDB BTO Tracker** — BTO availability cards with launch date badges + scraped press releases
 4. **📊 BigQuery Job Analytics** — Tech/Finance/Healthcare/General sector breakdown; vacancies, salaries, skills, retrenchment risk
-5. **⚠️ MOM Retrenchment Advisory** — Quarterly figures with "Data as of: Q1 2026" date badge
-6. **📢 Gov Updates (renamed from "Gov Updates & Transit"):** 7 official channels (govsg, HealthHub, ScamShield, MOE, NEA, GovTech, LTA) — last 3 posts per channel regardless of age, sorted newest-first, SGT timestamps shown
-7. **🎟️ Kiasu SG Deals:** 15 lifestyle channels — posts within the last 24 hours, sorted newest-first, SGT timestamps shown
+5. **🚇 LTA DataMall Train Status** — Structured MRT/LRT line grid (EWL, NSL, NEL, DTL, CCL, TEL) showing 🟢/🔴 status with free bus shuttle locations and official advisory notes (Status 1/2 mapping)
+6. **📢 Gov Updates:** 7 official channels (govsg, HealthHub, ScamShield, MOE, NEA, GovTech, LTA) — last 3 posts per channel regardless of age, sorted newest-first, SGT timestamps shown
+7. **🎟️ Kiasu SG Deals:** 15 lifestyle channels — posts within the last 24 hours, sorted newest-first, SGT timestamps & SGT date badges shown
 8. **🕒 Data Freshness Indicators** — "Last synced: DD MMM YYYY, HH:MM (SGT)" on every sub-panel
 9. **🌐 Gov Portals Directory** — 12+ agency cards including SWDA, with direct portal buttons
 10. **🖥️ Operations Control Terminal** — Live SQL, HTTP, scraping traces for full transparency
 11. **🔌 FastMCP Server** — Plug-and-play MCP tool server for Cursor/Claude Desktop
-12. **🔐 XSS + gov.sg Link Hardening** — All content sanitized; domain redirect validation
+12. **🔐 URL Hardening (safeURL)** — Client-side HTML sanitation blocking `javascript:`/`data:` links & escaping quotes
+13. **🔒 Redirection Security** — BeautifulSoup scraper re-validates landing domain to only allow `.gov.sg` or trusted domains (`healthhub.sg`, `wsg.sg`, `cdc.gov.sg`) and blocks authentication endpoints.
 
 ---
 
@@ -108,7 +107,7 @@ MerlionOS is a unified public-sector data intelligence portal that directly solv
         │       • GET /api/sg-hub/weather      → NEA PSI + 2-hr forecast
         │       • GET /api/sg-hub/hdb          → BTO registry + HDB newsroom
         │       • GET /api/sg-hub/jobs         → BigQuery MOM dataset
-        │       • GET /api/sg-hub/gov-transit  → Telegram gov channels (sorted)
+        │       • GET /api/sg-hub/gov-transit  → Telegram gov channels + LTA DataMall API (parallel)
         │       • GET /api/sg-hub/community    → Telegram community channels (sorted)
         │
         └──► Chat API:
@@ -171,10 +170,11 @@ graph TD
     Tools -->|BTO + News| HDB[HDB Registry + Newsroom]
     Tools -->|SQL| BQ[Google BigQuery - MOM]
     Tools -->|Scrape + parse| TG[Telegram Web Scraper - anyio TaskGroup]
+    Tools -->|Train Alerts| LTA[LTA DataMall API]
     Tools -->|gov.sg pages| BS4[BeautifulSoup4 Scraper]
-    NEA & HDB & BQ & TG & BS4 --> API
+    NEA & HDB & BQ & TG & LTA & BS4 --> API
     API -->|JSON response| UI
-    UI -->|escapeHTML safe render| User
+    UI -->|escapeHTML + safeURL render| User
     API -.->|MCP JSON-RPC| MCP[mcp_server.py - FastMCP]
     MCP -.->|Tool calls| Cursor[Cursor / Claude Desktop]
 ```
@@ -197,31 +197,26 @@ graph TD
 
 ---
 
-### Slide 10: Demo Highlights
-
 **Operations Terminal traces visible during demo:**
 ```
-[MerlionOS Orchestrator] --- Fetching Weather & PSI Data ---
-[NEA API Weather Engine] Querying live weather forecasts & air quality...
-
-[MerlionOS Orchestrator] --- Fetching BigQuery Job Market Analysis ---
-[Google BigQuery Engine] Authenticating connection to 'merlion-os-dw'...
-  ✦ SQL: SELECT vacancies, median_salary, demanded_skills, market_trend
-         FROM `merlion-os-dw.sg_employment.vacancies_tech`
-         WHERE reporting_year = 2026 LIMIT 1;
-
-[Telegram Scraper Service] Spawning parallel crawler tasks in anyio TaskGroup...
-  [Scraper Task] HTTP GET https://t.me/s/govsg
-  [Scraper Task] HTTP RESPONSE: 200 (70061 bytes) from @govsg
-  ✔ Parsed @govsg: Found 7 messages, returning last 3.
+[MerlionOS Orchestrator] --- Fetching Gov Updates & Transit Feeds Selected ---
+[Telegram Scraper Service] Spawning parallel crawler tasks in an anyio TaskGroup...
+  [LTA DataMall] Running in parallel with Telegram scrapers...
+  [LTA DataMall] HTTP GET https://datamall2.mytransport.sg/ltaodataservice/TrainServiceAlerts
+  [LTA DataMall] HTTP RESPONSE: 200
+  ✔ [LTA DataMall] Overall status: Normal (1). 0 segment(s) affected, 1 message(s) retrieved.
 ```
 
 **UI Features to highlight:**
-- PSI animated gauge with colour-coded threshold bar
+- Live MRT/LRT line grid (EWL, NSL, NEL, CCL, DTL, TEL) with colour-coded status badges
+- Sengkang LRT planned loop closure warning advisory banner at the top of the Transit card
+- PSI animated gauge with colour-coded threshold bar (live NEA data)
 - Regional forecast emoji cards (live NEA data)
 - HDB BTO cards with `📅 June 2026 Launch` date badges
-- Gov alerts sorted newest-first with `04 Jul 2026, 10:22 PM` SGT timestamps
+- HDB news releases live scraper with SGT dates and real embedded links
 - MOM retrenchment "Data as of: Q1 2026" date badge
+- safeURL client-side XSS sanitization of all scraped links
+- Redirect domain validation block traces for scraper security
 
 ---
 

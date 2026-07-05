@@ -8,6 +8,17 @@ function escapeHTML(str) {
         .replace(/'/g, "&#039;");
 }
 
+// Sanitizes and escapes URLs to prevent XSS or attribute breakout
+function safeURL(url) {
+    const clean = String(url).trim();
+    const lower = clean.toLowerCase();
+    if (lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("vbscript:")) {
+        return "#";
+    }
+    // Escape quotes to prevent HTML attribute breakout
+    return clean.replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     initPortalReordering();
 
@@ -84,11 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Links: [label](url) — block javascript: and data: scheme hrefs to prevent XSS
         html = html.replace(/\[(.*?)\]\((.*?)\)/g, (match, label, url) => {
-            const trimmed = url.trim().toLowerCase();
-            if (trimmed.startsWith('javascript:') || trimmed.startsWith('data:')) {
-                return escapeHTML(label);
-            }
-            return `<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+            return `<a href="${safeURL(url)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
         });
 
         // Lists: lines starting with * or -
@@ -724,7 +731,7 @@ function initSgHub() {
                         <i class="fa-solid fa-bullhorn"></i> ${escapeHTML(evt.source)}
                         ${evt.date ? `<span style="font-size:10px; font-weight:normal; color:var(--text-muted); background:var(--border); padding:2px 6px; border-radius:4px;">${escapeHTML(evt.date)}</span>` : ''}
                     </span>
-                    <a href="${evt.link}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Alert</a>
+                    <a href="${safeURL(evt.link)}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Alert</a>
                 </div>
                 <div style="color: var(--text-main); line-height:1.45;">${escapeHTML(evt.content)}</div>
             </div>`;
@@ -829,7 +836,7 @@ function initSgHub() {
                             <i class="fa-solid fa-train-subway"></i> ${escapeHTML(evt.source)}
                             ${evt.date ? `<span style="font-size:10px; font-weight:normal; color:var(--text-muted); background:var(--border); padding:2px 6px; border-radius:4px;">${escapeHTML(evt.date)}</span>` : ''}
                         </span>
-                        <a href="${evt.link}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Alert</a>
+                        <a href="${safeURL(evt.link)}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Alert</a>
                     </div>
                     <div style="color: var(--text-main); line-height:1.45;">${escapeHTML(evt.content)}</div>
                 </div>`;
@@ -854,7 +861,7 @@ function initSgHub() {
                         <i class="fa-solid fa-tags"></i> ${escapeHTML(evt.source)}
                         ${evt.date ? `<span style="font-size:10px; font-weight:normal; color:var(--text-muted); background:var(--border); padding:2px 6px; border-radius:4px;">${escapeHTML(evt.date)}</span>` : ''}
                     </span>
-                    <a href="${evt.link}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Post</a>
+                    <a href="${safeURL(evt.link)}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Post</a>
                 </div>
                 <div style="color: var(--text-main); line-height:1.45;">${escapeHTML(evt.content)}</div>
             </div>`;
@@ -873,7 +880,7 @@ function initSgHub() {
             hdbNewsHtml += `<div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 8px;">
                 <div style="display:flex; justify-content:space-between; margin-bottom: 6px; font-weight:600;">
                     <span style="color: var(--primary); font-size: 11px;"><i class="fa-solid fa-calendar-day"></i> ${escapeHTML(news.date)}</span>
-                    <a href="${news.link}" target="_blank" style="color: var(--link); text-decoration:none; font-size: 11px;"><i class="fa-solid fa-up-right-from-square"></i> Read Press Release</a>
+                    <a href="${safeURL(news.link)}" target="_blank" style="color: var(--link); text-decoration:none; font-size: 11px;"><i class="fa-solid fa-up-right-from-square"></i> Read Press Release</a>
                 </div>
                 <div style="color: var(--text-main); line-height:1.45; font-weight:600;">${escapeHTML(news.title)}</div>
             </div>`;
