@@ -730,12 +730,10 @@ async def get_sg_hub_hdb():
 async def get_sg_hub_jobs(sector: str = "all"):
     try:
         print("\n\033[94m[MerlionOS Orchestrator] --- Fetching Job Market Analysis Selected ---\033[0m")
-        print("\033[33m[data.gov.sg] Fetching MOM job vacancy dataset (with in-memory cache)...\033[0m")
 
         sectors_to_query = ["tech", "finance", "healthcare", "general"] if sector == "all" else [sector]
         job_sectors = {}
         for s in sectors_to_query:
-            print(f"  \033[33m✦\033[0m Computing sector totals + YoY trend + forecast: `{s}`")
             raw_stats = await anyio.to_thread.run_sync(query_singapore_job_statistics_via_bigquery, s)
 
             lines = raw_stats.split("\n")
@@ -743,6 +741,7 @@ async def get_sg_hub_jobs(sector: str = "all"):
             salary = "N/A"
             skills = "N/A"
             trend = "N/A"
+            source = "N/A"
             for line in lines:
                 if "Active Vacancies:" in line:
                     vacancies = line.split("Active Vacancies:")[1].strip()
@@ -752,6 +751,16 @@ async def get_sg_hub_jobs(sector: str = "all"):
                     skills = line.split("Top Demanded Skills:")[1].strip()
                 elif "Market Trend:" in line:
                     trend = line.split("Market Trend:")[1].strip()
+                elif "Source:" in line:
+                    source = line.split("Source:")[1].strip()
+
+            # Log which tier actually served this — don't assume, reflect the real source string.
+            if "BigQuery" in source:
+                print(f"  \033[32m✦ [BigQuery]\033[0m `{s}`: {source}")
+            elif "cached snapshot" in source:
+                print(f"  \033[31m✦ [FALLBACK: cached snapshot]\033[0m `{s}`: {source}")
+            else:
+                print(f"  \033[33m✦ [data.gov.sg direct]\033[0m `{s}`: {source}")
 
             trend_pct_match = re.search(r"([+-]\d+\.?\d*)%", trend)
             trend_pct = trend_pct_match.group(1) + "%" if trend_pct_match else "N/A"
@@ -761,9 +770,10 @@ async def get_sg_hub_jobs(sector: str = "all"):
                 "salary": salary,
                 "skills": skills,
                 "trend": trend,
-                "trend_pct": trend_pct
+                "trend_pct": trend_pct,
+                "source": source
             }
-        print("\033[33m[data.gov.sg] Job market fetch complete.\033[0m")
+        print("\033[33m[Job Market] Fetch complete.\033[0m")
 
         print("\033[33m[data.gov.sg] Fetching MOM retrenchment dataset...\033[0m")
         raw_retrenchment = await anyio.to_thread.run_sync(query_singapore_retrenchment_advisory)
