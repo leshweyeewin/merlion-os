@@ -39,7 +39,8 @@ from tools import (
     call_tool_robustly,
     get_singapore_live_environment_advisory,
     query_singapore_job_statistics_via_bigquery,
-    query_hdb_bto_launches_and_grants
+    query_hdb_bto_launches_and_grants,
+    query_singapore_retrenchment_advisory
 )
 
 # Initialize FastAPI app
@@ -59,7 +60,8 @@ TOOL_MAP = {
     "scrape_government_page": scrape_government_page,
     "get_singapore_live_environment_advisory": get_singapore_live_environment_advisory,
     "query_singapore_job_statistics_via_bigquery": query_singapore_job_statistics_via_bigquery,
-    "query_hdb_bto_launches_and_grants": query_hdb_bto_launches_and_grants
+    "query_hdb_bto_launches_and_grants": query_hdb_bto_launches_and_grants,
+    "query_singapore_retrenchment_advisory": query_singapore_retrenchment_advisory
 }
 
 # Request model
@@ -762,7 +764,23 @@ async def get_sg_hub_jobs(sector: str = "all"):
                 "trend_pct": trend_pct
             }
         print("\033[33m[data.gov.sg] Job market fetch complete.\033[0m")
-        return {"jobs": job_sectors}
+
+        print("\033[33m[data.gov.sg] Fetching MOM retrenchment dataset...\033[0m")
+        raw_retrenchment = await anyio.to_thread.run_sync(query_singapore_retrenchment_advisory)
+        retrenchment_lines = raw_retrenchment.split("\n")
+        retrenchment = {"headline": "N/A", "industries": "N/A", "reemployment_rate": "N/A", "source": ""}
+        for line in retrenchment_lines:
+            if "Latest Quarterly Retrenchment:" in line:
+                retrenchment["headline"] = line.split("Latest Quarterly Retrenchment:")[1].strip()
+            elif "Primarily in:" in line:
+                retrenchment["industries"] = line.split("Primarily in:")[1].strip()
+            elif "Six-Month Re-Employment Rate:" in line:
+                retrenchment["reemployment_rate"] = line.split("Six-Month Re-Employment Rate:")[1].strip()
+            elif "Source:" in line:
+                retrenchment["source"] = line.split("Source:")[1].strip()
+        print("\033[33m[data.gov.sg] Retrenchment fetch complete.\033[0m")
+
+        return {"jobs": job_sectors, "retrenchment": retrenchment}
     except Exception as e:
         logger.exception("Error loading Jobs data")
         raise HTTPException(status_code=500, detail=str(e))

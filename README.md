@@ -26,8 +26,8 @@ All data panels in the **SG Hub Dashboard** load on-demand when clicked and show
 | 🚇 **Transit & Rail Alerts** | **LTA DataMall API** (`https://datamall2.mytransport.sg/ltaodataservice/TrainServiceAlerts`) | Live line-by-line status grid (EWL, NSL, NEL, CCL, DTL, TEL, LRTs) with disruption logs, free public bus boarding notices, and free MRT shuttle routes. |
 | 📢 **Gov Updates** | **Telegram Scraper** (7 Channels: `@govsg`, `@HealthHubSG`, `@scamshieldalert`, `@LTAsg`, `@NEAsg`, `@MOEsg`, `@GovTechSG`) | Last 3 posts per channel, sorted chronologically descending by SGT post date. |
 | 🏢 **HDB BTO Tracker** | **HDB Pulse & Newsroom Scraper** (`https://www.hdb.gov.sg/hdb-pulse/news`) | Live BTO launch tables + BeautifulSoup HDB newsroom Next.js `__NEXT_DATA__` JSON extraction (resolving real CMS URLs dynamically). |
-| 📊 **Job Market Analysis** | **data.gov.sg Dataset API** (MOM Job Vacancy by Industry & Occupation, `d_889d11a2b0a53b235abb64e3f4e0a47b`) | Real vacancy counts, YoY trend, and a next-year forecast per sector (Tech, Finance, Healthcare, General); median salary and top skills are illustrative context. |
-| ⚠️ **MOM Retrenchment** | **MOM Advisory Index** | Active retrenchment numbers with Q1 2026 data freshness indicators. |
+| 📊 **Job Market Analysis** | **Google BigQuery** (real MOM Job Vacancy by Industry & Occupation data, loaded via `scripts/load_job_vacancy_to_bigquery.py`), with automatic fallback to a direct **data.gov.sg Dataset API** call if BigQuery isn't configured | Real vacancy counts, YoY trend, and a next-year forecast per sector (Tech, Finance, Healthcare, General); median salary and top skills are illustrative context. |
+| ⚠️ **MOM Retrenchment** | **data.gov.sg Dataset API** (MOM Retrenched Employees by Industry, Quarterly, `d_61d92d31ca400be135190614277da825`) | Real latest-quarter retrenchment headcount and top affected industries; six-month re-employment rate is illustrative context. |
 | 🎟️ **Kiasu SG Deals** | **Telegram Scraper** (15 Channels: `@confirmgood`, `@goodlobang`, `@kiasufoodies`, `@sgweekend`, `@moneydigest`, etc.) | Community deals and lifestyle news posted strictly within the last 24 hours, sorted newest-first. |
 
 ---
@@ -110,7 +110,15 @@ INFO:     127.0.0.1:64638 - "GET /style.css HTTP/1.1" 200 OK
 INFO:     127.0.0.1:64638 - "GET /app.js HTTP/1.1" 200 OK
 ```
 
-### 3. Run FastMCP Tool Server
+### 3. (Optional) Enable Real BigQuery for Job Market Analysis
+By default, the Job Market Analysis panel fetches real MOM data directly from data.gov.sg. To back it with an actual BigQuery table instead:
+```bash
+gcloud auth application-default login
+python scripts/load_job_vacancy_to_bigquery.py --project YOUR_GCP_PROJECT_ID
+```
+Then set `GCP_PROJECT_ID` alongside your other environment variables before starting the server. If this isn't configured, the app automatically falls back to the direct data.gov.sg fetch — no functionality is lost either way.
+
+### 4. Run FastMCP Tool Server
 To load the statutory tools inside development agents (like Cursor or Claude Desktop):
 ```bash
 python mcp_server.py

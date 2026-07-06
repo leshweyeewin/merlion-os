@@ -592,6 +592,10 @@ function initSgHub() {
             hdbNewsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load portal news.</p>";
         } else if (paneId === "hub-jobs-pane") {
             jobsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load employment statistics.</p>";
+            const retrenchmentHeadlineEl = document.getElementById("retrenchment-headline");
+            const retrenchmentDetailsEl = document.getElementById("retrenchment-details");
+            if (retrenchmentHeadlineEl) retrenchmentHeadlineEl.textContent = "N/A";
+            if (retrenchmentDetailsEl) retrenchmentDetailsEl.innerHTML = "<span style='color: var(--text-error);'>⚠️ Failed to load retrenchment data.</span>";
         } else if (paneId === "hub-community-pane") {
             communityEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load community feeds.</p>";
         } else if (paneId === "hub-env-pane") {
@@ -891,6 +895,26 @@ function initSgHub() {
     function renderJobsPane(data) {
         sgHubJobsData = data.jobs;
         renderSectorDetails("tech"); // Default to Tech
+        renderRetrenchmentPane(data.retrenchment);
+    }
+
+    function renderRetrenchmentPane(retrenchment) {
+        const headlineEl = document.getElementById("retrenchment-headline");
+        const detailsEl = document.getElementById("retrenchment-details");
+        const sourceEl = document.getElementById("retrenchment-source");
+        if (!retrenchment || !headlineEl) return;
+
+        // headline looks like "3,590 workers (2025-Q4)" — split the count from the quarter label
+        const match = retrenchment.headline.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+        const workerCount = match ? match[1] : retrenchment.headline;
+        const quarterRaw = match ? match[2] : "";
+        const quarterLabel = quarterRaw.includes("-")
+            ? `${quarterRaw.split("-")[1]} ${quarterRaw.split("-")[0]}`
+            : quarterRaw;
+
+        headlineEl.textContent = workerCount;
+        detailsEl.textContent = `Primarily in ${retrenchment.industries}. Overall six-month re-employment rate stands at ${retrenchment.reemployment_rate}.`;
+        sourceEl.innerHTML = `<i class="fa-regular fa-calendar"></i> Data as of: ${escapeHTML(quarterLabel)}`;
     }
 
     function renderHdbLaunches(text) {

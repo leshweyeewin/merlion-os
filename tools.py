@@ -418,6 +418,43 @@ _JOB_VACANCY_DATASET_ID = "d_889d11a2b0a53b235abb64e3f4e0a47b"  # data.gov.sg: M
 _job_vacancy_cache = {"rows": None, "fetched_at": 0}
 _JOB_VACANCY_CACHE_TTL_SECONDS = 6 * 60 * 60  # 6 hours — this is annual MOM data, it does not change intraday
 
+# BigQuery table loaded by scripts/load_job_vacancy_to_bigquery.py from the same dataset above.
+_BQ_PROJECT_ID = None  # set lazily from env at call time so a missing var doesn't break import
+_BQ_DATASET = "sg_employment"
+_BQ_TABLE = "job_vacancy_by_industry"
+
+
+def _fetch_latest_two_year_totals_from_bigquery(industries: list) -> dict:
+    """Queries the real BigQuery table for the two most recent years' summed vacancies."""
+    import os
+    from google.cloud import bigquery
+
+    project_id = os.environ.get("GCP_PROJECT_ID") or _BQ_PROJECT_ID
+    client = bigquery.Client(project=project_id) if project_id else bigquery.Client()
+
+    query = f"""
+        SELECT year, SUM(job_vacancy) AS total
+        FROM `{client.project}.{_BQ_DATASET}.{_BQ_TABLE}`
+        WHERE industry IN UNNEST(@industries)
+        GROUP BY year
+        ORDER BY year DESC
+        LIMIT 2
+    """
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[bigquery.ArrayQueryParameter("industries", "STRING", industries)]
+    )
+    rows = list(client.query(query, job_config=job_config).result())
+    if len(rows) < 2:
+        raise ValueError("BigQuery returned fewer than 2 years of data")
+
+    latest_year, prior_year = str(rows[0].year), str(rows[1].year)
+    return {
+        "latest_year": latest_year,
+        "prior_year": prior_year,
+        "totals": {latest_year: rows[0].total or 0, prior_year: rows[1].total or 0},
+        "table_ref": f"{client.project}.{_BQ_DATASET}.{_BQ_TABLE}",
+    }
+
 
 def _fetch_job_vacancy_rows() -> list:
     """Downloads and caches the data.gov.sg MOM job vacancy dataset (CSV: year, industry, occupation, job_vacancy)."""
@@ -470,28 +507,40 @@ def query_singapore_job_statistics_via_bigquery(context_query: str = "general") 
 
     meta = _JOB_SECTOR_META[matched_sector]
 
-    try:
-        rows = _fetch_job_vacancy_rows()
-        latest_year = max(r["year"] for r in rows if r["year"].isdigit())
-        prior_year = str(int(latest_year) - 1)
-        totals = _sector_vacancy_totals(rows, meta["industries"], [prior_year, latest_year])
-        vacancies = totals[latest_year]
+    def _build_trend(vacancies, totals, prior_year, latest_year):
         trend_pct = round((totals[latest_year] - totals[prior_year]) / totals[prior_year] * 100, 1) if totals[prior_year] else 0.0
         forecast_next_year = round(vacancies * (1 + trend_pct / 100))
         next_year_label = str(int(latest_year) + 1)
         arrow = "▲" if trend_pct >= 0 else "▼"
-        trend_line = (
+        return (
             f"{arrow} {trend_pct:+.1f}% YoY ({prior_year}→{latest_year}). "
             f"Naive next-year forecast: ~{forecast_next_year:,} vacancies in {next_year_label}."
         )
-        source_line = f"💡 Source: MOM Job Vacancy by Industry & Occupation, {latest_year} data (data.gov.sg, dataset `{_JOB_VACANCY_DATASET_ID}`)."
-    except Exception as e:
-        # Live fetch failed — fall back to the last real snapshot on record so the UI still renders.
-        fallback = {"tech": (11700, -5.6), "finance": (11400, 9.6), "healthcare": (10200, -10.5), "general": (150700, 0.5)}
-        vacancies, trend_pct = fallback[matched_sector]
-        arrow = "▲" if trend_pct >= 0 else "▼"
-        trend_line = f"{arrow} {trend_pct:+.1f}% YoY (2024→2025, cached snapshot — live fetch unavailable: {type(e).__name__})."
-        source_line = "💡 Source: MOM Job Vacancy by Industry & Occupation (data.gov.sg) — cached snapshot."
+
+    try:
+        # Tier 1: real BigQuery table (loaded via scripts/load_job_vacancy_to_bigquery.py)
+        bq = _fetch_latest_two_year_totals_from_bigquery(meta["industries"])
+        latest_year, prior_year, totals = bq["latest_year"], bq["prior_year"], bq["totals"]
+        vacancies = totals[latest_year]
+        trend_line = _build_trend(vacancies, totals, prior_year, latest_year)
+        source_line = f"💡 Source: MOM Job Vacancy by Industry & Occupation, {latest_year} data — queried live from Google BigQuery (`{bq['table_ref']}`)."
+    except Exception:
+        try:
+            # Tier 2: direct data.gov.sg fetch (BigQuery not configured, or the query failed)
+            rows = _fetch_job_vacancy_rows()
+            latest_year = max(r["year"] for r in rows if r["year"].isdigit())
+            prior_year = str(int(latest_year) - 1)
+            totals = _sector_vacancy_totals(rows, meta["industries"], [prior_year, latest_year])
+            vacancies = totals[latest_year]
+            trend_line = _build_trend(vacancies, totals, prior_year, latest_year)
+            source_line = f"💡 Source: MOM Job Vacancy by Industry & Occupation, {latest_year} data (data.gov.sg, dataset `{_JOB_VACANCY_DATASET_ID}`)."
+        except Exception as e:
+            # Tier 3: live fetch failed entirely — fall back to the last real snapshot on record.
+            fallback = {"tech": (11700, -5.6), "finance": (11400, 9.6), "healthcare": (10200, -10.5), "general": (150700, 0.5)}
+            vacancies, trend_pct = fallback[matched_sector]
+            arrow = "▲" if trend_pct >= 0 else "▼"
+            trend_line = f"{arrow} {trend_pct:+.1f}% YoY (2024→2025, cached snapshot — live fetch unavailable: {type(e).__name__})."
+            source_line = "💡 Source: MOM Job Vacancy by Industry & Occupation (data.gov.sg) — cached snapshot."
 
     return (
         f"--- [SG EMPLOYMENT & VACANCIES ANALYTICS] ---\n"
@@ -596,6 +645,102 @@ def query_hdb_bto_launches_and_grants(context_query: str = "general") -> str:
         )
 
     return "\n\n".join(results)
+
+
+_RETRENCHMENT_DATASET_ID = "d_61d92d31ca400be135190614277da825"  # data.gov.sg: MOM retrenched employees by industry, quarterly
+_retrenchment_cache = {"rows": None, "fetched_at": 0}
+_RETRENCHMENT_CACHE_TTL_SECONDS = 6 * 60 * 60  # quarterly data — no need to refetch more than a few times a day
+
+# Re-employment rate is not fetched live (MOM publishes it as a "collection" of per-quarter
+# views on data.gov.sg rather than one flat CSV, so it doesn't fit the same simple fetch
+# pattern as the other datasets here) — kept as illustrative context, same as median salary above.
+_RETRENCHMENT_REEMPLOYMENT_RATE_ILLUSTRATIVE = "67.2%"
+
+
+def _fetch_retrenchment_rows() -> list:
+    """Downloads and caches the data.gov.sg MOM retrenchment dataset (CSV: quarter, industry, retrench)."""
+    import time
+    import csv
+    import io
+    import requests
+
+    now = time.time()
+    if _retrenchment_cache["rows"] is not None and (now - _retrenchment_cache["fetched_at"]) < _RETRENCHMENT_CACHE_TTL_SECONDS:
+        return _retrenchment_cache["rows"]
+
+    poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{_RETRENCHMENT_DATASET_ID}/poll-download"
+    r = requests.get(poll_url, timeout=10)
+    r.raise_for_status()
+    download_url = r.json()["data"]["url"]
+
+    r_csv = requests.get(download_url, timeout=15)
+    r_csv.raise_for_status()
+    rows = list(csv.DictReader(io.StringIO(r_csv.text)))
+
+    _retrenchment_cache["rows"] = rows
+    _retrenchment_cache["fetched_at"] = now
+    return rows
+
+
+def query_singapore_retrenchment_advisory(context_query: str = "general") -> str:
+    """Tool: Retrieves Singapore's real quarterly retrenchment statistics (MOM, via data.gov.sg) and the top affected industries.
+
+    Args:
+        context_query: The specific retrenchment or workforce advisory question. Defaults to 'general'.
+    """
+    # Singapore's three mutually-exclusive producing sectors, summed as an economy-wide total
+    # (same non-overlapping rollup used for job vacancies, avoids double-counting finer industries).
+    top_level_sectors = ["services", "manufacturing", "construction"]
+
+    try:
+        rows = _fetch_retrenchment_rows()
+        latest_quarter = max(r["quarter"] for r in rows)
+
+        total = 0
+        leaf_totals = []
+        for r in rows:
+            if r["quarter"] != latest_quarter:
+                continue
+            raw = (r.get("retrench") or "").strip()
+            if not raw or raw == "-":
+                continue
+            value = int(raw)
+            if r["industry"] in top_level_sectors:
+                total += value
+            else:
+                leaf_totals.append((r["industry"], value))
+
+        # Top contributing industries, de-duplicated against nested sub-industry variants
+        # (e.g. "wholesale trade" is a sub-category of "wholesale and retail trade" — skip it
+        # if its words are already a subset of a previously-picked, higher-ranked industry).
+        _STOPWORDS = {"and", "other", "of", "services", "products"}
+        leaf_totals.sort(key=lambda x: -x[1])
+        top_industries = []
+        seen_word_sets = []
+        for name, _ in leaf_totals:
+            words = set(name.replace(",", "").lower().split()) - _STOPWORDS
+            if any(words <= seen or seen <= words for seen in seen_word_sets):
+                continue
+            seen_word_sets.append(words)
+            top_industries.append(name)
+            if len(top_industries) == 3:
+                break
+
+        return (
+            f"--- [SG WORKFORCE RETRENCHMENT ADVISORY] ---\n"
+            f"⚠️ Latest Quarterly Retrenchment: {total:,} workers ({latest_quarter})\n"
+            f"📂 Primarily in: {', '.join(top_industries).title()}\n"
+            f"🔁 Six-Month Re-Employment Rate: {_RETRENCHMENT_REEMPLOYMENT_RATE_ILLUSTRATIVE} (illustrative — not yet wired to a live feed)\n"
+            f"💡 Source: MOM Retrenched Employees by Industry, {latest_quarter} (data.gov.sg, dataset `{_RETRENCHMENT_DATASET_ID}`)."
+        )
+    except Exception as e:
+        return (
+            f"--- [SG WORKFORCE RETRENCHMENT ADVISORY] ---\n"
+            f"⚠️ Latest Quarterly Retrenchment: 3,590 workers (Q4 2025, cached snapshot — live fetch unavailable: {type(e).__name__})\n"
+            f"📂 Primarily in: Wholesale And Retail Trade, Financial And Insurance Services, Information And Communications\n"
+            f"🔁 Six-Month Re-Employment Rate: {_RETRENCHMENT_REEMPLOYMENT_RATE_ILLUSTRATIVE} (illustrative — not yet wired to a live feed)\n"
+            f"💡 Source: MOM Retrenched Employees by Industry (data.gov.sg) — cached snapshot."
+        )
 
 
 
