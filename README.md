@@ -26,7 +26,7 @@ All data panels in the **SG Hub Dashboard** load on-demand when clicked and show
 | 🚇 **Transit & Rail Alerts** | **LTA DataMall API** (`https://datamall2.mytransport.sg/ltaodataservice/TrainServiceAlerts`) | Live line-by-line status grid (EWL, NSL, NEL, CCL, DTL, TEL, LRTs) with disruption logs, free public bus boarding notices, and free MRT shuttle routes. |
 | 📢 **Gov Updates** | **Telegram Scraper** (7 Channels: `@govsg`, `@HealthHubSG`, `@scamshieldalert`, `@LTAsg`, `@NEAsg`, `@MOEsg`, `@GovTechSG`) | Last 3 posts per channel, sorted chronologically descending by SGT post date. |
 | 🏢 **HDB BTO Tracker** | **HDB Pulse & Newsroom Scraper** (`https://www.hdb.gov.sg/hdb-pulse/news`) | Live BTO launch tables + BeautifulSoup HDB newsroom Next.js `__NEXT_DATA__` JSON extraction (resolving real CMS URLs dynamically). |
-| 📊 **Job Market Analysis** | **Google BigQuery** (MOM Employment Dataset) | Vacancies, median starting salaries, top demanded skills, and industry trends partitioned by sector (Tech, Finance, Healthcare, General). |
+| 📊 **Job Market Analysis** | **data.gov.sg Dataset API** (MOM Job Vacancy by Industry & Occupation, `d_889d11a2b0a53b235abb64e3f4e0a47b`) | Real vacancy counts, YoY trend, and a next-year forecast per sector (Tech, Finance, Healthcare, General); median salary and top skills are illustrative context. |
 | ⚠️ **MOM Retrenchment** | **MOM Advisory Index** | Active retrenchment numbers with Q1 2026 data freshness indicators. |
 | 🎟️ **Kiasu SG Deals** | **Telegram Scraper** (15 Channels: `@confirmgood`, `@goodlobang`, `@kiasufoodies`, `@sgweekend`, `@moneydigest`, etc.) | Community deals and lifestyle news posted strictly within the last 24 hours, sorted newest-first. |
 

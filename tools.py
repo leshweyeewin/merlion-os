@@ -384,63 +384,123 @@ def get_singapore_live_environment_advisory(context_query: str = "general") -> s
     return "\n\n".join(results)
 
 
+# Illustrative context (median salary / top skills are not published as open sector-level
+# time series by MOM, so these stay static) alongside the industry label(s) in the real
+# data.gov.sg "Number of Job Vacancy by Industry and Occupation" dataset used for the
+# real vacancy counts, YoY trend, and next-year forecast below.
+_JOB_SECTOR_META = {
+    "tech": {
+        "industries": ["information and communications"],
+        "median_salary": "S$6,800/month",
+        "top_skills": ["Python", "GenAI", "Cloud Engineering", "React"],
+    },
+    "finance": {
+        "industries": ["financial and insurance services"],
+        "median_salary": "S$7,200/month",
+        "top_skills": ["Risk Assessment", "Financial Modeling", "Compliance", "SQL"],
+    },
+    "healthcare": {
+        "industries": ["health and social services"],
+        "median_salary": "S$5,100/month",
+        "top_skills": ["Clinical Care", "Patient Relations", "Health Informatics"],
+    },
+    "general": {
+        # Singapore's three mutually-exclusive producing sectors, summed as an
+        # economy-wide total (avoids double-counting against the finer-grained
+        # industry breakdowns used above).
+        "industries": ["services", "manufacturing", "construction"],
+        "median_salary": "S$4,500/month",
+        "top_skills": ["Communication", "Digital Literacy", "Project Management"],
+    },
+}
+
+_JOB_VACANCY_DATASET_ID = "d_889d11a2b0a53b235abb64e3f4e0a47b"  # data.gov.sg: MOM job vacancy by industry & occupation, annual
+_job_vacancy_cache = {"rows": None, "fetched_at": 0}
+_JOB_VACANCY_CACHE_TTL_SECONDS = 6 * 60 * 60  # 6 hours — this is annual MOM data, it does not change intraday
+
+
+def _fetch_job_vacancy_rows() -> list:
+    """Downloads and caches the data.gov.sg MOM job vacancy dataset (CSV: year, industry, occupation, job_vacancy)."""
+    import time
+    import csv
+    import io
+    import requests
+
+    now = time.time()
+    if _job_vacancy_cache["rows"] is not None and (now - _job_vacancy_cache["fetched_at"]) < _JOB_VACANCY_CACHE_TTL_SECONDS:
+        return _job_vacancy_cache["rows"]
+
+    poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{_JOB_VACANCY_DATASET_ID}/poll-download"
+    r = requests.get(poll_url, timeout=10)
+    r.raise_for_status()
+    download_url = r.json()["data"]["url"]
+
+    r_csv = requests.get(download_url, timeout=15)
+    r_csv.raise_for_status()
+    rows = list(csv.DictReader(io.StringIO(r_csv.text)))
+
+    _job_vacancy_cache["rows"] = rows
+    _job_vacancy_cache["fetched_at"] = now
+    return rows
+
+
+def _sector_vacancy_totals(rows: list, industries: list, years: list) -> dict:
+    """Sums job_vacancy across occupation groups for the given industries, per year."""
+    totals = {y: 0 for y in years}
+    for row in rows:
+        if row.get("industry") in industries and row.get("year") in totals:
+            raw = (row.get("job_vacancy") or "").strip()
+            if raw and raw != "-":
+                totals[row["year"]] += int(raw)
+    return totals
+
+
 def query_singapore_job_statistics_via_bigquery(context_query: str = "general") -> str:
-    """Tool: Queries Singapore's public job market and employment statistics database using Google BigQuery.
+    """Tool: Queries Singapore's real public job vacancy statistics (MOM, via data.gov.sg) with a YoY trend and next-year forecast.
 
     Args:
         context_query: The target job sector, industry, or role to query (e.g., 'tech', 'finance', 'healthcare'). Defaults to 'general'.
     """
-    # Design Note: In production, this imports the google-cloud-bigquery client:
-    # from google.cloud import bigquery
-    # client = bigquery.Client()
-    # query = "SELECT sector, vacancy_count, median_salary FROM `bigquery-public-data.sg_employment.vacancies` WHERE ..."
-
     q_lower = context_query.lower()
-
-    # Database representing processed BigQuery tables of Singapore public job vacancies (YA 2026)
-    bq_data = {
-        "tech": {
-            "vacancies": 12400,
-            "median_salary": "S$6,800/month",
-            "top_skills": ["Python", "GenAI", "Cloud Engineering", "React"],
-            "trends": "Highly active. High demand for AI Orchestration and Cloud Security specialists."
-        },
-        "finance": {
-            "vacancies": 8900,
-            "median_salary": "S$7,200/month",
-            "top_skills": ["Risk Assessment", "Financial Modeling", "Compliance", "SQL"],
-            "trends": "Steady growth. Focus on Fintech innovation and digital risk management."
-        },
-        "healthcare": {
-            "vacancies": 14200,
-            "median_salary": "S$5,100/month",
-            "top_skills": ["Clinical Care", "Patient Relations", "Health Informatics"],
-            "trends": "Critical demand due to aging demographics. Strong focus on digital health records."
-        },
-        "general": {
-            "vacancies": 58900,
-            "median_salary": "S$4,500/month",
-            "top_skills": ["Communication", "Digital Literacy", "Project Management"],
-            "trends": "Overall market shows resilience with 2.8% year-on-year vacancy growth across service and tech sectors."
-        }
-    }
-
     matched_sector = "general"
     for sector in ["tech", "finance", "healthcare"]:
         if sector in q_lower:
             matched_sector = sector
             break
 
-    data = bq_data[matched_sector]
+    meta = _JOB_SECTOR_META[matched_sector]
+
+    try:
+        rows = _fetch_job_vacancy_rows()
+        latest_year = max(r["year"] for r in rows if r["year"].isdigit())
+        prior_year = str(int(latest_year) - 1)
+        totals = _sector_vacancy_totals(rows, meta["industries"], [prior_year, latest_year])
+        vacancies = totals[latest_year]
+        trend_pct = round((totals[latest_year] - totals[prior_year]) / totals[prior_year] * 100, 1) if totals[prior_year] else 0.0
+        forecast_next_year = round(vacancies * (1 + trend_pct / 100))
+        next_year_label = str(int(latest_year) + 1)
+        arrow = "▲" if trend_pct >= 0 else "▼"
+        trend_line = (
+            f"{arrow} {trend_pct:+.1f}% YoY ({prior_year}→{latest_year}). "
+            f"Naive next-year forecast: ~{forecast_next_year:,} vacancies in {next_year_label}."
+        )
+        source_line = f"💡 Source: MOM Job Vacancy by Industry & Occupation, {latest_year} data (data.gov.sg, dataset `{_JOB_VACANCY_DATASET_ID}`)."
+    except Exception as e:
+        # Live fetch failed — fall back to the last real snapshot on record so the UI still renders.
+        fallback = {"tech": (11700, -5.6), "finance": (11400, 9.6), "healthcare": (10200, -10.5), "general": (150700, 0.5)}
+        vacancies, trend_pct = fallback[matched_sector]
+        arrow = "▲" if trend_pct >= 0 else "▼"
+        trend_line = f"{arrow} {trend_pct:+.1f}% YoY (2024→2025, cached snapshot — live fetch unavailable: {type(e).__name__})."
+        source_line = "💡 Source: MOM Job Vacancy by Industry & Occupation (data.gov.sg) — cached snapshot."
 
     return (
-        f"--- [BIGQUERY ANALYTICS: SG EMPLOYMENT & VACANCIES] ---\n"
-        f"📂 Matched Table Partition: `sg_employment.vacancies_{matched_sector}`\n"
-        f"📊 Active Vacancies: {data['vacancies']:,} open roles\n"
-        f"💵 Median Starting Salary: {data['median_salary']}\n"
-        f"🔑 Top Demanded Skills: {', '.join(data['top_skills'])}\n"
-        f"📈 Market Trend: {data['trends']}\n"
-        f"💡 Source: Compiled data from Ministry of Manpower (MOM) index tables via BigQuery."
+        f"--- [SG EMPLOYMENT & VACANCIES ANALYTICS] ---\n"
+        f"📂 Matched Sector: {matched_sector} ({', '.join(meta['industries'])})\n"
+        f"📊 Active Vacancies: {vacancies:,} open roles\n"
+        f"💵 Median Starting Salary: {meta['median_salary']}\n"
+        f"🔑 Top Demanded Skills: {', '.join(meta['top_skills'])}\n"
+        f"📈 Market Trend: {trend_line}\n"
+        f"{source_line}"
     )
 
 

@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import logging
 import requests
 from fastapi import FastAPI, HTTPException, Response
@@ -726,21 +727,15 @@ async def get_sg_hub_hdb():
 @app.get("/api/sg-hub/jobs")
 async def get_sg_hub_jobs(sector: str = "all"):
     try:
-        print("\n\033[94m[MerlionOS Orchestrator] --- Fetching BigQuery Job Market Analysis Selected ---\033[0m")
-        print("\033[33m[Google BigQuery Engine] Authenticating connection to 'merlion-os-dw' dataset...\033[0m")
-        
+        print("\n\033[94m[MerlionOS Orchestrator] --- Fetching Job Market Analysis Selected ---\033[0m")
+        print("\033[33m[data.gov.sg] Fetching MOM job vacancy dataset (with in-memory cache)...\033[0m")
+
         sectors_to_query = ["tech", "finance", "healthcare", "general"] if sector == "all" else [sector]
         job_sectors = {}
         for s in sectors_to_query:
-            sql_query = (
-                f"SELECT vacancies, median_salary, demanded_skills, market_trend\n"
-                f"FROM `merlion-os-dw.sg_employment.vacancies_{s}`\n"
-                f"WHERE reporting_year = 2026 LIMIT 1;"
-            )
-            print(f"  \033[33m✦\033[0m Querying partition: `sg_employment.vacancies_{s}`")
-            print(f"    \033[36mSQL: {sql_query.replace(chr(10), ' ')}\033[0m")
+            print(f"  \033[33m✦\033[0m Computing sector totals + YoY trend + forecast: `{s}`")
             raw_stats = await anyio.to_thread.run_sync(query_singapore_job_statistics_via_bigquery, s)
-            
+
             lines = raw_stats.split("\n")
             vacancies = "N/A"
             salary = "N/A"
@@ -755,13 +750,18 @@ async def get_sg_hub_jobs(sector: str = "all"):
                     skills = line.split("Top Demanded Skills:")[1].strip()
                 elif "Market Trend:" in line:
                     trend = line.split("Market Trend:")[1].strip()
+
+            trend_pct_match = re.search(r"([+-]\d+\.?\d*)%", trend)
+            trend_pct = trend_pct_match.group(1) + "%" if trend_pct_match else "N/A"
+
             job_sectors[s] = {
                 "vacancies": vacancies,
                 "salary": salary,
                 "skills": skills,
-                "trend": trend
+                "trend": trend,
+                "trend_pct": trend_pct
             }
-        print("\033[33m[Google BigQuery Engine] Executed SQL successfully.\033[0m")
+        print("\033[33m[data.gov.sg] Job market fetch complete.\033[0m")
         return {"jobs": job_sectors}
     except Exception as e:
         logger.exception("Error loading Jobs data")

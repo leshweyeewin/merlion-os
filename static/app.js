@@ -966,32 +966,35 @@ function initSgHub() {
         const vacPct = Math.min((vacNum / 30000) * 100, 100);
         const salPct = Math.min((salNum / 12000) * 100, 100);
 
-        let growthRate = "";
+        // Real YoY trend + forecast come from the backend (MOM job vacancy data via data.gov.sg).
+        // Risk level / drivers / support schemes below are illustrative context, not sourced from that dataset.
+        const trendPctNum = parseFloat(details.trend_pct) || 0;
+        const growthRate = details.trend_pct !== "N/A"
+            ? `${trendPctNum >= 0 ? "▲" : "▼"} ${details.trend_pct} YoY`
+            : "N/A";
+        const growthColor = trendPctNum >= 0 ? "#10b981" : "#f59e0b"; // green if growing, amber if declining — matches the real trend sign
+
         let riskLevel = "";
         let riskColor = "";
         let growthDrivers = "";
         let momSupport = "";
 
         if (sector === "tech") {
-            growthRate = "▲ +5.8% YoY (YA 2026)";
             riskLevel = "Moderate (210 cases last Q)";
-            riskColor = "#f59e0b"; // yellow
+            riskColor = "#f59e0b";
             growthDrivers = "Generative AI applications, Cloud Infrastructure scaling, Cyber Security defense.";
             momSupport = "Eligible for TechSkills Accelerator (TeSA) training subsidies and SCTP transition programs.";
         } else if (sector === "finance") {
-            growthRate = "▲ +4.2% YoY (YA 2026)";
             riskLevel = "Low (90 cases last Q)";
-            riskColor = "#10b981"; // green
+            riskColor = "#10b981";
             growthDrivers = "Sustainable ESG Finance, Wealth Management setups, Blockchain asset tokenization.";
             momSupport = "Supported by IBF Standards Training and Financial Sector Technology (FSTI) grants.";
         } else if (sector === "healthcare") {
-            growthRate = "▲ +7.1% YoY (YA 2026)";
             riskLevel = "Very Low (12 cases last Q)";
-            riskColor = "#10b981"; // green
+            riskColor = "#10b981";
             growthDrivers = "Geriatric care expansion, National Electronic Health Records (NEHR) digitization, Telehealth platforms.";
             momSupport = "Eligible for Healthcare Professional Conversion Programmes (PCP) with up to 90% salary support.";
         } else {
-            growthRate = "▲ +2.1% YoY";
             riskLevel = "Low-Moderate";
             riskColor = "#f59e0b";
             growthDrivers = "Green economy transition, advanced manufacturing automation, wholesale trade digitization.";
@@ -1040,7 +1043,7 @@ function initSgHub() {
                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom: 12px;">
                     <div style="background: var(--bg-muted); border: 1px solid var(--border); padding: 10px; border-radius: 6px;">
                         <span style="font-size: 10px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px; text-transform: uppercase;">📈 YoY Growth Index</span>
-                        <strong style="font-size: 14px; color: var(--text-success);">${growthRate}</strong>
+                        <strong style="font-size: 14px; color: ${growthColor};">${growthRate}</strong>
                     </div>
                     <div style="background: var(--bg-muted); border: 1px solid var(--border); padding: 10px; border-radius: 6px;">
                         <span style="font-size: 10px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px; text-transform: uppercase;">⚠️ Retrenchment Risk</span>

@@ -62,7 +62,7 @@ def mcp_get_singapore_live_environment_advisory(context_query: str = "general") 
 
 @mcp.tool(name="query_singapore_job_statistics_via_bigquery")
 def mcp_query_singapore_job_statistics_via_bigquery(context_query: str = "general") -> str:
-    """Queries Singapore's public job market and employment statistics database using Google BigQuery."""
+    """Queries Singapore's real public job vacancy statistics (MOM, via data.gov.sg) with a YoY trend and next-year forecast."""
     return query_singapore_job_statistics_via_bigquery(context_query)
 
 @mcp.tool(name="query_hdb_bto_launches_and_grants")
