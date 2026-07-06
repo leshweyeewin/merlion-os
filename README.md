@@ -63,9 +63,12 @@ The floating **Co-Pilot Chat Assistant** runs on **Gemini 2.5 Flash** with nativ
 
 <p align="center">
   <img src="docs/screenshots/chat-widget.png" alt="MerlionOS Co-Pilot chat widget showing the welcome message and quick-prompt suggestions" width="420">
+</p>
+<p align="center"><em>the Assistant tab.</em></p>
+<p align="center">
   <img src="docs/screenshots/operations-trace.png" alt="MerlionOS Co-Pilot Operations Trace tab showing system routing, live query matching, and error-handling logs" width="420">
 </p>
-<p align="center"><em>Left: the Assistant tab. Right: the Operations Trace tab, which exposes the routing brain's live decision log for auditability.</em></p>
+<p align="center"><em>the Operations Trace tab, which exposes the routing brain's live decision log for auditability.</em></p>
 
 ---
 
