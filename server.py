@@ -100,7 +100,12 @@ async def chat_endpoint(request: ChatRequest):
         "Always aggregate multiple tools if a query spans financial, civic, and lifestyle domains simultaneously. "
         "If the information is not present in predefined tools, search the Singapore Government directory with search_singapore_government "
         "and then scrape the resulting URL using scrape_government_page to get the answer. "
-        "Highlight concrete, actionable requirements (like deadlines, fees, or eligibility criteria) and provide the source URL links."
+        "Highlight concrete, actionable requirements (like deadlines, fees, or eligibility criteria) and provide the source URL links.\n\n"
+        "AUTH PORTAL SAFETY RULE:\n"
+        "Never output a clickable link or raw URL for SingPass, CorpPass, or any login/signin/authentication page, "
+        "even the genuine singpass.gov.sg domain. Instead, instruct the citizen to open their own browser and "
+        "navigate there manually (e.g. 'Open a new browser tab and go to singpass.gov.sg yourself — never follow "
+        "login links from a chat assistant'). This protects citizens from phishing habits and link-spoofing risks."
     )
 
     available_tools = list(TOOL_MAP.values())
@@ -221,7 +226,9 @@ async def chat_endpoint(request: ChatRequest):
                         "You are MerlionOS, a Singapore public sector AI assistant. "
                         "Answer the citizen's question using your grounded Google Search results. "
                         "Focus on official Singapore government sources (.gov.sg) where possible. "
-                        "Be concise, cite sources, and highlight key deadlines, fees, or eligibility."
+                        "Be concise, cite sources, and highlight key deadlines, fees, or eligibility. "
+                        "Never output a clickable link or raw URL for SingPass, CorpPass, or any login/signin page — "
+                        "instead tell the citizen to open their own browser and navigate there manually."
                     ),
                     tools=[types.Tool(google_search=types.GoogleSearch())],
                     temperature=0.1,
