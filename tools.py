@@ -553,6 +553,160 @@ def query_singapore_job_statistics_via_bigquery(context_query: str = "general") 
     )
 
 
+_HDB_NEWS_URL = "https://www.hdb.gov.sg/hdb-pulse/news"
+_HDB_BASE = "https://www.hdb.gov.sg"
+_bto_launch_cache = {"data": None, "fetched_at": 0}
+_BTO_LAUNCH_CACHE_TTL_SECONDS = 12 * 60 * 60  # BTO exercises happen a few times a year, not intraday
+
+
+def _parse_html_table_to_grid(table_tag) -> list:
+    """Expands an HTML table (with rowspan/colspan merged cells) into a full 2D grid of cell text,
+    so merged cells repeat their value into every row/column they visually span."""
+    rows_out = []
+    pending = {}  # col_index -> [text, remaining_rows]
+    for tr in table_tag.find_all("tr"):
+        cells = tr.find_all(["td", "th"])
+        row_out = []
+        col = 0
+        cell_iter = iter(cells)
+        current_cell = next(cell_iter, None)
+        while current_cell is not None or col in pending:
+            if col in pending:
+                text, remaining = pending[col]
+                row_out.append(text)
+                pending[col] = [text, remaining - 1] if remaining > 1 else None
+                if pending[col] is None:
+                    del pending[col]
+                col += 1
+                continue
+            if current_cell is None:
+                break
+            text = current_cell.get_text(strip=True)
+            rowspan = int(current_cell.get("rowspan", 1))
+            colspan = int(current_cell.get("colspan", 1))
+            for i in range(colspan):
+                row_out.append(text)
+                if rowspan > 1:
+                    pending[col + i] = [text, rowspan - 1]
+            col += colspan
+            current_cell = next(cell_iter, None)
+        rows_out.append(row_out)
+    return rows_out
+
+
+def _fetch_bto_launch_details() -> dict:
+    """Live-scrapes the most recent HDB BTO launch press release from hdb.gov.sg's newsroom
+    (same __NEXT_DATA__ technique as the HDB News scraper) for real project names, towns,
+    classifications, and flat-type prices — cached since new launches are infrequent."""
+    import time
+    import re as _re
+    import json as _json
+    import requests
+    from bs4 import BeautifulSoup
+
+    now = time.time()
+    if _bto_launch_cache["data"] is not None and (now - _bto_launch_cache["fetched_at"]) < _BTO_LAUNCH_CACHE_TTL_SECONDS:
+        return _bto_launch_cache["data"]
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    }
+
+    # 1. Find the latest BTO launch article from the news listing
+    r = requests.get(_HDB_NEWS_URL, headers=headers, timeout=10)
+    r.raise_for_status()
+    listing_soup = BeautifulSoup(r.text, "html.parser")
+    next_data_tag = listing_soup.find("script", {"id": "__NEXT_DATA__"})
+    if not next_data_tag:
+        raise ValueError("__NEXT_DATA__ not found on HDB news listing page")
+    listing_data = _json.loads(next_data_tag.string)
+    articles = listing_data.get("props", {}).get("pageProps", {}).get("listingYearData", [])
+
+    title_pattern = _re.compile(r"HDB Launches ([\d,]+) Flats [Aa]cross (\d+) Projects in ([A-Za-z]+ \d{4}) BTO Sales Exercise", _re.IGNORECASE)
+    matched = []
+    for article in articles:
+        fields = {f["name"]: f["value"] for f in article.get("fields", [])}
+        title = (fields.get("navigationTitle") or fields.get("pageTitle") or "").strip()
+        m = title_pattern.search(title)
+        if m:
+            matched.append({
+                "total_flats": m.group(1),
+                "total_projects": int(m.group(2)),
+                "exercise": m.group(3),
+                "pub_date": fields.get("publishedDate", ""),
+                "url_path": article.get("url", {}).get("path", ""),
+            })
+    if not matched:
+        raise ValueError("No BTO launch exercise article found in HDB news listing")
+    matched.sort(key=lambda x: x["pub_date"], reverse=True)
+    latest = matched[0]
+
+    # 2. Fetch the article itself — needs a Referer, the listing page works without one
+    article_headers = dict(headers, Referer=_HDB_NEWS_URL)
+    article_url = f"{_HDB_BASE}{latest['url_path']}"
+    r2 = requests.get(article_url, headers=article_headers, timeout=10)
+    r2.raise_for_status()
+    article_soup = BeautifulSoup(r2.text, "html.parser")
+    article_next_data_tag = article_soup.find("script", {"id": "__NEXT_DATA__"})
+    if not article_next_data_tag:
+        raise ValueError("__NEXT_DATA__ not found on BTO launch article page")
+    article_data = _json.loads(article_next_data_tag.string)
+    placeholders = article_data["props"]["pageProps"]["layoutData"]["sitecore"]["route"]["placeholders"]
+    body_components = placeholders.get("destination-page", [])
+    body_html = next((c["fields"]["bodyContent"]["value"] for c in body_components if c.get("componentName") == "BodyContent"), None)
+    if not body_html:
+        raise ValueError("BodyContent not found in BTO launch article")
+
+    body_soup = BeautifulSoup(body_html, "html.parser")
+    tables = body_soup.find_all("table")
+    if len(tables) < 3:
+        raise ValueError(f"Expected at least 3 tables in BTO launch article, found {len(tables)}")
+
+    # Table 1: Classification | Project | Town
+    classification_by_project = {}
+    town_by_project = {}
+    for row in _parse_html_table_to_grid(tables[0])[1:]:
+        if len(row) < 3:
+            continue
+        classification, project, town = row[0], row[1], row[2]
+        classification_by_project[project] = classification.replace(" Projects", "")
+        town_by_project[project] = town
+
+    # Table 3: Town | Project | Flat Type | Selling Price (Excl Grants) | Selling Price (Incl Grants) | Resale Nearby
+    flat_types_by_town = {}
+    for row in _parse_html_table_to_grid(tables[2])[1:]:
+        if len(row) < 5 or len(set(row)) == 1:  # skip section-divider rows (all cells identical)
+            continue
+        town, _project_cell, flat_type, price_excl, price_incl = row[0], row[1], row[2], row[3], row[4]
+        flat_types_by_town.setdefault(town, []).append({
+            "flat_type": _re.sub(r"room(?=[A-Z])", "room ", flat_type),  # source HTML sometimes drops the space before "Flexi"
+            "price_excl_grants": price_excl.rstrip(";").strip(),
+            "price_incl_grants": price_incl.rstrip(";").strip(),
+        })
+
+    projects = []
+    for project, classification in classification_by_project.items():
+        town = town_by_project[project]
+        projects.append({
+            "project": project,
+            "town": town,
+            "classification": classification,
+            "flat_types": flat_types_by_town.get(town, []),
+        })
+
+    result = {
+        "total_flats": latest["total_flats"],
+        "total_projects": latest["total_projects"],
+        "exercise": latest["exercise"],
+        "article_url": article_url,
+        "projects": projects,
+    }
+    _bto_launch_cache["data"] = result
+    _bto_launch_cache["fetched_at"] = now
+    return result
+
+
 def query_hdb_bto_launches_and_grants(context_query: str = "general") -> str:
     """Tool: Processes HDB BTO launches, application cycles, and CPF housing grants.
 
@@ -562,41 +716,32 @@ def query_hdb_bto_launches_and_grants(context_query: str = "general") -> str:
     import re
     q_lower = context_query.lower()
 
-    # BTO Launch Registry (YA 2026)
-    bto_launches = [
-        {
-            "town": "Kallang/Whampoa",
-            "type": "Prime Location Housing (PLH)",
-            "estates": "Tanjong Rhu / Crawford",
-            "units": 1200,
-            "prices": "3-Room: from S$380,000 | 4-Room: from S$530,000",
-            "date": "June 2026 Launch"
-        },
-        {
-            "town": "Queenstown",
-            "type": "Prime Location Housing (PLH)",
-            "estates": "Tanglin Halt",
-            "units": 850,
-            "prices": "3-Room: from S$360,000 | 4-Room: from S$510,000",
-            "date": "June 2026 Launch"
-        },
-        {
-            "town": "Woodlands",
-            "type": "Standard Housing",
-            "estates": "Woodlands North",
-            "units": 1500,
-            "prices": "2-Room: from S$140,000 | 3-Room: from S$240,000 | 4-Room: from S$350,000",
-            "date": "June 2026 Launch"
-        },
-        {
-            "town": "Yishun",
-            "type": "Standard Housing",
-            "estates": "Chencharu",
-            "units": 1100,
-            "prices": "2-Room: from S$130,000 | 3-Room: from S$220,000 | 4-Room: from S$330,000",
-            "date": "June 2026 Launch"
-        }
-    ]
+    try:
+        launch_data = _fetch_bto_launch_details()
+        bto_header = f"--- [HDB BTO LAUNCH REGISTRY — {launch_data['exercise']} BTO Sales Exercise] ---\n💡 Source: HDB Newsroom, live-scraped ({launch_data['article_url']})"
+        bto_projects = launch_data["projects"]
+        bto_summary = f"📊 {launch_data['total_flats']} flats launched across {launch_data['total_projects']} projects."
+    except Exception as e:
+        # Live scrape failed — fall back to the last real snapshot on record (June 2026 exercise).
+        bto_header = f"--- [HDB BTO LAUNCH REGISTRY — cached snapshot, live fetch unavailable: {type(e).__name__}] ---"
+        bto_summary = "📊 6,952 flats launched across 7 projects (June 2026 BTO Sales Exercise)."
+        bto_projects = [
+            {"project": "Sembawang Portico", "town": "Sembawang", "classification": "Standard",
+             "flat_types": [{"flat_type": "3-room", "price_excl_grants": "From $250,000", "price_incl_grants": "From $145,000"},
+                             {"flat_type": "4-room", "price_excl_grants": "From $302,000", "price_incl_grants": "From $222,000"}]},
+            {"project": "Sembawang Brook", "town": "Sembawang", "classification": "Standard",
+             "flat_types": [{"flat_type": "3-room", "price_excl_grants": "From $250,000", "price_incl_grants": "From $145,000"},
+                             {"flat_type": "4-room", "price_excl_grants": "From $302,000", "price_incl_grants": "From $222,000"}]},
+            {"project": "Woodgrove Acres", "town": "Woodlands", "classification": "Standard",
+             "flat_types": [{"flat_type": "3-room", "price_excl_grants": "From $260,000", "price_incl_grants": "From $155,000"},
+                             {"flat_type": "4-room", "price_excl_grants": "From $353,000", "price_incl_grants": "From $273,000"}]},
+            {"project": "Kebun Baru Ridge", "town": "Ang Mo Kio", "classification": "Plus",
+             "flat_types": [{"flat_type": "3-room", "price_excl_grants": "From $380,000", "price_incl_grants": "From $290,000"},
+                             {"flat_type": "4-room", "price_excl_grants": "From $543,000", "price_incl_grants": "From $488,000"}]},
+            {"project": "Kebun Baru Breeze", "town": "Ang Mo Kio", "classification": "Plus", "flat_types": []},
+            {"project": "Lakeview Cascadia", "town": "Bishan", "classification": "Prime", "flat_types": []},
+            {"project": "Berlayar Rise", "town": "Bukit Merah", "classification": "Prime", "flat_types": []},
+        ]
 
     income_val = None
     nums = re.findall(r'\b\d{3,5}\b', q_lower)
@@ -621,14 +766,17 @@ def query_hdb_bto_launches_and_grants(context_query: str = "general") -> str:
             ehg_grant = 0
 
     results = []
-    results.append("--- [HDB BTO LAUNCH REGISTRY (YA 2026)] ---")
-    for bto in bto_launches:
+    results.append(bto_header)
+    results.append(bto_summary)
+    for bto in bto_projects:
+        flat_type_lines = ", ".join(
+            f"{ft['flat_type']} ({ft['price_incl_grants']} w/ grants)" for ft in bto["flat_types"]
+        ) or "See article for flat type/pricing breakdown"
         results.append(
-            f"🏢 {bto['town']} ({bto['type']})\n"
-            f"   • Location: {bto['estates']}\n"
-            f"   • Units: {bto['units']} units\n"
-            f"   • LaunchDate: {bto['date']}\n"
-            f"   • Pricing: {bto['prices']}"
+            f"🏢 {bto['project']} ({bto['town']}) — {bto['classification']}\n"
+            f"   • Town: {bto['town']}\n"
+            f"   • Classification: {bto['classification']}\n"
+            f"   • FlatTypes: {flat_type_lines}"
         )
 
     results.append("\n--- [CPF HOUSING GRANTS (EHG)] ---")

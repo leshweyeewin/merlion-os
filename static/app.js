@@ -919,39 +919,44 @@ function initSgHub() {
 
     function renderHdbLaunches(text) {
         if (!text) return "<p style='color: var(--text-subtle); margin:0;'>No launches listed.</p>";
+
+        // Header line looks like "--- [HDB BTO LAUNCH REGISTRY — June 2026 BTO Sales Exercise] ---"
+        const headerMatch = text.match(/HDB BTO LAUNCH REGISTRY[^\]]*—\s*([^\]]+)\]/);
+        const exerciseLabel = headerMatch ? headerMatch[1].trim() : "";
+        const summaryMatch = text.match(/📊\s*([^\n]+)/);
+        const summaryLine = summaryMatch ? summaryMatch[1].trim() : "";
+
         let html = "";
+        if (summaryLine) {
+            html += `<p style="font-size:13px; color: var(--text-muted); margin: 0 0 14px 0;">${escapeHTML(summaryLine)}</p>`;
+        }
+
         const blocks = text.split("🏢");
         blocks.forEach(block => {
             if (!block.trim()) return;
             const lines = block.split("\n");
             const titleLine = lines[0].trim();
             if (titleLine.includes("HDB BTO LAUNCH REGISTRY") || titleLine.includes("CPF HOUSING GRANTS")) return; // skip header and grant block in text
-            
-            let loc = "N/A";
-            let units = "N/A";
-            let pricing = "N/A";
-            let launchDate = "";
+
+            let town = "N/A";
+            let classification = "Standard";
+            let flatTypes = "N/A";
             lines.forEach(line => {
                 const clean = line.replace(/^\s*•\s*/, '').trim();
-                if (clean.includes("Location:")) loc = clean.split("Location:")[1].trim();
-                else if (clean.includes("Units:")) units = clean.split("Units:")[1].trim();
-                else if (clean.includes("LaunchDate:")) launchDate = clean.split("LaunchDate:")[1].trim();
-                else if (clean.includes("Pricing:")) pricing = clean.split("Pricing:")[1].trim();
+                if (clean.includes("Town:")) town = clean.split("Town:")[1].trim();
+                else if (clean.includes("Classification:")) classification = clean.split("Classification:")[1].trim();
+                else if (clean.includes("FlatTypes:")) flatTypes = clean.split("FlatTypes:")[1].trim();
             });
-            
+
             const cleanTitle = titleLine.split('(')[0].trim();
 
-            // Category classification
-            let categoryBadge = "";
-            if (titleLine.includes("Prime Location Housing")) {
-                categoryBadge = `<span style="background: #fdf2f2; color: #9b1c1c; border: 1px solid #f8b4b4; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Prime (PLH)</span>`;
-            } else if (titleLine.includes("Plus Housing")) {
-                categoryBadge = `<span style="background: #e1effe; color: #1e429f; border: 1px solid #a4cafe; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Plus</span>`;
-            } else {
-                categoryBadge = `<span style="background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase;">Standard</span>`;
-            }
-
-            const dateBadge = launchDate ? `<span style="display:inline-flex; align-items:center; gap:4px; font-size:11px; background: var(--bg-muted); border:1px solid var(--border); color:var(--text-muted); padding: 3px 8px; border-radius:12px; font-weight:600;"><i class='fa-regular fa-calendar'></i> ${escapeHTML(launchDate)}</span>` : '';
+            const badgeStyles = {
+                "Prime": "background: #fdf2f2; color: #9b1c1c; border: 1px solid #f8b4b4;",
+                "Plus": "background: #e1effe; color: #1e429f; border: 1px solid #a4cafe;",
+                "Standard": "background: #f3f4f6; color: #374151; border: 1px solid #d1d5db;"
+            };
+            const categoryBadge = `<span style="${badgeStyles[classification] || badgeStyles.Standard} padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase;">${escapeHTML(classification)}</span>`;
+            const exerciseBadge = exerciseLabel ? `<span style="display:inline-flex; align-items:center; gap:4px; font-size:11px; background: var(--bg-muted); border:1px solid var(--border); color:var(--text-muted); padding: 3px 8px; border-radius:12px; font-weight:600;"><i class='fa-regular fa-calendar'></i> ${escapeHTML(exerciseLabel)}</span>` : '';
 
             html += `
             <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 16px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02); display: flex; flex-direction: column; gap: 12px;">
@@ -959,20 +964,16 @@ function initSgHub() {
                     <strong style="color: var(--text-main); font-size:16px; font-weight:700; display:flex; align-items:center; gap:6px; margin:0;">
                         🏢 ${escapeHTML(cleanTitle)}
                     </strong>
-                    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">${dateBadge}${categoryBadge}</div>
+                    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">${exerciseBadge}${categoryBadge}</div>
                 </div>
                 <div style="font-size:13px; line-height: 1.6; color: var(--text-main); display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
                     <div>
-                        <span style="color:var(--text-muted); font-weight:600; display:block; font-size:11px; text-transform:uppercase;">📍 Town/Location</span>
-                        <span style="font-size:13px; font-weight:600; color:var(--text-main);">${escapeHTML(loc)}</span>
-                    </div>
-                    <div>
-                        <span style="color:var(--text-muted); font-weight:600; display:block; font-size:11px; text-transform:uppercase;">📊 Project Supply</span>
-                        <span style="font-size:13px; font-weight:600; color:var(--text-main);">${escapeHTML(units)} units</span>
+                        <span style="color:var(--text-muted); font-weight:600; display:block; font-size:11px; text-transform:uppercase;">📍 Town</span>
+                        <span style="font-size:13px; font-weight:600; color:var(--text-main);">${escapeHTML(town)}</span>
                     </div>
                     <div style="grid-column: span 2;">
-                        <span style="color:var(--text-muted); font-weight:600; display:block; font-size:11px; text-transform:uppercase;">💵 Price Guidelines</span>
-                        <span style="font-size:13px; font-weight:700; color:var(--text-success);">${escapeHTML(pricing)}</span>
+                        <span style="color:var(--text-muted); font-weight:600; display:block; font-size:11px; text-transform:uppercase;">💵 Flat Types &amp; Starting Prices (with grants)</span>
+                        <span style="font-size:13px; font-weight:700; color:var(--text-success);">${escapeHTML(flatTypes)}</span>
                     </div>
                 </div>
             </div>`;
