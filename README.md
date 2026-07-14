@@ -33,22 +33,26 @@ All data panels in the **SG Hub Dashboard** load on-demand when clicked and show
 ---
 
 ## 🏛️ Statutory Portals Directory
-MerlionOS features a drag-and-drop reorderable grid representing all **15 statutory board portals** required for citizen life:
+MerlionOS features a drag-and-drop reorderable grid representing all **19 statutory board & national service portals** required for citizen life:
 1. **ICA** (Immigration & Checkpoints Authority) — Passport, NRIC, Re-entry permits
 2. **ELD** (Elections Department) — Voter registration & compulsory voting registers
 3. **IRAS** (Inland Revenue Authority of Singapore) — Income tax & property tax filings
 4. **CPF** (Central Provident Fund Board) — Retirement savings, MediSave, housing allocations
-5. **MOM** (Ministry of Manpower) — Work passes, employment rules, labor laws
-6. **MOH** (Ministry of Health / HealthHub) — Centralized electronic health records (NEHR)
-7. **HDB** (Housing & Development Board) — BTO flat portals & housing grants
-8. **MOE** (Ministry of Education) — Primary school registration & scholarships
-9. **LTA** (Land Transport Authority / OneMotoring) — COE, road tax, vehicle licensing
-10. **NEA** (National Environment Agency) — Air quality, weather alerts, public hygiene
-11. **RedeemSG** — CDC voucher claims & Climate voucher redemptions
-12. **SP Group** — Home electricity, water, and gas utilities setup
-13. **MySkillsFuture** — Mid-career subsidies & course registries
-14. **Gov.sg** — Budget announcements and key national policies
-15. **WSG / SWDA** (Workforce Singapore) — Career conversion and job transition portals
+5. **RedeemSG** — CDC voucher claims & Climate voucher redemptions
+6. **SP Group** — Home electricity, water, and gas utilities setup
+7. **MySkillsFuture** — Mid-career subsidies & course registries
+8. **WSG / SWDA** (Workforce Singapore) — Career conversion and job transition portals
+9. **MOM** (Ministry of Manpower) — Work passes, employment rules, labor laws
+10. **MOH** (Ministry of Health) — NEHR medical logs, subsidized polyclinics
+11. **HDB** (Housing & Development Board) — BTO flat portals & housing grants
+12. **MOE** (Ministry of Education) — Primary school registration & scholarships
+13. **LTA** (Land Transport Authority / OneMotoring) — COE, road tax, vehicle licensing
+14. **NEA** (National Environment Agency) — Air quality, weather alerts, public hygiene
+15. **Gov.sg** — Budget announcements and key national policies
+16. **SG Journey** — Mandatory Citizenship Journey programme & new citizen resources
+17. **OneMap** — National mapping service for GRC/SMC boundaries & school proximity checks
+18. **HealthHub** — Health records, clinic bookings, MediShield Life & CPF MediSave usage
+19. **ActiveSG** — Complimentary credits for public gyms, pools, and sporting facilities
 
 *Layout orders are automatically persisted across sessions in browser `localStorage`.*
 
