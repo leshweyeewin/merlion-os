@@ -33,7 +33,7 @@ All data panels in the **SG Hub Dashboard** load on-demand when clicked and show
 ---
 
 ## 🏛️ Statutory Portals Directory
-MerlionOS features a drag-and-drop reorderable grid representing all **19 statutory board & national service portals** required for citizen life:
+MerlionOS features a drag-and-drop reorderable grid representing all **39 statutory board & national service portals** required for citizen life:
 1. **ICA** (Immigration & Checkpoints Authority) — Passport, NRIC, Re-entry permits
 2. **ELD** (Elections Department) — Voter registration & compulsory voting registers
 3. **IRAS** (Inland Revenue Authority of Singapore) — Income tax & property tax filings
@@ -53,6 +53,26 @@ MerlionOS features a drag-and-drop reorderable grid representing all **19 statut
 17. **OneMap** — National mapping service for GRC/SMC boundaries & school proximity checks
 18. **HealthHub** — Health records, clinic bookings, MediShield Life & CPF MediSave usage
 19. **ActiveSG** — Complimentary credits for public gyms, pools, and sporting facilities
+20. **HPB** (Health Promotion Board) — Healthy 365 rewards, health screenings & preventive care
+21. **MSF** (Ministry of Social and Family Development) — ComCare assistance, Baby Bonus & family support
+22. **PUB** (National Water Agency) — Water tariffs, drainage/flood alerts & water efficiency rebates
+23. **NLB** (National Library Board) — Library membership, e-books & community programme bookings
+24. **URA** (Urban Redevelopment Authority) — Master Plan zoning checks & URA Space property queries
+25. **NParks** (National Parks Board) — BBQ pit/campsite bookings & park connector routes
+26. **MAS** (Monetary Authority of Singapore) — Singapore Savings Bonds portfolio & financial institution checks
+27. **IMDA** (Infocomm Media Development Authority) — Telecom complaints & SMS Sender ID checks
+28. **OneNS** (MINDEF National Service Portal) — NS status, ORD countdown & ICT schedules
+29. **SPF** (Singapore Police Force e-Services) — Police reports, Certificate of Clearance & traffic fines
+30. **SCDF** (Singapore Civil Defence Force) — myResponder alerts & fire safety certificate applications
+31. **ACRA** (Accounting and Corporate Regulatory Authority) — BizFile+ company registration & annual returns
+32. **EnterpriseSG** (Enterprise Singapore) — SME grants & trade financing support
+33. **IPOS** (Intellectual Property Office of Singapore) — Trademark, patent & design registration
+34. **SLA** (Singapore Land Authority) — Land titles (INLIS) & state property leases
+35. **CEA** (Council for Estate Agencies) — Property agent verification & complaint checks
+36. **PA** (People's Association) — Community club programmes & CC facility bookings
+37. **STB** (Singapore Tourism Board) — Attraction licensing & VisitSingapore advisories
+38. **NHB** (National Heritage Board) — Museum bookings & heritage trail guides
+39. **MinLaw** (Ministry of Law) — e-Litigation filings & Family Justice Courts services
 
 *Layout orders are automatically persisted across sessions in browser `localStorage`.*
 

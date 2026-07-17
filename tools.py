@@ -140,6 +140,106 @@ GOV_DIRECTORY = [
         "title": "Official Government Portal (Gov.sg) - Budget Announcements, Key Policies, General Directory",
         "url": "https://www.gov.sg/",
         "keywords": ["gov.sg", "budget", "policy", "cabinet", "announcement", "government", "singapore"]
+    },
+    {
+        "title": "Health Promotion Board (HPB) - Healthy 365 Rewards, Health Screening, Preventive Care",
+        "url": "https://www.hpb.gov.sg/",
+        "keywords": ["hpb", "healthy 365", "health promotion", "screening", "preventive care", "wellness", "fitness"]
+    },
+    {
+        "title": "Ministry of Social and Family Development (MSF) - ComCare, Baby Bonus, Family Support",
+        "url": "https://www.msf.gov.sg/",
+        "keywords": ["msf", "comcare", "baby bonus", "family support", "social service", "welfare", "assistance"]
+    },
+    {
+        "title": "PUB, Singapore's National Water Agency - Water Tariffs, Drainage, Flood Alerts",
+        "url": "https://www.pub.gov.sg/",
+        "keywords": ["pub", "water", "drainage", "flood", "tariff", "sewerage", "reservoir"]
+    },
+    {
+        "title": "National Library Board (NLB) - Library Membership, e-Books, Community Programmes",
+        "url": "https://www.nlb.gov.sg/",
+        "keywords": ["nlb", "library", "e-books", "ebooks", "reading", "community programme"]
+    },
+    {
+        "title": "Urban Redevelopment Authority (URA) - Master Plan, Zoning, URA Space",
+        "url": "https://www.ura.gov.sg/",
+        "keywords": ["ura", "master plan", "zoning", "urban redevelopment", "ura space", "outdoor refreshment area"]
+    },
+    {
+        "title": "National Parks Board (NParks) - BBQ Pits, Campsites, Park Connectors",
+        "url": "https://www.nparks.gov.sg/",
+        "keywords": ["nparks", "park", "bbq", "campsite", "community garden", "park connector", "tree"]
+    },
+    {
+        "title": "Monetary Authority of Singapore (MAS) - Savings Bonds, Financial Institution Checks, Scam Alerts",
+        "url": "https://www.mas.gov.sg/",
+        "keywords": ["mas", "savings bonds", "ssb", "financial institution", "monetary authority", "scam alert"]
+    },
+    {
+        "title": "Infocomm Media Development Authority (IMDA) - Telecom Complaints, SMS Sender ID, Media Classification",
+        "url": "https://www.imda.gov.sg/",
+        "keywords": ["imda", "telecom", "sms sender id", "media classification", "infocomm"]
+    },
+    {
+        "title": "OneNS - National Service Portal (MINDEF) - NS Status, ORD, ICT Schedules, NSman Benefits",
+        "url": "https://www.ns.gov.sg/",
+        "keywords": ["ns", "national service", "ord", "ict", "nsman", "mindef", "onens", "reservist"]
+    },
+    {
+        "title": "Singapore Police Force (SPF) e-Services - Police Reports, Certificate of Clearance, Traffic Fines",
+        "url": "https://www.police.gov.sg/",
+        "keywords": ["spf", "police", "police report", "certificate of clearance", "traffic fine", "traffic police"]
+    },
+    {
+        "title": "Singapore Civil Defence Force (SCDF) - myResponder, Fire Safety Certificate, Fire/Ambulance Reports",
+        "url": "https://www.scdf.gov.sg/",
+        "keywords": ["scdf", "myresponder", "fire safety", "fire certificate", "ambulance report", "civil defence"]
+    },
+    {
+        "title": "Accounting and Corporate Regulatory Authority (ACRA) - BizFile+, Company Registration, Annual Returns",
+        "url": "https://www.acra.gov.sg/",
+        "keywords": ["acra", "bizfile", "company registration", "annual return", "business profile"]
+    },
+    {
+        "title": "Enterprise Singapore - SME Grants, Business Development Schemes, Trade Financing",
+        "url": "https://www.enterprisesg.gov.sg/",
+        "keywords": ["enterprise singapore", "enterprisesg", "sme grant", "business development", "trade financing"]
+    },
+    {
+        "title": "Intellectual Property Office of Singapore (IPOS) - Trademarks, Patents, Design Registration",
+        "url": "https://www.ipos.gov.sg/",
+        "keywords": ["ipos", "trademark", "patent", "design registration", "intellectual property"]
+    },
+    {
+        "title": "Singapore Land Authority (SLA) - Land Titles, INLIS, State Property Leases",
+        "url": "https://www.sla.gov.sg/",
+        "keywords": ["sla", "land title", "inlis", "state property", "land authority", "survey plan"]
+    },
+    {
+        "title": "Council for Estate Agencies (CEA) - Property Agent Verification, Estate Agency Complaints",
+        "url": "https://www.cea.gov.sg/",
+        "keywords": ["cea", "property agent", "estate agency", "agent verification"]
+    },
+    {
+        "title": "People's Association (PA) - Community Club Programmes, Grassroots Events, CC Bookings",
+        "url": "https://www.pa.gov.sg/",
+        "keywords": ["pa", "people's association", "community club", "grassroots", "cc booking"]
+    },
+    {
+        "title": "Singapore Tourism Board (STB) - Attraction Licensing, Tourism Grants, VisitSingapore",
+        "url": "https://www.stb.gov.sg/",
+        "keywords": ["stb", "tourism", "attraction licensing", "tourism grant", "visitsingapore"]
+    },
+    {
+        "title": "National Heritage Board (NHB) - Museum Bookings, Heritage Trails, Monument Conservation",
+        "url": "https://www.nhb.gov.sg/",
+        "keywords": ["nhb", "museum", "heritage trail", "monument", "heritage board"]
+    },
+    {
+        "title": "Ministry of Law (MinLaw) - e-Litigation, Family Justice Courts, Legal Aid",
+        "url": "https://www.mlaw.gov.sg/",
+        "keywords": ["mlaw", "ministry of law", "e-litigation", "family justice", "legal aid"]
     }
 ]
 

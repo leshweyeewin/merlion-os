@@ -274,6 +274,8 @@ async def chat_endpoint(request: ChatRequest):
 # and so must be fetched server-side and re-served from our own origin.
 LOGO_PROXY_SOURCES = {
     "activesg": "https://activesg.gov.sg/assets/activesg-logo-full-color.png",
+    "imda": "https://www.imda.gov.sg/assets/45d45448-2de8-424a-ae25-cf45b181e3d9",
+    "nhb": "https://www.nhb.gov.sg/api/media/68917101-29d2-43b2-a04b-3fd763ba8c7c",
 }
 _logo_cache: dict[str, tuple[bytes, str]] = {}
 
