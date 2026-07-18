@@ -173,7 +173,17 @@ The document above always reflects the **latest** release. This section records 
 
 ### Version 1 — baseline (commit [`c5b4657`](https://github.com/leshweyeewin/merlion-os/commit/c5b46575f3a21ae48d9a9cd3110cfe2c12597003))
 The original hackathon build. It included:
-* **SG Hub Dashboard** with these live panels: 🌤️ Weather & Air Quality (PSI gauge + 6-region 2-hour forecast), 🚇 Transit & Rail Alerts, 📢 Gov Updates (7 Telegram channels), 🏢 HDB BTO Tracker, 📊 Job Market Analysis (BigQuery with data.gov.sg fallback), ⚠️ MOM Retrenchment, and 🎟️ Kiasu SG Deals (15 Telegram channels).
+
+**📊 SG Hub Dashboard** with these live panels:
+* 🌤️ **Weather & Air Quality** — PSI gauge + 6-region 2-hour forecast.
+* 🚇 **Transit & Rail Alerts** — live line-by-line MRT/LRT status with disruption logs.
+* 📢 **Gov Updates** — last 3 posts across 7 official Telegram channels.
+* 🏢 **HDB BTO Tracker** — live BTO launch tables scraped from the HDB newsroom.
+* 📊 **Job Market Analysis** — vacancy counts and YoY trend per sector (BigQuery with data.gov.sg fallback).
+* ⚠️ **MOM Retrenchment** — latest-quarter retrenchment headcount and top affected industries.
+* 🎟️ **Kiasu SG Deals** — community deals from 15 Telegram channels, last 24 hours.
+
+**Everything else**
 * **Statutory Portals Directory** — a drag-and-drop reorderable grid of **19** statutory board & national service portals (ICA through ActiveSG).
 * **AI Co-Pilot** on Gemini 2.5 Flash with Google Search grounding fallback and the security hardening layers (XSS `safeURL`, redirect-domain verification, auth-keyword scraping blocks).
 * **Local Quickstart** requiring `GEMINI_API_KEY` and `LTA_DATAMALL_API_KEY`.
