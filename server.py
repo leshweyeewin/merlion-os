@@ -54,16 +54,11 @@ from tools import (
     compute_occupational_wage_insights
 )
 
-# Initialize FastAPI app
-app = FastAPI(title="MerlionOS Portal API")
-
-# Compress every response over 1KB — the SG Hub JSON payloads (Occupational Wages ~130KB,
-# app.js ~100KB) shrink ~5-6x, which matters most on Render's free tier and mobile networks.
-app.add_middleware(GZipMiddleware, minimum_size=1024)
+from contextlib import asynccontextmanager
 
 
-@app.on_event("startup")
-async def prewarm_heavy_caches():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     """Pre-warm the Occupational Wage cache in a background thread at boot, so the first
     visitor's click on the Job Market tab is served from cache (~0.2s) instead of paying the
     multi-download Excel fetch. Failures are non-fatal — the endpoint just fetches lazily."""
@@ -74,9 +69,18 @@ async def prewarm_heavy_caches():
             data = compute_occupational_wage_insights()
             print(f"\033[33m[MOM OWS] Startup pre-warm complete: {data['occupation_count']} occupations cached.\033[0m")
         except Exception as e:
-            print(f"\033[31m[MOM OWS] Startup pre-warm skipped ({type(e).__name__}) — will fetch lazily on first request.\033[0m")
+            print(f"\033[31m[MOM OWS] Startup pre-warm skipped ({type(e).__name__}: {e}) — will fetch lazily on first request.\033[0m")
 
     threading.Thread(target=_warm, daemon=True, name="ows-prewarm").start()
+    yield
+
+
+# Initialize FastAPI app
+app = FastAPI(title="MerlionOS Portal API", lifespan=lifespan)
+
+# Compress every response over 1KB — the SG Hub JSON payloads (Occupational Wages ~130KB,
+# app.js ~100KB) shrink ~5-6x, which matters most on Render's free tier and mobile networks.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # Initialize Gemini Client
 client = genai.Client()
@@ -1378,6 +1382,14 @@ class NoCacheStaticFiles(StaticFiles):
         response = super().file_response(*args, **kwargs)
         response.headers["Cache-Control"] = "no-cache"
         return response
+
+
+# Explicit routes are matched before the catch-all static mount below, so this alias serves
+# clients that request /favicon.ico directly instead of honouring the <link rel="icon"> tag.
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    from fastapi.responses import FileResponse
+    return FileResponse("static/merlion-icon.png", media_type="image/png")
 
 
 app.mount("/", NoCacheStaticFiles(directory="static", html=True), name="static")

@@ -1331,7 +1331,11 @@ function initSgHub() {
             loadedSgHubPanes["hub-occ-wages"] = true;
         } catch (err) {
             console.error("Failed to load occupational wages", err);
-            container.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load occupational wage data.</p>";
+            container.innerHTML = `<p style='color: var(--text-error); margin:0 0 10px;'>⚠️ Failed to load occupational wage data (the MOM stats site may have briefly refused the connection).</p>
+                <button id="occ-wage-retry-btn" style="background:var(--primary); color:#ffffff; font-weight:700; border:none; padding:7px 14px; border-radius:6px; font-size:12px; cursor:pointer;">
+                    <i class="fa-solid fa-rotate-right"></i> Retry
+                </button>`;
+            document.getElementById("occ-wage-retry-btn").addEventListener("click", loadOccupationalWages);
         }
     }
 
