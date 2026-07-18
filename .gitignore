@@ -4,3 +4,4 @@ __pycache__/
 *.db
 walkthrough.md
 submission_kit.md
+.data_cache/

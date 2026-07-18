@@ -1266,11 +1266,236 @@ function initSgHub() {
         `;
     }
 
+    // ==== SG Hub chart layer ====================================================
+    // Dependency-free inline SVG charts. Colors follow the dataviz method: categorical slots
+    // validated against this app's light surface (#f5f5f5) — aqua/yellow sit below 3:1
+    // contrast there, so every multi-series chart carries direct end-labels as relief.
+    const CHART_INK = { grid: "#e1e0d9", axis: "#c3c2b7", label: "#898781" };
+    const CHART_SERIES = ["#2a78d6", "#1baf7a", "#eda100"]; // fixed categorical order, never cycled
+    const CHART_CONTEXT = "#8a8987"; // de-emphasized context marks only — never a peer category
+
+    let chartTooltipEl = null;
+    function chartTooltip() {
+        if (!chartTooltipEl) {
+            chartTooltipEl = document.createElement("div");
+            chartTooltipEl.style.cssText = "position:fixed; z-index:9999; pointer-events:none; background:var(--bg-panel); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:11.5px; color:var(--text-main); box-shadow:0 2px 10px rgba(0,0,0,0.14); display:none; max-width:280px; line-height:1.5;";
+            document.body.appendChild(chartTooltipEl);
+        }
+        return chartTooltipEl;
+    }
+    function showChartTooltip(html, clientX, clientY) {
+        const t = chartTooltip();
+        t.innerHTML = html;
+        t.style.display = "block";
+        const pad = 12;
+        const r = t.getBoundingClientRect();
+        let x = clientX + pad, y = clientY + pad;
+        if (x + r.width > window.innerWidth - 8) x = clientX - r.width - pad;
+        if (y + r.height > window.innerHeight - 8) y = clientY - r.height - pad;
+        t.style.left = x + "px";
+        t.style.top = y + "px";
+    }
+    function hideChartTooltip() { if (chartTooltipEl) chartTooltipEl.style.display = "none"; }
+
+    function chartTicks(maxVal, count = 4) {
+        const rawStep = maxVal / count;
+        const mag = Math.pow(10, Math.floor(Math.log10(rawStep || 1)));
+        const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= rawStep) || rawStep;
+        const ticks = [];
+        for (let v = 0; v <= maxVal + step * 0.001; v += step) ticks.push(Math.round(v * 100) / 100);
+        if (ticks[ticks.length - 1] < maxVal) ticks.push(ticks[ticks.length - 1] + step);
+        return ticks;
+    }
+    const fmtK = v => v >= 1000 ? ((v / 1000).toFixed(v >= 10000 ? 0 : 1).replace(/\.0$/, "")) + "k" : String(Math.round(v));
+
+    function renderLineChart(el, { xLabels, series, height = 220, xTickEvery = 1, endLabels = true }) {
+        const W = Math.max(el.clientWidth || 620, 320), H = height;
+        const padL = 40, padR = endLabels ? 92 : 14, padT = 12, padB = 24;
+        const iw = W - padL - padR, ih = H - padT - padB;
+        const maxV = Math.max(...series.flatMap(s => s.values).filter(v => v != null), 1);
+        const ticks = chartTicks(maxV);
+        const topV = ticks[ticks.length - 1];
+        const x = i => padL + (xLabels.length <= 1 ? iw / 2 : (i / (xLabels.length - 1)) * iw);
+        const y = v => padT + ih - (v / topV) * ih;
+
+        let g = "";
+        ticks.forEach(t => {
+            g += `<line x1="${padL}" y1="${y(t)}" x2="${padL + iw}" y2="${y(t)}" stroke="${CHART_INK.grid}" stroke-width="1"/>`
+               + `<text x="${padL - 6}" y="${y(t) + 3.5}" text-anchor="end" font-size="10" fill="${CHART_INK.label}">${fmtK(t)}</text>`;
+        });
+        xLabels.forEach((lab, i) => {
+            if (i % xTickEvery !== 0 && i !== xLabels.length - 1) return;
+            g += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="${CHART_INK.label}">${escapeHTML(lab)}</text>`;
+        });
+        g += `<line x1="${padL}" y1="${y(0)}" x2="${padL + iw}" y2="${y(0)}" stroke="${CHART_INK.axis}" stroke-width="1"/>`;
+        series.forEach(s => {
+            const pts = s.values.map((v, i) => v == null ? null : `${x(i).toFixed(1)},${y(v).toFixed(1)}`).filter(Boolean).join(" ");
+            g += `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+        });
+        if (endLabels) {
+            const ends = series
+                .map(s => ({ s, yy: y(s.values[s.values.length - 1] ?? 0) }))
+                .sort((a, b) => a.yy - b.yy);
+            let lastY = -Infinity;
+            ends.forEach(e => {
+                const ly = Math.max(e.yy, lastY + 13);
+                lastY = ly;
+                g += `<circle cx="${padL + iw + 3}" cy="${ly}" r="3.5" fill="${e.s.color}"/>`
+                   + `<text x="${padL + iw + 10}" y="${ly + 3.5}" font-size="10.5" font-weight="600" fill="var(--text-main)">${escapeHTML(e.s.name)}</text>`;
+            });
+        }
+        const legend = series.length > 1
+            ? `<div style="display:flex; gap:14px; flex-wrap:wrap; font-size:11px; color:var(--text-main); padding:0 2px 6px;">`
+              + series.map(s => `<span><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${s.color}; margin-right:5px;"></span>${escapeHTML(s.name)}</span>`).join("")
+              + `</div>`
+            : "";
+        el.innerHTML = legend + `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block; font-family:inherit;">${g}<g class="hoverg"></g><rect class="overlay" x="${padL}" y="${padT}" width="${iw}" height="${ih}" fill="transparent"/></svg>`;
+        const svg = el.querySelector("svg"), overlay = svg.querySelector(".overlay"), hoverg = svg.querySelector(".hoverg");
+        overlay.addEventListener("mousemove", ev => {
+            const rect = svg.getBoundingClientRect();
+            const mx = (ev.clientX - rect.left) * (W / rect.width);
+            const ci = Math.max(0, Math.min(xLabels.length - 1, Math.round(((mx - padL) / iw) * (xLabels.length - 1))));
+            let hg = `<line x1="${x(ci)}" y1="${padT}" x2="${x(ci)}" y2="${padT + ih}" stroke="${CHART_INK.axis}" stroke-width="1" stroke-dasharray="3,3"/>`;
+            let rows = "";
+            series.forEach(s => {
+                const v = s.values[ci];
+                if (v == null) return;
+                hg += `<circle cx="${x(ci)}" cy="${y(v)}" r="4.5" fill="${s.color}" stroke="#ffffff" stroke-width="2"/>`;
+                rows += `<div><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${s.color}; margin-right:6px;"></span>${escapeHTML(s.name)}: <strong>${v.toLocaleString()}</strong></div>`;
+            });
+            hoverg.innerHTML = hg;
+            showChartTooltip(`<div style="font-weight:700; margin-bottom:2px;">${escapeHTML(String(xLabels[ci]))}</div>` + rows, ev.clientX, ev.clientY);
+        });
+        overlay.addEventListener("mouseleave", () => { hoverg.innerHTML = ""; hideChartTooltip(); });
+    }
+
+    function renderBarChart(el, { labels, values, height = 220, color = CHART_SERIES[0], tooltipFor }) {
+        const W = Math.max(el.clientWidth || 460, 300), H = height;
+        const padL = 34, padR = 8, padT = 18, padB = 26;
+        const iw = W - padL - padR, ih = H - padT - padB;
+        const maxV = Math.max(...values, 1);
+        const ticks = chartTicks(maxV);
+        const topV = ticks[ticks.length - 1];
+        const y = v => padT + ih - (v / topV) * ih;
+        const slot = iw / values.length, gap = Math.max(slot * 0.18, 2), bw = slot - gap;
+
+        let g = "";
+        ticks.forEach(t => {
+            g += `<line x1="${padL}" y1="${y(t)}" x2="${padL + iw}" y2="${y(t)}" stroke="${CHART_INK.grid}" stroke-width="1"/>`
+               + `<text x="${padL - 6}" y="${y(t) + 3.5}" text-anchor="end" font-size="10" fill="${CHART_INK.label}">${fmtK(t)}</text>`;
+        });
+        values.forEach((v, i) => {
+            const bx = padL + i * slot + gap / 2;
+            const by = y(v), bh = padT + ih - by;
+            const r = Math.min(4, bw / 2, bh); // 4px rounded top, anchored square to the baseline
+            g += `<path class="bar" data-i="${i}" d="M${bx},${by + bh} L${bx},${by + r} Q${bx},${by} ${bx + r},${by} L${bx + bw - r},${by} Q${bx + bw},${by} ${bx + bw},${by + r} L${bx + bw},${by + bh} Z" fill="${color}"/>`
+               + `<text x="${bx + bw / 2}" y="${H - 8}" text-anchor="middle" font-size="9.5" fill="${CHART_INK.label}">${escapeHTML(labels[i])}</text>`;
+        });
+        const mi = values.indexOf(maxV);
+        g += `<text x="${padL + mi * slot + slot / 2}" y="${y(maxV) - 5}" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--text-main)">${maxV.toLocaleString()}</text>`;
+        g += `<line x1="${padL}" y1="${padT + ih}" x2="${padL + iw}" y2="${padT + ih}" stroke="${CHART_INK.axis}" stroke-width="1"/>`;
+        el.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block; font-family:inherit;">${g}</svg>`;
+        el.querySelectorAll(".bar").forEach(b => {
+            b.addEventListener("mousemove", ev => showChartTooltip(tooltipFor(+b.dataset.i), ev.clientX, ev.clientY));
+            b.addEventListener("mouseleave", hideChartTooltip);
+        });
+    }
+
+    function renderScatterChart(el, { points, height = 250, xLabel, yLabel }) {
+        // points: {x, y, name, sub, highlight}; y clamped to [-50, 100] for position, true value in tooltip
+        const W = Math.max(el.clientWidth || 460, 300), H = height;
+        const padL = 40, padR = 12, padT = 14, padB = 30;
+        const iw = W - padL - padR, ih = H - padT - padB;
+        const Y_MIN = -50, Y_MAX = 100;
+        const topX = chartTicks(Math.max(...points.map(p => p.x), 1)).pop();
+        const px = v => padL + (v / topX) * iw;
+        const py = v => padT + ih - ((Math.max(Y_MIN, Math.min(Y_MAX, v)) - Y_MIN) / (Y_MAX - Y_MIN)) * ih;
+
+        let g = "";
+        [-50, 0, 50, 100].forEach(t => {
+            const heavy = t === 0;
+            g += `<line x1="${padL}" y1="${py(t)}" x2="${padL + iw}" y2="${py(t)}" stroke="${heavy ? CHART_INK.axis : CHART_INK.grid}" stroke-width="1"/>`
+               + `<text x="${padL - 6}" y="${py(t) + 3.5}" text-anchor="end" font-size="10" fill="${CHART_INK.label}">${t > 0 ? "+" : ""}${t}%</text>`;
+        });
+        chartTicks(topX).forEach(t => {
+            g += `<text x="${px(t)}" y="${H - 14}" text-anchor="middle" font-size="10" fill="${CHART_INK.label}">${fmtK(t)}</text>`;
+        });
+        g += `<text x="${padL + iw / 2}" y="${H - 2}" text-anchor="middle" font-size="9.5" fill="${CHART_INK.label}">${escapeHTML(xLabel)}</text>`;
+        const ordered = points.slice().sort((a, b) => (a.highlight ? 1 : 0) - (b.highlight ? 1 : 0)); // highlights drawn on top
+        ordered.forEach(p => {
+            g += p.highlight
+                ? `<circle cx="${px(p.x).toFixed(1)}" cy="${py(p.y).toFixed(1)}" r="4" fill="${CHART_SERIES[0]}" stroke="#ffffff" stroke-width="1.5"/>`
+                : `<circle cx="${px(p.x).toFixed(1)}" cy="${py(p.y).toFixed(1)}" r="3" fill="${CHART_CONTEXT}" fill-opacity="0.55"/>`;
+        });
+        el.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block; font-family:inherit;">${g}<g class="hoverg"></g><rect class="overlay" x="${padL}" y="${padT}" width="${iw}" height="${ih}" fill="transparent"/></svg>`;
+        const svg = el.querySelector("svg"), overlay = svg.querySelector(".overlay"), hoverg = svg.querySelector(".hoverg");
+        overlay.addEventListener("mousemove", ev => {
+            const rect = svg.getBoundingClientRect();
+            const scale = W / rect.width;
+            const mx = (ev.clientX - rect.left) * scale, my = (ev.clientY - rect.top) * scale;
+            let bestD = 14 * 14, best = null;
+            points.forEach(p => {
+                const dx = px(p.x) - mx, dy = py(p.y) - my, d = dx * dx + dy * dy;
+                if (d < bestD) { bestD = d; best = p; }
+            });
+            if (!best) { hoverg.innerHTML = ""; hideChartTooltip(); return; }
+            hoverg.innerHTML = `<circle cx="${px(best.x)}" cy="${py(best.y)}" r="6" fill="${best.highlight ? CHART_SERIES[0] : CHART_CONTEXT}" stroke="#ffffff" stroke-width="2"/>`;
+            const clamped = best.y > Y_MAX || best.y < Y_MIN;
+            showChartTooltip(
+                `<div style="font-weight:700; margin-bottom:2px;">${escapeHTML(best.name)}</div>`
+                + (best.sub ? `<div style="color:var(--text-muted); font-size:10.5px;">${escapeHTML(best.sub)}</div>` : "")
+                + `<div>S$${best.x.toLocaleString()}/mth · <strong>${best.y >= 0 ? "+" : ""}${best.y.toFixed(1)}%</strong> YoY${clamped ? " (beyond chart scale)" : ""}</div>`,
+                ev.clientX, ev.clientY);
+        });
+        overlay.addEventListener("mouseleave", () => { hoverg.innerHTML = ""; hideChartTooltip(); });
+    }
+    // ==== end chart layer =======================================================
+
+    function renderJobHistoryCharts(history) {
+        const vtEl = document.getElementById("hub-vacancy-trend");
+        if (vtEl && history && history.vacancy && history.vacancy.years.length > 1) {
+            const v = history.vacancy;
+            const latestI = v.years.length - 1;
+            const seriesDefs = [
+                { name: "Tech", color: CHART_SERIES[0], values: v.sectors.tech },
+                { name: "Finance", color: CHART_SERIES[1], values: v.sectors.finance },
+                { name: "Healthcare", color: CHART_SERIES[2], values: v.sectors.healthcare },
+            ];
+            const leader = seriesDefs.slice().sort((a, b) => b.values[latestI] - a.values[latestI])[0];
+            vtEl.innerHTML = `
+                <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 8px;">📈 Vacancy Trend by Sector (${escapeHTML(v.years[0])}–${escapeHTML(v.years[latestI])})</div>
+                <div id="vacancy-trend-chart" style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 4px;"></div>
+                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;">💡 ${escapeHTML(leader.name)} leads with ${leader.values[latestI].toLocaleString()} open roles in ${escapeHTML(v.years[latestI])}. Hover for exact counts per year. Source: MOM Job Vacancy by Industry &amp; Occupation.</div>`;
+            renderLineChart(document.getElementById("vacancy-trend-chart"), { xLabels: v.years, series: seriesDefs });
+        }
+
+        const rtEl = document.getElementById("hub-retrenchment-trend");
+        if (rtEl && history && history.retrenchment && history.retrenchment.quarters.length > 1) {
+            const r = history.retrenchment;
+            const labels = r.quarters.map(q => { const [yy, qq] = q.split("-"); return `${qq} '${yy.slice(-2)}`; });
+            const latest = r.totals[r.totals.length - 1];
+            const prior4 = r.totals.slice(-5, -1);
+            const avg4 = prior4.length ? prior4.reduce((a, b) => a + b, 0) / prior4.length : latest;
+            const delta = avg4 ? ((latest - avg4) / avg4) * 100 : 0;
+            rtEl.innerHTML = `
+                <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 8px;">📉 Quarterly Retrenchments — Last ${r.quarters.length} Quarters</div>
+                <div id="retrenchment-trend-chart" style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 4px;"></div>
+                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;">💡 Latest quarter (${latest.toLocaleString()} workers) is ${Math.abs(delta) < 1 ? 'in line with' : `<strong style="color:${delta < 0 ? '#1a7f3c' : '#c0392b'};">${delta > 0 ? '+' : ''}${delta.toFixed(0)}%</strong> vs`} the average of the four quarters before it. Hover for exact headcounts.</div>`;
+            renderLineChart(document.getElementById("retrenchment-trend-chart"), {
+                xLabels: labels,
+                series: [{ name: "Retrenched", color: CHART_SERIES[0], values: r.totals }],
+                xTickEvery: 4,
+                endLabels: false,
+            });
+        }
+    }
+
     function renderJobsPane(data) {
         sgHubJobsData = data.jobs;
         renderSectorDetails("tech"); // Default to Tech
         renderRetrenchmentPane(data.retrenchment);
         renderSalaryGrowthPane(data.salary_growth);
+        renderJobHistoryCharts(data.history);
     }
 
     function renderSalaryGrowthPane(salaryGrowth) {
@@ -1282,9 +1507,28 @@ function initSgHub() {
         }
 
         const { latest_year, prior_year, occupations } = salaryGrowth;
-        const maxAbsPct = Math.max(...occupations.map(o => Math.abs(o.pct_change)), 1);
 
-        const rows = occupations.map(o => {
+        // Data-freshness policy: annual datasets whose latest reference year is more than a
+        // year old are screened out rather than shown as if current.
+        if (salaryGrowth.is_stale) {
+            container.innerHTML = `
+                <div style="background: var(--bg-muted); border: 1px dashed var(--border); border-radius: 8px; padding: 14px 16px; font-size: 12.5px; color: var(--text-muted); line-height: 1.55;">
+                    <strong style="color: var(--text-main);">⏸️ Screened out — dataset over 1 year old.</strong><br>
+                    SingStat's median income by broad occupation series currently only covers <strong>${escapeHTML(String(latest_year))}</strong> (vs ${escapeHTML(String(prior_year))}).
+                    Under this dashboard's freshness policy it stays hidden until the next annual release, so outdated medians aren't presented as current.
+                    The <strong>Occupational Wage Explorer</strong> below already carries the latest MOM June wage survey, per detailed job title.
+                </div>`;
+            return;
+        }
+
+        // Insight-first: the top 5 risers plus the single slowest category, with a one-line
+        // takeaway — the full 8-category bar dump duplicated the OWS movers list below.
+        const sorted = occupations; // server already sorts fastest → slowest
+        const best = sorted[0], worst = sorted[sorted.length - 1];
+        const shown = sorted.slice(0, 5).concat(sorted.length > 5 ? [worst] : []);
+        const maxAbsPct = Math.max(...shown.map(o => Math.abs(o.pct_change)), 1);
+
+        const rows = shown.map(o => {
             const isPositive = o.pct_change >= 0;
             const barColor = isPositive ? "#1a7f3c" : "#c0392b";
             const barWidthPct = (Math.abs(o.pct_change) / maxAbsPct) * 100;
@@ -1308,8 +1552,14 @@ function initSgHub() {
             <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML(salaryGrowth.synced_at || getRetrievalTimestamp())}
         </div>`;
 
+        const risingCount = occupations.filter(o => o.pct_change > 0).length;
         container.innerHTML = banner + `
-            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">Comparing ${escapeHTML(String(latest_year))} vs ${escapeHTML(String(prior_year))} median gross monthly income &middot; figures average published male/female medians (SingStat)</div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">Comparing ${escapeHTML(String(latest_year))} vs ${escapeHTML(String(prior_year))} median gross monthly income &middot; top 5 risers + slowest category &middot; figures average published male/female medians (SingStat)</div>
+            <div style="background: var(--primary-soft, var(--bg-muted)); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 12.5px; color: var(--text-main); line-height: 1.5;">
+                💡 Median pay rose in <strong>${risingCount} of ${occupations.length}</strong> broad occupation categories.
+                <strong>${escapeHTML(best.occupation)}</strong> led at <strong>${best.pct_change >= 0 ? '+' : ''}${best.pct_change.toFixed(1)}%</strong>,
+                while <strong>${escapeHTML(worst.occupation)}</strong> trailed at ${worst.pct_change >= 0 ? '+' : ''}${worst.pct_change.toFixed(1)}%.
+            </div>
             <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px;">
                 ${rows}
             </div>
@@ -1370,8 +1620,17 @@ function initSgHub() {
             <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML(data.synced_at || getRetrievalTimestamp())}
         </div>`;
 
+        // ---- Derived insights (the panel leads with takeaways, not raw tables) ----
+        const matched = data.all_occupations.filter(o => o.pct_change != null);
+        const risingCount = matched.filter(o => o.pct_change > 0).length;
+        const sortedPcts = matched.map(o => o.pct_change).sort((a, b) => a - b);
+        const medianPct = sortedPcts.length ? sortedPcts[Math.floor(sortedPcts.length / 2)] : 0;
         const newTechCount = data.new_titles.filter(o => o.is_tech).length;
         const best = data.top_movers[0];
+        const worst = data.bottom_movers[0];
+        const topTech = data.tech_roles.find(o => o.gross);
+        const topNewPaid = data.new_titles.filter(o => o.gross).slice().sort((a, b) => b.gross - a.gross)[0];
+
         const tiles = `
             <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
                 <div style="flex: 1; min-width: 160px; background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px;">
@@ -1379,24 +1638,38 @@ function initSgHub() {
                     <strong style="font-size: 20px; color: var(--primary);">${data.occupation_count.toLocaleString()}</strong>
                 </div>
                 <div style="flex: 1; min-width: 160px; background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px;">
+                    <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">📈 TYPICAL YoY INCREMENT</span>
+                    <strong style="font-size: 20px; color: ${medianPct >= 0 ? '#1a7f3c' : '#c0392b'};">${medianPct >= 0 ? '+' : ''}${medianPct.toFixed(1)}%</strong>
+                    <span style="font-size: 12px; color: var(--text-muted);"> median, ${matched.length} titles</span>
+                </div>
+                <div style="flex: 1; min-width: 160px; background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px;">
                     <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">🆕 NEW JOB TITLES VS ${escapeHTML(String(data.prior_year))}</span>
                     <strong style="font-size: 20px; color: var(--primary);">${data.new_titles.length}</strong>
                     <span style="font-size: 12px; color: var(--text-muted);"> (${newTechCount} tech/AI)</span>
                 </div>
-                <div style="flex: 1; min-width: 160px; background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px;">
-                    <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">🚀 FASTEST WAGE INCREMENT</span>
-                    ${best ? `<strong style="font-size: 14px; color: var(--text-main); display:block; line-height:1.3;">${escapeHTML(best.name)}</strong><span style="font-size:13px; font-weight:700; color:#1a7f3c;">+${best.pct_change.toFixed(1)}% YoY</span>` : '<span style="color:var(--text-subtle);">N/A</span>'}
-                </div>
             </div>`;
 
-        const newChips = data.new_titles.map(o => `
+        const insights = `
+            <div style="background: var(--primary-soft, var(--bg-muted)); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-bottom: 18px; font-size: 12.5px; color: var(--text-main); line-height: 1.6;">
+                <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">💡 Key Takeaways (June ${escapeHTML(String(data.prior_year))} &rarr; June ${escapeHTML(String(data.latest_year))})</div>
+                <div>• Median wages rose for <strong>${risingCount} of ${matched.length}</strong> comparable job titles (${Math.round(risingCount / Math.max(matched.length, 1) * 100)}%).</div>
+                ${best ? `<div>• Sharpest rise: <strong>${escapeHTML(best.name)}</strong> at <strong style="color:#1a7f3c;">+${best.pct_change.toFixed(1)}%</strong> (S$${best.prior_gross.toLocaleString()} &rarr; S$${best.gross.toLocaleString()}); steepest decline: <strong>${escapeHTML(worst.name)}</strong> at <strong style="color:#c0392b;">${worst.pct_change.toFixed(1)}%</strong>.</div>` : ''}
+                ${topNewPaid ? `<div>• The SSOC refresh added <strong>${data.new_titles.length}</strong> new job titles — ${newTechCount} of them tech/AI-era. Highest-paid newcomer: <strong>${escapeHTML(topNewPaid.name)}</strong> (S$${topNewPaid.gross.toLocaleString()}/mth).</div>` : ''}
+                ${topTech ? `<div>• Top-paying tech role: <strong>${escapeHTML(topTech.name)}</strong> at <strong>S$${topTech.gross.toLocaleString()}/mth</strong> median.</div>` : ''}
+            </div>`;
+
+        // New-title chips: server sorts tech-first then by wage — show the 8 most notable
+        // instead of a scrolling wall of ~45.
+        const shownNewTitles = data.new_titles.slice(0, 8);
+        const moreNewCount = data.new_titles.length - shownNewTitles.length;
+        const newChips = shownNewTitles.map(o => `
             <span title="${escapeHTML(o.group || '')}" style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; padding: 5px 10px; border-radius: 14px; margin: 0 6px 8px 0;
                 background: ${o.is_tech ? 'rgba(37, 99, 235, 0.10)' : 'var(--bg-muted)'};
                 border: 1px solid ${o.is_tech ? 'var(--primary)' : 'var(--border)'}; color: var(--text-main);">
                 ${o.is_tech ? '🤖 ' : ''}${escapeHTML(o.name)}${o.gross ? ` <span style="color: var(--text-muted); font-weight:700;">S$${o.gross.toLocaleString()}</span>` : ''}
             </span>`).join('');
 
-        const techRows = data.tech_roles.filter(o => o.gross).slice(0, 14).map(o => `
+        const techRows = data.tech_roles.filter(o => o.gross).slice(0, 5).map(o => `
             <div style="display:flex; align-items:center; gap:10px; padding: 7px 0; border-bottom: 1px solid var(--border);">
                 <div style="flex: 1; min-width:0; font-size:13px; font-weight:600; color: var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                     ${escapeHTML(o.name)}${o.is_new ? ' <span style="font-size:10px; color: var(--primary); font-weight:700;">NEW</span>' : ''}
@@ -1407,34 +1680,57 @@ function initSgHub() {
                 </div>
             </div>`).join('');
 
-        const upMovers = data.top_movers.slice(0, 10);
+        const upMovers = data.top_movers.slice(0, 5);
         const downMovers = data.bottom_movers.slice(0, 5);
         const maxAbsPct = Math.max(...upMovers.concat(downMovers).map(o => Math.abs(o.pct_change)), 1);
 
         const groups = [...new Set(data.all_occupations.map(o => o.group).filter(Boolean))].sort();
         const groupOptions = groups.map(g => `<option value="${escapeHTML(g)}">${escapeHTML(g)}</option>`).join('');
 
-        container.innerHTML = banner + tiles + `
-            <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🆕 Newly Created Job Titles (SSOC ${escapeHTML(String(data.latest_year - 1))} revision — 🤖 = tech/AI-era roles)</div>
-            <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px 12px 4px; margin-bottom: 16px; max-height: 190px; overflow-y: auto;">
-                ${newChips || '<p style="color: var(--text-subtle); margin:0 0 8px;">No newly created titles this edition.</p>'}
-                <div style="font-size: 10px; color: var(--text-muted); margin: 4px 0 8px;">Renamed titles are already matched to their old rows and excluded; ${data.discontinued_titles.length} titles from ${escapeHTML(String(data.prior_year))} are no longer tracked separately.</div>
+        container.innerHTML = banner + tiles + insights + `
+            <div style="display:flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;">
+                <div style="flex: 1; min-width: 300px;">
+                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">📊 Where Do Wages Sit? (${data.occupation_count} titles)</div>
+                    <div id="occ-wage-hist" style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 4px;"></div>
+                    <div id="occ-wage-hist-note" style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;"></div>
+                </div>
+                <div style="flex: 1; min-width: 300px;">
+                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🎯 Pay vs Raise — Every Occupation</div>
+                    <div id="occ-wage-scatter" style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 4px;"></div>
+                    <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <span><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${CHART_SERIES[0]}; margin-right:5px;"></span>Tech / digital</span>
+                        <span><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${CHART_CONTEXT}; opacity:0.7; margin-right:5px;"></span>All other occupations</span>
+                        <span>Top-right = high pay <em>and</em> still rising. Hover any dot.</span>
+                    </div>
+                </div>
             </div>
 
             <div style="display:flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;">
                 <div style="flex: 1; min-width: 280px;">
-                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🚀 Fastest Rising Wages (${escapeHTML(String(data.prior_year))} &rarr; ${escapeHTML(String(data.latest_year))})</div>
+                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🚀 Top 5 Fastest Rising Wages (${escapeHTML(String(data.prior_year))} &rarr; ${escapeHTML(String(data.latest_year))})</div>
                     <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px;">${upMovers.map(o => occMoverRow(o, maxAbsPct)).join('')}</div>
                 </div>
                 <div style="flex: 1; min-width: 280px;">
-                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">📉 Steepest Declines</div>
+                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">📉 Top 5 Steepest Declines</div>
                     <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px;">${downMovers.map(o => occMoverRow(o, maxAbsPct)).join('')}</div>
-                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 8px;">🤖 Top-Paying Tech &amp; Digital Roles</div>
-                    <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px;">${techRows}</div>
                 </div>
             </div>
 
-            <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🔎 Full Wage Table Explorer (June ${escapeHTML(String(data.latest_year))} medians)</div>
+            <div style="display:flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;">
+                <div style="flex: 1; min-width: 280px;">
+                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🤖 Top 5 Highest-Paying Tech &amp; Digital Roles</div>
+                    <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px;">${techRows}</div>
+                </div>
+                <div style="flex: 1; min-width: 280px;">
+                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🆕 Notable New Job Titles (🤖 = tech/AI-era)</div>
+                    <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px 12px 4px;">
+                        ${newChips || '<p style="color: var(--text-subtle); margin:0 0 8px;">No newly created titles this edition.</p>'}
+                        <div style="font-size: 10px; color: var(--text-muted); margin: 4px 0 8px;">${moreNewCount > 0 ? `+${moreNewCount} more new titles — find them in the wage lookup below. ` : ''}Renamed titles are already matched to their old rows and excluded.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🔎 Wage Lookup (June ${escapeHTML(String(data.latest_year))} medians)</div>
             <div style="display:flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; align-items: center;">
                 <input id="occ-wage-search" type="text" placeholder="Search a job title, e.g. software, nurse, analyst..." style="flex: 2; min-width: 200px; padding: 8px 12px; font-size: 13px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-muted); color: var(--text-main); outline: none;">
                 <select id="occ-wage-group-filter" style="flex: 1; min-width: 160px; padding: 8px; font-size: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-muted); color: var(--text-main); outline: none;">
@@ -1442,10 +1738,10 @@ function initSgHub() {
                     ${groupOptions}
                 </select>
                 <select id="occ-wage-sort" style="flex: 1; min-width: 140px; padding: 8px; font-size: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-muted); color: var(--text-main); outline: none;">
-                    <option value="name">Sort: Name A–Z</option>
                     <option value="gross">Sort: Highest wage</option>
                     <option value="pct_desc">Sort: Best YoY increment</option>
                     <option value="pct_asc">Sort: Worst YoY increment</option>
+                    <option value="name">Sort: Name A–Z</option>
                 </select>
                 <label style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color: var(--text-main); cursor:pointer; white-space:nowrap;">
                     <input id="occ-wage-tech-only" type="checkbox" style="accent-color: var(--primary);"> 🤖 Tech only
@@ -1455,7 +1751,6 @@ function initSgHub() {
                 <div style="flex: 1;">Occupation</div>
                 <div style="width:88px; flex-shrink:0; text-align:right;">Gross/mth</div>
                 <div style="width:58px; flex-shrink:0; text-align:right;">YoY</div>
-                <div style="width:110px; flex-shrink:0; text-align:right;">25th–75th %ile${data.pctile_year ? ` ('${escapeHTML(String(data.pctile_year).slice(-2))})` : ''}</div>
             </div>
             <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 6px 16px; max-height: 320px; overflow-y: auto;">
                 <div id="occ-wage-table-body"></div>
@@ -1475,6 +1770,41 @@ function initSgHub() {
         document.getElementById("occ-wage-tech-only").addEventListener("change", renderOccWageTableRows);
         document.getElementById("occ-wage-chat-btn").addEventListener("click", askCopilotWithPrompt);
         renderOccWageTableRows();
+        renderOccWageCharts(data);
+    }
+
+    function renderOccWageCharts(data) {
+        const priced = data.all_occupations.filter(o => o.gross);
+
+        // Histogram: how many job titles fall in each monthly-wage band
+        const bands = [
+            { label: "<2k", lo: 0, hi: 2000 }, { label: "2–4k", lo: 2000, hi: 4000 },
+            { label: "4–6k", lo: 4000, hi: 6000 }, { label: "6–8k", lo: 6000, hi: 8000 },
+            { label: "8–10k", lo: 8000, hi: 10000 }, { label: "10–12k", lo: 10000, hi: 12000 },
+            { label: "12k+", lo: 12000, hi: Infinity },
+        ];
+        const counts = bands.map(b => priced.filter(o => o.gross >= b.lo && o.gross < b.hi).length);
+        const histEl = document.getElementById("occ-wage-hist");
+        if (histEl) {
+            renderBarChart(histEl, {
+                labels: bands.map(b => b.label),
+                values: counts,
+                tooltipFor: i => `<div style="font-weight:700;">S$${bands[i].label}/mth gross</div><div><strong>${counts[i]}</strong> of ${priced.length} job titles (${Math.round(counts[i] / priced.length * 100)}%)</div>`,
+            });
+            const grosses = priced.map(o => o.gross).sort((a, b) => a - b);
+            const medianGross = grosses[Math.floor(grosses.length / 2)];
+            const note = document.getElementById("occ-wage-hist-note");
+            if (note) note.innerHTML = `💡 The median occupation earns <strong>S$${medianGross.toLocaleString()}/mth</strong> gross — half of all tracked job titles sit below that line.`;
+        }
+
+        // Scatter: wage level vs YoY change, tech roles highlighted
+        const scatterEl = document.getElementById("occ-wage-scatter");
+        if (scatterEl) {
+            const pts = priced.filter(o => o.pct_change != null).map(o => ({
+                x: o.gross, y: o.pct_change, name: o.name, sub: o.group || "", highlight: o.is_tech,
+            }));
+            renderScatterChart(scatterEl, { points: pts, xLabel: "median gross monthly wage (S$)" });
+        }
     }
 
     // Shared "hand this prompt to the Co-Pilot" flow (same behaviour as the sector-analysis
@@ -1509,7 +1839,7 @@ function initSgHub() {
 
         const q = (document.getElementById("occ-wage-search")?.value || "").toLowerCase().trim();
         const grp = document.getElementById("occ-wage-group-filter")?.value || "";
-        const sort = document.getElementById("occ-wage-sort")?.value || "name";
+        const sort = document.getElementById("occ-wage-sort")?.value || "gross";
         const techOnly = document.getElementById("occ-wage-tech-only")?.checked || false;
         const filtered = occWagesData.all_occupations.filter(o =>
             (!q || o.name.toLowerCase().includes(q)) && (!grp || o.group === grp) && (!techOnly || o.is_tech));
@@ -1519,7 +1849,10 @@ function initSgHub() {
         else if (sort === "pct_desc") filtered.sort((a, b) => (b.pct_change ?? -Infinity) - (a.pct_change ?? -Infinity));
         else if (sort === "pct_asc") filtered.sort((a, b) => (a.pct_change ?? Infinity) - (b.pct_change ?? Infinity));
 
-        const MAX_ROWS = 60;
+        // Insight-first default: with no search/filter active this is a top-10 leaderboard for
+        // the chosen sort, not a scroll through all 500+ rows; filtering expands the cap.
+        const hasFilter = Boolean(q || grp || techOnly);
+        const MAX_ROWS = hasFilter ? 40 : 10;
         body.innerHTML = filtered.slice(0, MAX_ROWS).map(o => `
             <div style="display:flex; align-items:center; gap:10px; padding: 6px 0; border-bottom: 1px solid var(--border);">
                 <div style="flex: 1; min-width:0;">
@@ -1532,14 +1865,14 @@ function initSgHub() {
                 <div style="width:58px; flex-shrink:0; text-align:right; font-size:12px; font-weight:700; color:${o.pct_change == null ? 'var(--text-muted)' : (o.pct_change >= 0 ? '#1a7f3c' : '#c0392b')};">
                     ${o.pct_change == null ? '—' : `${o.pct_change >= 0 ? '+' : ''}${o.pct_change.toFixed(1)}%`}
                 </div>
-                <div style="width:110px; flex-shrink:0; text-align:right; font-size:11px; color: var(--text-muted);">
-                    ${o.p25 && o.p75 ? `S$${o.p25.toLocaleString()}–${o.p75.toLocaleString()}` : '—'}
-                </div>
             </div>`).join('') || '<p style="color: var(--text-subtle); margin: 8px 0;">No occupations match your search.</p>';
 
-        countEl.textContent = filtered.length > MAX_ROWS
-            ? `Showing ${MAX_ROWS} of ${filtered.length} matching occupations — refine your search to narrow down.`
-            : `${filtered.length} matching occupation${filtered.length === 1 ? '' : 's'}.`;
+        const sortLabels = { gross: "highest-paid", pct_desc: "best-increment", pct_asc: "worst-increment", name: "A–Z" };
+        countEl.textContent = !hasFilter
+            ? `Top ${Math.min(MAX_ROWS, filtered.length)} ${sortLabels[sort] || ""} of ${filtered.length} occupations — search or filter to explore the rest.`
+            : (filtered.length > MAX_ROWS
+                ? `Showing ${MAX_ROWS} of ${filtered.length} matching occupations — refine your search to narrow down.`
+                : `${filtered.length} matching occupation${filtered.length === 1 ? '' : 's'}.`);
     }
 
     function renderRetrenchmentPane(retrenchment) {

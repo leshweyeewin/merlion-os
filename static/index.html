@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Style Sheet -->
     <link rel="icon" type="image/png" href="merlion-icon.png">
-    <link rel="stylesheet" href="style.css?v=ows2025c">
+    <link rel="stylesheet" href="style.css?v=jobins3">
 </head>
 <body>
     <div class="app-container">
@@ -756,6 +756,7 @@
                         <div id="hub-jobs-content" style="background: var(--bg-muted); border-radius: 8px; padding: 14px; border: 1px solid var(--border);">
                             <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading employment metrics...</p>
                         </div>
+                        <div id="hub-vacancy-trend"></div>
                     </div>
 
                     <!-- Workforce Insights Card -->
@@ -782,6 +783,7 @@
                                 <span style="font-size: 12px; color: var(--text-muted); display: block; line-height:1.45;">Access national conversion plans (SCTP), career guidance offices, and active job postings via MyCareersFuture.</span>
                             </div>
                         </div>
+                        <div id="hub-retrenchment-trend"></div>
                     </div>
 
                     <!-- Salary Growth by Occupation Card -->
@@ -789,7 +791,7 @@
                         <h3>
                             <i class="fa-solid fa-arrow-trend-up"></i> Salary Growth by Occupation
                         </h3>
-                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">Real median salary year-on-year growth by broad occupation category (SingStat), ranked fastest to slowest.</p>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">Real median salary year-on-year growth by broad occupation category (SingStat). Automatically screened out whenever the latest published reference year is more than a year old.</p>
                         <div id="hub-salary-growth-content">
                             <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading salary growth data...</p>
                         </div>
@@ -800,7 +802,7 @@
                         <h3>
                             <i class="fa-solid fa-magnifying-glass-dollar"></i> Occupational Wage Explorer (MOM OWS)
                         </h3>
-                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">Comprehensive MOM Occupational Wage Survey breakdown — 500+ detailed job titles with the latest June median wages, year-on-year increment rates, newly created (AI-era) occupations, and a searchable full wage table.</p>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">Key takeaways from the latest MOM Occupational Wage Survey — top wage risers and decliners, best-paying tech roles, newly created (AI-era) occupations, plus a search-driven lookup across 500+ detailed job titles.</p>
                         <div id="hub-occ-wages-content">
                             <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading MOM occupational wage tables...</p>
                         </div>
@@ -940,6 +942,6 @@
         }
     </script>
     <!-- Script File -->
-    <script src="app.js?v=ows2025c"></script>
+    <script src="app.js?v=jobins3"></script>
 </body>
 </html>

@@ -44,6 +44,7 @@ from tools import (
     query_singapore_job_statistics_via_bigquery,
     query_hdb_bto_launches_and_grants,
     query_singapore_retrenchment_advisory,
+    compute_job_market_history,
     query_coe_bidding_results,
     get_coe_synced_at,
     query_hdb_resale_price_trends,
@@ -1032,9 +1033,23 @@ async def get_sg_hub_jobs(sector: str = "all"):
         print("\n\033[94m[MerlionOS Orchestrator] --- Fetching Job Market Analysis Selected ---\033[0m")
 
         sectors_to_query = ["tech", "finance", "healthcare", "general"] if sector == "all" else [sector]
+
+        # All upstream fetches are independent (the shared vacancy-CSV download is deduped by a
+        # lock in tools.py), so run them concurrently — the pane loads in the time of the
+        # slowest fetch instead of the sum of all six.
+        import asyncio
+        results = await asyncio.gather(
+            *(anyio.to_thread.run_sync(query_singapore_job_statistics_via_bigquery, s) for s in sectors_to_query),
+            anyio.to_thread.run_sync(query_singapore_retrenchment_advisory),
+            anyio.to_thread.run_sync(compute_salary_growth_by_occupation),
+            anyio.to_thread.run_sync(compute_job_market_history),
+        )
+        sector_stats = dict(zip(sectors_to_query, results[:len(sectors_to_query)]))
+        raw_retrenchment, salary_growth, history = results[-3], results[-2], results[-1]
+
         job_sectors = {}
         for s in sectors_to_query:
-            raw_stats = await anyio.to_thread.run_sync(query_singapore_job_statistics_via_bigquery, s)
+            raw_stats = sector_stats[s]
 
             lines = raw_stats.split("\n")
             vacancies = "N/A"
@@ -1075,8 +1090,6 @@ async def get_sg_hub_jobs(sector: str = "all"):
             }
         print("\033[33m[Job Market] Fetch complete.\033[0m")
 
-        print("\033[33m[data.gov.sg] Fetching MOM retrenchment dataset...\033[0m")
-        raw_retrenchment = await anyio.to_thread.run_sync(query_singapore_retrenchment_advisory)
         retrenchment_lines = raw_retrenchment.split("\n")
         retrenchment = {"headline": "N/A", "industries": "N/A", "reemployment_rate": "N/A", "source": ""}
         for line in retrenchment_lines:
@@ -1089,12 +1102,10 @@ async def get_sg_hub_jobs(sector: str = "all"):
             elif "Source:" in line:
                 retrenchment["source"] = line.split("Source:")[1].strip()
         print("\033[33m[data.gov.sg] Retrenchment fetch complete.\033[0m")
+        if salary_growth.get("is_stale"):
+            print(f"\033[33m[SingStat] Salary growth dataset screened out (latest reference year {salary_growth['latest_year']} is >1 year old).\033[0m")
 
-        print("\033[33m[SingStat] Fetching median salary growth by occupation...\033[0m")
-        salary_growth = await anyio.to_thread.run_sync(compute_salary_growth_by_occupation)
-        print("\033[33m[SingStat] Salary growth fetch complete.\033[0m")
-
-        return {"jobs": job_sectors, "retrenchment": retrenchment, "salary_growth": salary_growth}
+        return {"jobs": job_sectors, "retrenchment": retrenchment, "salary_growth": salary_growth, "history": history}
     except Exception as e:
         logger.exception("Error loading Jobs data")
         raise HTTPException(status_code=500, detail=str(e))

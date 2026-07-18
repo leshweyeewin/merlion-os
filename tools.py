@@ -27,6 +27,55 @@ def _cache_synced_at(cache: dict) -> str | None:
     return sgt.strftime("%d %b %Y, %I:%M %p") + " (SGT)"
 
 
+def _sgt_now():
+    from datetime import datetime, timezone, timedelta
+    return datetime.now(timezone(timedelta(hours=8)))
+
+
+def _annual_dataset_is_stale(latest_ref_year) -> bool:
+    """Data-freshness policy for the SG Hub dashboards: an annual dataset is screened out once
+    its reference year falls behind the previous calendar year (i.e. more than ~1 year old and a
+    newer edition should already exist). Panels backed by a stale dataset render a short
+    'screened out' note instead of presenting outdated figures as current."""
+    try:
+        return int(latest_ref_year) < _sgt_now().year - 1
+    except (TypeError, ValueError):
+        return True
+
+
+# Small JSON snapshot cache on disk so a server restart (frequent during local development)
+# doesn't re-pay multi-download fetches like the OWS Excel workbooks. Complements — not
+# replaces — the module-level in-memory caches: memory is checked first, disk second, network
+# last. Failures are always non-fatal; worst case we just fetch from the network as before.
+_DISK_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".data_cache")
+
+
+def _disk_cache_load(name: str, ttl_seconds: int):
+    """Returns (data, fetched_at) from .data_cache/<name>.json if fresh, else (None, 0)."""
+    import json
+    import time
+    path = os.path.join(_DISK_CACHE_DIR, f"{name}.json")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            snap = json.load(f)
+        if (time.time() - snap["fetched_at"]) < ttl_seconds:
+            return snap["data"], snap["fetched_at"]
+    except (OSError, ValueError, KeyError):
+        pass
+    return None, 0
+
+
+def _disk_cache_save(name: str, data, fetched_at: float) -> None:
+    import json
+    try:
+        os.makedirs(_DISK_CACHE_DIR, exist_ok=True)
+        path = os.path.join(_DISK_CACHE_DIR, f"{name}.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"fetched_at": fetched_at, "data": data}, f)
+    except (OSError, TypeError, ValueError) as e:
+        print(f"  [disk-cache] save of '{name}' skipped: {type(e).__name__}: {e}")
+
+
 def get_coe_synced_at() -> str | None:
     return _cache_synced_at(_coe_cache)
 
@@ -548,6 +597,8 @@ _JOB_SECTOR_META = {
 _JOB_VACANCY_DATASET_ID = "d_889d11a2b0a53b235abb64e3f4e0a47b"  # data.gov.sg: MOM job vacancy by industry & occupation, annual
 _job_vacancy_cache = {"rows": None, "fetched_at": 0}
 _JOB_VACANCY_CACHE_TTL_SECONDS = 6 * 60 * 60  # 6 hours — this is annual MOM data, it does not change intraday
+import threading as _threading
+_job_vacancy_fetch_lock = _threading.Lock()  # the 4 sector queries now run concurrently — dedupe the cold-cache download
 
 # BigQuery table loaded by scripts/load_job_vacancy_to_bigquery.py from the same dataset above.
 _BQ_PROJECT_ID = None  # set lazily from env at call time so a missing var doesn't break import
@@ -594,23 +645,24 @@ def _fetch_job_vacancy_rows() -> list:
     import io
     import requests
 
-    now = time.time()
-    if _job_vacancy_cache["rows"] is not None and (now - _job_vacancy_cache["fetched_at"]) < _JOB_VACANCY_CACHE_TTL_SECONDS:
-        return _job_vacancy_cache["rows"]
+    with _job_vacancy_fetch_lock:
+        now = time.time()
+        if _job_vacancy_cache["rows"] is not None and (now - _job_vacancy_cache["fetched_at"]) < _JOB_VACANCY_CACHE_TTL_SECONDS:
+            return _job_vacancy_cache["rows"]
 
-    poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{_JOB_VACANCY_DATASET_ID}/poll-download"
-    print(f"  [data.gov.sg] HTTP GET {poll_url}")
-    r = requests.get(poll_url, headers=_data_gov_sg_headers(), timeout=10)
-    r.raise_for_status()
-    download_url = r.json()["data"]["url"]
+        poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{_JOB_VACANCY_DATASET_ID}/poll-download"
+        print(f"  [data.gov.sg] HTTP GET {poll_url}")
+        r = requests.get(poll_url, headers=_data_gov_sg_headers(), timeout=10)
+        r.raise_for_status()
+        download_url = r.json()["data"]["url"]
 
-    r_csv = requests.get(download_url, timeout=15)
-    r_csv.raise_for_status()
-    rows = list(csv.DictReader(io.StringIO(r_csv.text)))
+        r_csv = requests.get(download_url, timeout=15)
+        r_csv.raise_for_status()
+        rows = list(csv.DictReader(io.StringIO(r_csv.text)))
 
-    _job_vacancy_cache["rows"] = rows
-    _job_vacancy_cache["fetched_at"] = now
-    return rows
+        _job_vacancy_cache["rows"] = rows
+        _job_vacancy_cache["fetched_at"] = now
+        return rows
 
 
 def _sector_vacancy_totals(rows: list, industries: list, years: list) -> dict:
@@ -624,18 +676,45 @@ def _sector_vacancy_totals(rows: list, industries: list, years: list) -> dict:
     return totals
 
 
+# Per-sector result cache for the vacancy analytics below. The live-BigQuery tier has real
+# latency (client auth + query ≈ several seconds per sector), yet the underlying table is
+# annual data — so successful results are cached in memory and snapshotted to disk, and only
+# real (tier 1/2) results are cached, never the tier-3 fallback.
+_job_sector_stats_cache: dict = {}
+_JOB_SECTOR_STATS_TTL_SECONDS = 6 * 60 * 60
+_job_sector_stats_disk_loaded = False
+# Guards the one-time disk load, the cache check, and the save — the four sector queries run
+# concurrently, and without this the first thread flips the disk-loaded flag before its read
+# finishes, so the others see an empty cache and pay a live BigQuery query anyway.
+_job_sector_stats_lock = _threading.Lock()
+
+
 def query_singapore_job_statistics_via_bigquery(context_query: str = "general") -> str:
     """Tool: Queries Singapore's real public job vacancy statistics (MOM, via data.gov.sg) with a YoY trend and next-year forecast.
 
     Args:
         context_query: The target job sector, industry, or role to query (e.g., 'tech', 'finance', 'healthcare'). Defaults to 'general'.
     """
+    import time
+
     q_lower = context_query.lower()
     matched_sector = "general"
     for sector in ["tech", "finance", "healthcare"]:
         if sector in q_lower:
             matched_sector = sector
             break
+
+    global _job_sector_stats_disk_loaded
+    now = time.time()
+    with _job_sector_stats_lock:
+        if not _job_sector_stats_disk_loaded:
+            disk_data, _ = _disk_cache_load("job_sector_stats", _JOB_SECTOR_STATS_TTL_SECONDS)
+            if disk_data:
+                _job_sector_stats_cache.update(disk_data)
+            _job_sector_stats_disk_loaded = True
+        cached = _job_sector_stats_cache.get(matched_sector)
+    if cached and (now - cached["fetched_at"]) < _JOB_SECTOR_STATS_TTL_SECONDS:
+        return cached["result"]
 
     meta = _JOB_SECTOR_META[matched_sector]
 
@@ -649,6 +728,7 @@ def query_singapore_job_statistics_via_bigquery(context_query: str = "general") 
             f"Naive next-year forecast: ~{forecast_next_year:,} vacancies in {next_year_label}."
         )
 
+    cacheable = True
     try:
         # Tier 1: real BigQuery table (loaded via scripts/load_job_vacancy_to_bigquery.py)
         bq = _fetch_latest_two_year_totals_from_bigquery(meta["industries"])
@@ -668,13 +748,14 @@ def query_singapore_job_statistics_via_bigquery(context_query: str = "general") 
             source_line = f"💡 Source: MOM Job Vacancy by Industry & Occupation, {latest_year} data (data.gov.sg, dataset `{_JOB_VACANCY_DATASET_ID}`)."
         except Exception as e:
             # Tier 3: live fetch failed entirely — fall back to the last real snapshot on record.
+            cacheable = False  # transient failure shouldn't stick around for the full TTL
             fallback = {"tech": (11700, -5.6), "finance": (11400, 9.6), "healthcare": (10200, -10.5), "general": (150700, 0.5)}
             vacancies, trend_pct = fallback[matched_sector]
             arrow = "▲" if trend_pct >= 0 else "▼"
             trend_line = f"{arrow} {trend_pct:+.1f}% YoY (2024→2025, cached snapshot — live fetch unavailable: {type(e).__name__})."
             source_line = "💡 Source: MOM Job Vacancy by Industry & Occupation (data.gov.sg) — cached snapshot."
 
-    return (
+    result = (
         f"--- [SG EMPLOYMENT & VACANCIES ANALYTICS] ---\n"
         f"📂 Matched Sector: {matched_sector} ({', '.join(meta['industries'])})\n"
         f"📊 Active Vacancies: {vacancies:,} open roles\n"
@@ -683,6 +764,11 @@ def query_singapore_job_statistics_via_bigquery(context_query: str = "general") 
         f"📈 Market Trend: {trend_line}\n"
         f"{source_line}"
     )
+    if cacheable:
+        with _job_sector_stats_lock:
+            _job_sector_stats_cache[matched_sector] = {"result": result, "fetched_at": now}
+            _disk_cache_save("job_sector_stats", _job_sector_stats_cache, now)
+    return result
 
 
 _HDB_NEWS_URL = "https://www.hdb.gov.sg/hdb-pulse/news"
@@ -930,6 +1016,7 @@ def query_hdb_bto_launches_and_grants(context_query: str = "general") -> str:
 _RETRENCHMENT_DATASET_ID = "d_61d92d31ca400be135190614277da825"  # data.gov.sg: MOM retrenched employees by industry, quarterly
 _retrenchment_cache = {"rows": None, "fetched_at": 0}
 _RETRENCHMENT_CACHE_TTL_SECONDS = 6 * 60 * 60  # quarterly data — no need to refetch more than a few times a day
+_retrenchment_fetch_lock = _threading.Lock()  # advisory card + history chart fetch concurrently — dedupe the cold download
 
 # Re-employment rate is not fetched live (MOM publishes it as a "collection" of per-quarter
 # views on data.gov.sg rather than one flat CSV, so it doesn't fit the same simple fetch
@@ -944,23 +1031,64 @@ def _fetch_retrenchment_rows() -> list:
     import io
     import requests
 
-    now = time.time()
-    if _retrenchment_cache["rows"] is not None and (now - _retrenchment_cache["fetched_at"]) < _RETRENCHMENT_CACHE_TTL_SECONDS:
-        return _retrenchment_cache["rows"]
+    with _retrenchment_fetch_lock:
+        now = time.time()
+        if _retrenchment_cache["rows"] is not None and (now - _retrenchment_cache["fetched_at"]) < _RETRENCHMENT_CACHE_TTL_SECONDS:
+            return _retrenchment_cache["rows"]
 
-    poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{_RETRENCHMENT_DATASET_ID}/poll-download"
-    print(f"  [data.gov.sg] HTTP GET {poll_url}")
-    r = requests.get(poll_url, headers=_data_gov_sg_headers(), timeout=10)
-    r.raise_for_status()
-    download_url = r.json()["data"]["url"]
+        disk_rows, disk_ts = _disk_cache_load("retrenchment_rows", _RETRENCHMENT_CACHE_TTL_SECONDS)
+        if disk_rows is not None:
+            _retrenchment_cache["rows"] = disk_rows
+            _retrenchment_cache["fetched_at"] = disk_ts
+            return disk_rows
 
-    r_csv = requests.get(download_url, timeout=15)
-    r_csv.raise_for_status()
-    rows = list(csv.DictReader(io.StringIO(r_csv.text)))
+        poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{_RETRENCHMENT_DATASET_ID}/poll-download"
+        print(f"  [data.gov.sg] HTTP GET {poll_url}")
+        r = requests.get(poll_url, headers=_data_gov_sg_headers(), timeout=10)
+        r.raise_for_status()
+        download_url = r.json()["data"]["url"]
 
-    _retrenchment_cache["rows"] = rows
-    _retrenchment_cache["fetched_at"] = now
-    return rows
+        r_csv = requests.get(download_url, timeout=15)
+        r_csv.raise_for_status()
+        rows = list(csv.DictReader(io.StringIO(r_csv.text)))
+
+        _retrenchment_cache["rows"] = rows
+        _retrenchment_cache["fetched_at"] = now
+        _disk_cache_save("retrenchment_rows", rows, now)
+        return rows
+
+
+def compute_job_market_history() -> dict:
+    """Multi-year vacancy totals per named sector plus the quarterly retrenchment series, for
+    the SG Hub trend charts. Derived entirely from the same cached CSVs the headline cards
+    already use — no extra network fetches beyond what the cards themselves trigger."""
+    vacancy_rows = _fetch_job_vacancy_rows()
+    years = sorted({r["year"] for r in vacancy_rows if (r.get("year") or "").isdigit()})[-12:]
+    sectors = {}
+    for key in ("tech", "finance", "healthcare"):
+        industries = set(_JOB_SECTOR_META[key]["industries"])
+        totals = {y: 0 for y in years}
+        for r in vacancy_rows:
+            if r.get("industry") in industries and r.get("year") in totals:
+                raw = (r.get("job_vacancy") or "").strip()
+                if raw and raw != "-":
+                    totals[r["year"]] += int(raw)
+        sectors[key] = [totals[y] for y in years]
+
+    ret_rows = _fetch_retrenchment_rows()
+    top_level = {"services", "manufacturing", "construction"}  # same non-overlapping rollup as the advisory card
+    per_quarter: dict = {}
+    for r in ret_rows:
+        if r.get("industry") in top_level:
+            raw = (r.get("retrench") or "").strip()
+            if raw and raw != "-":
+                per_quarter[r["quarter"]] = per_quarter.get(r["quarter"], 0) + int(raw)
+    quarters = sorted(per_quarter)[-24:]  # last 6 years of quarters
+
+    return {
+        "vacancy": {"years": years, "sectors": sectors},
+        "retrenchment": {"quarters": quarters, "totals": [per_quarter[q] for q in quarters]},
+    }
 
 
 def query_singapore_retrenchment_advisory(context_query: str = "general") -> str:
@@ -1235,6 +1363,12 @@ def _fetch_income_by_occupation_rows() -> list:
     if _income_by_occupation_cache["rows"] is not None and (now - _income_by_occupation_cache["fetched_at"]) < _INCOME_BY_OCCUPATION_CACHE_TTL_SECONDS:
         return _income_by_occupation_cache["rows"]
 
+    disk_rows, disk_ts = _disk_cache_load("income_by_occupation_rows", _INCOME_BY_OCCUPATION_CACHE_TTL_SECONDS)
+    if disk_rows is not None:
+        _income_by_occupation_cache["rows"] = disk_rows
+        _income_by_occupation_cache["fetched_at"] = disk_ts
+        return disk_rows
+
     poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{_INCOME_BY_OCCUPATION_DATASET_ID}/poll-download"
     print(f"  [data.gov.sg] HTTP GET {poll_url}")
     r = requests.get(poll_url, headers=_data_gov_sg_headers(), timeout=10)
@@ -1247,6 +1381,7 @@ def _fetch_income_by_occupation_rows() -> list:
 
     _income_by_occupation_cache["rows"] = rows
     _income_by_occupation_cache["fetched_at"] = now
+    _disk_cache_save("income_by_occupation_rows", rows, now)
     return rows
 
 
@@ -1297,6 +1432,10 @@ def compute_salary_growth_by_occupation() -> dict:
     return {
         "latest_year": latest_year,
         "prior_year": prior_year,
+        # Freshness screen (see _annual_dataset_is_stale): SingStat's income-by-occupation
+        # series can lag ~2 years behind — when it does, the dashboard hides the panel rather
+        # than presenting old medians as current.
+        "is_stale": _annual_dataset_is_stale(latest_year),
         "occupations": results,
         "synced_at": _cache_synced_at(_income_by_occupation_cache)
     }
@@ -1319,8 +1458,14 @@ def query_salary_growth_by_occupation(context_query: str = "general") -> str:
             for o in occs
         ]
 
+        stale_note = (
+            f"⚠️ Note: latest published reference year is {latest_year} (over a year old) — treat as historical context, "
+            f"and prefer the fresher MOM Occupational Wage Survey figures for current wage questions.\n"
+        ) if data.get("is_stale") else ""
+
         return (
             f"--- [SG SALARY GROWTH BY OCCUPATION] ---\n"
+            + stale_note +
             f"\U0001F4C8 Fastest Growing: {best['occupation']} ({best['pct_change']:+.1f}%, {latest_year} vs {prior_year})\n"
             f"\U0001F4C9 Slowest Growing: {worst['occupation']} ({worst['pct_change']:+.1f}%, {latest_year} vs {prior_year})\n"
             + "\n".join(f"• {l}" for l in lines) + "\n"
@@ -1338,10 +1483,11 @@ def query_salary_growth_by_occupation(context_query: str = "general") -> str:
 # The MOM Occupational Wage Survey tables published on stats.mom.gov.sg (the "Occupational
 # Wages Tables" page). Table 1's "T1" sheet is the OVERALL median monthly basic & gross wage
 # for every detailed occupation (~500+ job titles) — the same table shown on MOM's website.
-# data.gov.sg only carries the June 2024 edition (used below for 25th/75th percentile ranges);
-# the Excel tables on stats.mom.gov.sg are the only machine-readable source for June 2025.
+# The Excel tables on stats.mom.gov.sg are the only machine-readable source for the latest
+# edition. (A 25th/75th-percentile enrichment from data.gov.sg's one-off June 2024 dataset
+# used to be merged in here; it was removed under the data-freshness policy — that edition is
+# permanently frozen at June 2024 and only gets staler.)
 _OCC_WAGE_XLSX_URL = "https://stats.mom.gov.sg/iMAS_Tables1/Wages/Wages_{year}/mrsd_{year}Wages_table1.xlsx"
-_OCC_WAGE_PCTILE_DATASET_ID = "d_9917e751f7498502f70052a940a3f312"  # data.gov.sg: Resident Occupational Wages, June 2024 (25th/50th/75th pctiles)
 _occ_wage_cache = {"data": None, "fetched_at": 0}
 _OCC_WAGE_CACHE_TTL_SECONDS = 24 * 60 * 60  # annual survey — daily refresh is plenty
 
@@ -1436,34 +1582,6 @@ def _fetch_occ_wage_year(year: int) -> dict | None:
     return _parse_occ_wage_table1(r.content)
 
 
-def _fetch_occ_wage_percentiles() -> dict:
-    """Downloads the data.gov.sg 'Resident Occupational Wages, June 2024' CSV and returns
-    {normalized_name: {"p25": int, "p75": int, "year": str}} of monthly GROSS wage percentiles."""
-    import csv
-    import io
-    import requests
-
-    poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{_OCC_WAGE_PCTILE_DATASET_ID}/poll-download"
-    print(f"  [data.gov.sg] HTTP GET {poll_url}")
-    r = requests.get(poll_url, headers=_data_gov_sg_headers(), timeout=10)
-    r.raise_for_status()
-    download_url = r.json()["data"]["url"]
-
-    r_csv = requests.get(download_url, timeout=15)
-    r_csv.raise_for_status()
-    out = {}
-    for row in csv.DictReader(io.StringIO(r_csv.text)):
-        try:
-            out[_occ_wage_norm(row["occ_desc"])] = {
-                "p25": int(float(row["mthly_gross_wage_25_pctile"])),
-                "p75": int(float(row["mthly_gross_wage_75_pctile"])),
-                "year": row["year"],
-            }
-        except (ValueError, KeyError):
-            continue
-    return out
-
-
 def compute_occupational_wage_insights() -> dict:
     """
     Shared computation used by both the AI chat tool (query_occupational_wage_insights, below)
@@ -1473,24 +1591,30 @@ def compute_occupational_wage_insights() -> dict:
     Pairs the two most recent published years (matching renamed titles across the SSOC 2020 →
     SSOC 2024 revision via _occ_wage_match_key + difflib) to derive per-occupation YoY wage
     increments, genuinely new job titles (e.g. the AI-era roles introduced in SSOC 2024), and
-    discontinued titles. 25th/75th percentile gross-wage ranges come from the data.gov.sg
-    June 2024 edition where a matching occupation exists.
+    discontinued titles.
     """
     import time
     import difflib
-    from datetime import datetime, timezone, timedelta
 
     now = time.time()
     if _occ_wage_cache["data"] is not None and (now - _occ_wage_cache["fetched_at"]) < _OCC_WAGE_CACHE_TTL_SECONDS:
         return _occ_wage_cache["data"]
 
+    # Disk snapshot second (memory first, network last) — a dev-server restart no longer
+    # re-downloads the multi-MB Excel workbooks within the TTL window.
+    disk_data, disk_ts = _disk_cache_load("occ_wages", _OCC_WAGE_CACHE_TTL_SECONDS)
+    if disk_data is not None:
+        _occ_wage_cache["data"] = disk_data
+        _occ_wage_cache["fetched_at"] = disk_ts
+        print("  [MOM OWS] Served from disk snapshot (.data_cache/occ_wages.json).")
+        return disk_data
+
     # Discover the latest published edition (survey year runs behind calendar year).
-    # The candidate-year probes and the percentile CSV are independent downloads, so they run
-    # concurrently — this cuts the cold-cache fetch from ~3.7s (4 sequential requests) to
-    # roughly the duration of the single slowest download.
+    # The candidate-year probes are independent downloads, so they run concurrently —
+    # the cold-cache fetch costs roughly the duration of the single slowest download.
     from concurrent.futures import ThreadPoolExecutor
 
-    sgt_year = datetime.now(timezone(timedelta(hours=8))).year
+    sgt_year = _sgt_now().year
     candidate_years = list(range(sgt_year, sgt_year - 3, -1))
 
     def _safe_fetch_year(year):
@@ -1502,15 +1626,8 @@ def compute_occupational_wage_insights() -> dict:
             print(f"  [MOM OWS] {year} edition fetch failed: {type(e).__name__}: {e}")
             return None
 
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        pctile_future = pool.submit(_fetch_occ_wage_percentiles)
+    with ThreadPoolExecutor(max_workers=3) as pool:
         year_results = dict(zip(candidate_years, pool.map(_safe_fetch_year, candidate_years)))
-        try:
-            percentiles = pctile_future.result()
-            pctile_year = next(iter(percentiles.values()))["year"] if percentiles else None
-        except Exception as e:
-            print(f"  [MOM OWS] percentile enrichment skipped: {type(e).__name__}: {e}")
-            percentiles, pctile_year = {}, None  # optional enrichment — never fail the whole panel over it
 
     latest_year = next((y for y in candidate_years if year_results.get(y)), None)
     if latest_year is None:
@@ -1563,7 +1680,6 @@ def compute_occupational_wage_insights() -> dict:
         pct_change = None
         if prior_gross and occ["gross"]:
             pct_change = round((occ["gross"] - prior_gross) / prior_gross * 100, 1)
-        pct = percentiles.get(prior_key or key, {})
         all_occupations.append({
             "name": occ["name"],
             "group": occ["group"],
@@ -1572,8 +1688,6 @@ def compute_occupational_wage_insights() -> dict:
             "gross": occ["gross"],
             "prior_gross": prior_gross,
             "pct_change": pct_change,
-            "p25": pct.get("p25"),
-            "p75": pct.get("p75"),
             "is_new": key in genuinely_new_set,
             "is_tech": _occ_is_tech(occ["name"]),
         })
@@ -1595,17 +1709,13 @@ def compute_occupational_wage_insights() -> dict:
         "prior_year": prior_year,
         "occupation_count": len(all_occupations),
         "matched_count": len(movers),
-        "pctile_year": pctile_year,
         "new_titles": new_titles,
         "discontinued_titles": discontinued,
-        "top_movers": movers_sorted[:12],
-        "bottom_movers": movers_sorted[-8:][::-1],
+        "top_movers": movers_sorted[:10],
+        "bottom_movers": movers_sorted[-5:][::-1],
         "tech_roles": tech_roles,
         "all_occupations": all_occupations,
         "source": (
-            f"MOM Occupational Wage Survey, June {latest_year} vs June {prior_year} "
-            f"(stats.mom.gov.sg Occupational Wages tables); percentile ranges from data.gov.sg "
-            f"dataset `{_OCC_WAGE_PCTILE_DATASET_ID}` (June {pctile_year})." if pctile_year else
             f"MOM Occupational Wage Survey, June {latest_year} vs June {prior_year} "
             f"(stats.mom.gov.sg Occupational Wages tables)."
         ),
@@ -1613,6 +1723,7 @@ def compute_occupational_wage_insights() -> dict:
     _occ_wage_cache["data"] = data
     _occ_wage_cache["fetched_at"] = now
     data["synced_at"] = _cache_synced_at(_occ_wage_cache)
+    _disk_cache_save("occ_wages", data, now)
     return data
 
 
@@ -1665,8 +1776,6 @@ def query_occupational_wage_insights(context_query: str = "general") -> str:
                 parts.append(f"basic S${o['basic']:,}")
             if o["pct_change"] is not None:
                 parts.append(f"{o['pct_change']:+.1f}% vs {prior}")
-            if o["p25"] and o["p75"]:
-                parts.append(f"25th-75th pctile S${o['p25']:,}-S${o['p75']:,} (Jun {data['pctile_year']})")
             flag = " \U0001F195" if o["is_new"] else ""
             lines.append(f"• {o['name']}{flag} ({o['group']}): " + ", ".join(parts))
     else:
