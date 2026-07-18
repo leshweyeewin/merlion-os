@@ -164,3 +164,37 @@ To load the statutory tools inside development agents (like Cursor or Claude Des
 ```bash
 python mcp_server.py
 ```
+
+---
+
+## 📋 Version History
+
+The document above always reflects the **latest** release. This section records what changed between versions.
+
+### Version 1 — baseline (commit [`c5b4657`](https://github.com/leshweyeewin/merlion-os/commit/c5b46575f3a21ae48d9a9cd3110cfe2c12597003))
+The original hackathon build. It included:
+* **SG Hub Dashboard** with these live panels: 🌤️ Weather & Air Quality (PSI gauge + 6-region 2-hour forecast), 🚇 Transit & Rail Alerts, 📢 Gov Updates (7 Telegram channels), 🏢 HDB BTO Tracker, 📊 Job Market Analysis (BigQuery with data.gov.sg fallback), ⚠️ MOM Retrenchment, and 🎟️ Kiasu SG Deals (15 Telegram channels).
+* **Statutory Portals Directory** — a drag-and-drop reorderable grid of **19** statutory board & national service portals (ICA through ActiveSG).
+* **AI Co-Pilot** on Gemini 2.5 Flash with Google Search grounding fallback and the security hardening layers (XSS `safeURL`, redirect-domain verification, auth-keyword scraping blocks).
+* **Local Quickstart** requiring `GEMINI_API_KEY` and `LTA_DATAMALL_API_KEY`.
+
+### Version 2 — current
+Two feature commits ([`c55825a`](https://github.com/leshweyeewin/merlion-os/commit/c55825a) → [`b53d5ee`](https://github.com/leshweyeewin/merlion-os/commit/b53d5ee)) build on Version 1. What's new or changed:
+
+**➕ New dashboard panels**
+* 🚕 **Transport & Vehicle Costs** — live islandwide taxi count (LTA `Taxi-Availability`) + latest COE bidding premiums for all 5 categories, plus an opt-in "Around You" geolocation lookup (nearby taxis within 2km + nearest planning area).
+* 🏷️ **HDB Resale Flat Prices** — real islandwide median resale price, YoY change, and a full ranked by-town breakdown for the latest complete month.
+* 📈 **Salary Growth by Occupation** — YoY median salary growth ranked across the 8 broad SingStat occupation categories.
+* 💼 **Occupational Wage Explorer** — 500+ detailed job titles with real June median basic/gross wages, per-title increment ranking, genuinely new (SSOC 2024 / AI-era) job titles vs the prior edition, top-paying tech & digital roles, and a searchable filterable wage table.
+
+**🔧 Expanded existing panels**
+* 🌤️ **Weather & Air Quality** widened from PSI + 2-hour forecast to also include PM2.5, a 24-hour outlook, and live "Current Conditions" tiles (temperature, humidity, wind speed/direction via circular mean, rainfall).
+
+**🏛️ Statutory Portals Directory**
+* Grown from **19 → 39** portals (+20 agencies: HPB, MSF, PUB, NLB, URA, NParks, MAS, IMDA, OneNS, SPF, SCDF, ACRA, EnterpriseSG, IPOS, SLA, CEA, PA, STB, NHB, MinLaw), with a dedicated portal index page.
+
+**⚡ Performance engineering** (new section)
+* GZip compression on all responses >1KB, TTL caches matched to each dataset's publishing cadence, a background startup pre-warm of the heaviest (MOM Excel) pipeline, and load-on-demand panels with `?v=` browser cache busting.
+
+**⚙️ Setup change**
+* Added the optional `DATA_GOV_SG_API_KEY` environment variable, applied as an `x-api-key` header across all data.gov.sg calls to skip the unauthenticated burst-rate pacing (most noticeable on the Weather panel's 9 sequential NEA calls).
