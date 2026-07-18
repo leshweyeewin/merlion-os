@@ -21,6 +21,7 @@ function safeURL(url) {
 
 document.addEventListener("DOMContentLoaded", () => {
     initPortalReordering();
+    initPortalVisibility();
 
     const chatForm = document.getElementById("chat-form");
     const userInput = document.getElementById("user-input");
@@ -374,7 +375,7 @@ function initPortalReordering() {
 
     // Nearest card to the pointer, by center-to-center distance (grid-aware, not just row-aware)
     function getClosestCard(container, x, y) {
-        const cards = container.querySelectorAll(".service-card:not(.dragging)");
+        const cards = container.querySelectorAll(".service-card:not(.dragging):not(.portal-hidden)");
         let closest = null;
         let closestDist = Infinity;
         cards.forEach(card => {
@@ -460,6 +461,121 @@ function initPortalReordering() {
     loadSavedOrder();
 }
 
+// Lets users hide portal cards they don't use (the directory has grown to 39 entries) and
+// bring them back on demand via the "Hidden Portals" dropdown, persisted in localStorage.
+function initPortalVisibility() {
+    const STORAGE_KEY = "merlionos-hidden-portals";
+    const grid = document.querySelector(".grid-container");
+    const manageBtn = document.getElementById("manage-portals-btn");
+    const dropdown = document.getElementById("hidden-portals-dropdown");
+    const countBadge = document.getElementById("hidden-portals-count");
+    if (!grid) return;
+
+    function loadHidden() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+            return Array.isArray(saved) ? saved : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function saveHidden(list) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    }
+
+    function cardName(card) {
+        const nameEl = card.querySelector("h3");
+        return nameEl ? nameEl.textContent.trim() : card.dataset.agency;
+    }
+
+    function updateBadge() {
+        const hidden = loadHidden();
+        if (hidden.length > 0) {
+            countBadge.textContent = hidden.length;
+            countBadge.style.display = "inline-block";
+        } else {
+            countBadge.style.display = "none";
+        }
+    }
+
+    function renderDropdown() {
+        const hidden = loadHidden();
+        if (hidden.length === 0) {
+            dropdown.innerHTML = `<div class="hidden-portals-empty">No portals hidden — hover any card and click the eye icon to hide it.</div>`;
+            return;
+        }
+        const cardsByAgency = new Map(Array.from(grid.querySelectorAll(".service-card")).map(c => [c.dataset.agency, c]));
+        dropdown.innerHTML = hidden.map(agency => {
+            const card = cardsByAgency.get(agency);
+            const name = card ? cardName(card) : agency;
+            return `<div class="hidden-portal-chip">
+                <span class="hidden-portal-chip-name">${escapeHTML(name)}</span>
+                <button type="button" class="add-portal-back-btn" data-agency="${escapeHTML(agency)}">+ Add back</button>
+            </div>`;
+        }).join('');
+    }
+
+    function hidePortal(agency) {
+        const hidden = loadHidden();
+        if (!hidden.includes(agency)) {
+            hidden.push(agency);
+            saveHidden(hidden);
+        }
+        const card = grid.querySelector(`.service-card[data-agency="${agency}"]`);
+        if (card) card.classList.add("portal-hidden");
+        updateBadge();
+        renderDropdown();
+    }
+
+    function showPortal(agency) {
+        saveHidden(loadHidden().filter(a => a !== agency));
+        const card = grid.querySelector(`.service-card[data-agency="${agency}"]`);
+        if (card) card.classList.remove("portal-hidden");
+        updateBadge();
+        renderDropdown();
+    }
+
+    grid.querySelectorAll(".service-card").forEach(card => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "hide-portal-btn";
+        btn.title = "Hide this portal";
+        btn.innerHTML = `<i class="fa-solid fa-eye-slash"></i>`;
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            hidePortal(card.dataset.agency);
+        });
+        card.appendChild(btn);
+    });
+
+    loadHidden().forEach(agency => {
+        const card = grid.querySelector(`.service-card[data-agency="${agency}"]`);
+        if (card) card.classList.add("portal-hidden");
+    });
+    updateBadge();
+
+    if (manageBtn && dropdown) {
+        manageBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const willOpen = dropdown.classList.contains("hidden");
+            if (willOpen) renderDropdown();
+            dropdown.classList.toggle("hidden", !willOpen);
+        });
+
+        dropdown.addEventListener("click", (e) => {
+            const btn = e.target.closest(".add-portal-back-btn");
+            if (btn) showPortal(btn.dataset.agency);
+        });
+
+        document.addEventListener("click", (e) => {
+            if (!dropdown.contains(e.target) && !manageBtn.contains(e.target)) {
+                dropdown.classList.add("hidden");
+            }
+        });
+    }
+}
+
 // ── SG Hub Live Dashboard Data Loading ───────────────────────────────────
 function initSgHub() {
     let sgHubLoaded = false;
@@ -476,6 +592,8 @@ function initSgHub() {
     const mrtEventsContent = document.getElementById("hub-mrt-events-content");
     const hdbLaunchesContent = document.getElementById("hub-hdb-launches");
     const hdbNewsContent = document.getElementById("hub-hdb-news");
+    const hdbResaleContent = document.getElementById("hub-hdb-resale");
+    const transportContent = document.getElementById("hub-transport-content");
     const jobsContent = document.getElementById("hub-jobs-content");
     const sectorTabButtons = document.querySelectorAll(".sector-tab-btn");
 
@@ -560,7 +678,7 @@ function initSgHub() {
     }
 
     const loadedSgHubPanes = {
-        "hub-gov-transit-pane": false,
+        "gov-transit-group": false,
         "hub-hdb-pane": false,
         "hub-jobs-pane": false,
         "hub-community-pane": false,
@@ -568,8 +686,9 @@ function initSgHub() {
     };
 
     function showPaneLoader(paneId) {
-        if (paneId === "hub-gov-transit-pane") {
+        if (paneId === "hub-transport-pane" || paneId === "hub-gov-transit-pane") {
             mrtEventsContent.innerHTML = "<p style='color: var(--text-subtle); margin:0;'><i class='fa-solid fa-circle-notch fa-spin'></i> Loading transit advisories...</p>";
+            if (transportContent) transportContent.innerHTML = "<p style='color: var(--text-subtle); margin:0;'><i class='fa-solid fa-circle-notch fa-spin'></i> Loading transport data...</p>";
             govEventsContent.innerHTML = "<p style='color: var(--text-subtle); margin:0;'><i class='fa-solid fa-circle-notch fa-spin'></i> Loading official alerts...</p>";
         } else if (paneId === "hub-hdb-pane") {
             hdbLaunchesContent.innerHTML = "<p style='color: var(--text-subtle); margin:0;'><i class='fa-solid fa-circle-notch fa-spin'></i> Loading BTO listings...</p>";
@@ -584,8 +703,9 @@ function initSgHub() {
     }
 
     function showPaneError(paneId) {
-        if (paneId === "hub-gov-transit-pane") {
+        if (paneId === "hub-transport-pane" || paneId === "hub-gov-transit-pane") {
             mrtEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load transit feeds.</p>";
+            if (transportContent) transportContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load transport data.</p>";
             govEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load official alerts.</p>";
         } else if (paneId === "hub-hdb-pane") {
             hdbLaunchesContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load BTO listings.</p>";
@@ -596,6 +716,8 @@ function initSgHub() {
             const retrenchmentDetailsEl = document.getElementById("retrenchment-details");
             if (retrenchmentHeadlineEl) retrenchmentHeadlineEl.textContent = "N/A";
             if (retrenchmentDetailsEl) retrenchmentDetailsEl.innerHTML = "<span style='color: var(--text-error);'>⚠️ Failed to load retrenchment data.</span>";
+            const salaryGrowthEl = document.getElementById("hub-salary-growth-content");
+            if (salaryGrowthEl) salaryGrowthEl.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load salary growth data.</p>";
         } else if (paneId === "hub-community-pane") {
             communityEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load community feeds.</p>";
         } else if (paneId === "hub-env-pane") {
@@ -603,17 +725,44 @@ function initSgHub() {
         }
     }
 
+    function getBrowserLocation() {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) { reject(new Error("Geolocation not supported by this browser.")); return; }
+            // No `timeout` option here deliberately — the countdown starts the moment this fires,
+            // and that includes however long the user takes to notice and click the permission
+            // prompt. A short timeout (e.g. 4s) races that prompt and fails before most people
+            // even get to click "Allow". Let it wait as long as it takes; this is only called
+            // from an explicit user click ("Around You"), never automatically on page load.
+            navigator.geolocation.getCurrentPosition(
+                (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+                (err) => reject(err),
+                { maximumAge: 5 * 60 * 1000 }
+            );
+        });
+    }
+
+    // "Transit & Transport" and "Gov Updates" are two separate tabs but share one backend call
+    // (train alerts, taxi availability, and COE are fetched in parallel with the Telegram gov
+    // channels server-side) — cache and load them together under one key so switching between
+    // the two tabs never triggers a redundant re-scrape.
+    const GOV_TRANSIT_GROUP = ["hub-transport-pane", "hub-gov-transit-pane"];
+
     async function loadSgHubPaneData(paneId) {
-        if (loadedSgHubPanes[paneId]) return;
-        
+        const cacheKey = GOV_TRANSIT_GROUP.includes(paneId) ? "gov-transit-group" : paneId;
+        if (loadedSgHubPanes[cacheKey]) return;
+
         let endpoint = "";
-        if (paneId === "hub-gov-transit-pane") endpoint = "/api/sg-hub/gov-transit";
+        if (GOV_TRANSIT_GROUP.includes(paneId)) endpoint = "/api/sg-hub/gov-transit";
         else if (paneId === "hub-hdb-pane") endpoint = "/api/sg-hub/hdb";
         else if (paneId === "hub-jobs-pane") endpoint = "/api/sg-hub/jobs?sector=tech";
         else if (paneId === "hub-community-pane") endpoint = "/api/sg-hub/community";
         else if (paneId === "hub-env-pane") endpoint = "/api/sg-hub/weather";
-        
+
         if (!endpoint) return;
+
+        // The Occupational Wage Explorer has its own (heavier, Excel-backed) endpoint — kick it
+        // off in parallel with the main jobs fetch; it caches itself under its own key.
+        if (paneId === "hub-jobs-pane") loadOccupationalWages();
 
         showPaneLoader(paneId);
 
@@ -621,8 +770,8 @@ function initSgHub() {
             const res = await fetch(endpoint);
             if (!res.ok) throw new Error("API error fetching pane " + paneId);
             const data = await res.json();
-            
-            if (paneId === "hub-gov-transit-pane") {
+
+            if (GOV_TRANSIT_GROUP.includes(paneId)) {
                 renderGovTransit(data);
             } else if (paneId === "hub-hdb-pane") {
                 renderHdbPane(data);
@@ -633,8 +782,8 @@ function initSgHub() {
             } else if (paneId === "hub-env-pane") {
                 renderWeatherPane(data);
             }
-            
-            loadedSgHubPanes[paneId] = true;
+
+            loadedSgHubPanes[cacheKey] = true;
         } catch (err) {
             console.error("Failed to load pane " + paneId, err);
             showPaneError(paneId);
@@ -688,9 +837,43 @@ function initSgHub() {
             </div>
         `).join('');
 
+        // Current Conditions stat tiles (temp / humidity / wind / rainfall / PM2.5)
+        const cc = data.current_conditions || {};
+        const statTile = (icon, label, value) => `
+            <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 10px; padding: 12px 10px; text-align:center; min-width:100px; flex: 1;">
+                <div style="font-size: 22px; margin-bottom: 4px;">${icon}</div>
+                <div style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">${label}</div>
+                <div style="font-size: 14px; font-weight: 700; color: var(--text-main);">${value}</div>
+            </div>`;
+
+        const rainfallLabel = (cc.rainfall_stations_total)
+            ? `${cc.rainfall_max ?? 0} mm max (${cc.rainfall_stations_wet}/${cc.rainfall_stations_total} areas)`
+            : 'N/A';
+
+        const currentConditionsTiles = [
+            statTile('🌡️', 'Air Temp', cc.air_temperature != null ? `${cc.air_temperature}°C` : 'N/A'),
+            statTile('💧', 'Humidity', cc.humidity != null ? `${cc.humidity}%` : 'N/A'),
+            statTile('💨', 'Wind', (cc.wind_speed != null && cc.wind_direction) ? `${cc.wind_speed} km/h ${cc.wind_direction}` : 'N/A'),
+            statTile('🌧️', 'Rainfall', rainfallLabel),
+            statTile('🍃', 'PM2.5', data.pm25 != null ? `${data.pm25} µg/m³` : 'N/A')
+        ].join('');
+
+        // 24-Hour General Outlook
+        const outlook = data.outlook_24hr;
+        const outlookHtml = outlook ? `
+            <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-top: 8px;">
+                <div style="font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 6px;">${conditionIcon(outlook.forecast)} ${escapeHTML(outlook.forecast || 'N/A')}</div>
+                <div style="font-size: 12px; color: var(--text-muted); line-height: 1.6;">
+                    🌡️ ${outlook.temp_low ?? '–'}–${outlook.temp_high ?? '–'}°C &nbsp;•&nbsp;
+                    💧 ${outlook.humidity_low ?? '–'}–${outlook.humidity_high ?? '–'}% &nbsp;•&nbsp;
+                    💨 ${outlook.wind_speed_low ?? '–'}–${outlook.wind_speed_high ?? '–'} km/h ${escapeHTML(outlook.wind_direction || '')}
+                </div>
+            </div>
+        ` : '';
+
         weatherContent.innerHTML = `
             <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 16px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
-                <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${getRetrievalTimestamp()}
+                <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML(data.synced_at || getRetrievalTimestamp())}
             </div>
 
             <!-- PSI Gauge Card -->
@@ -713,6 +896,14 @@ function initSgHub() {
                 </div>
             </div>
 
+            <!-- Current Conditions -->
+            <div style="margin-bottom: 16px;">
+                <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">🌤️ Current Conditions (NEA Station Average)</div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    ${currentConditionsTiles}
+                </div>
+            </div>
+
             <!-- 2-Hr Regional Forecast Cards -->
             <div style="margin-bottom: 8px;">
                 <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">⛅ 2-Hour Regional Forecast</div>
@@ -720,10 +911,143 @@ function initSgHub() {
                     ${forecastCards || '<p style="color:var(--text-subtle); margin:0;">Forecast data unavailable.</p>'}
                 </div>
             </div>
+
+            <!-- 24-Hour Outlook -->
+            <div>
+                <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">📅 24-Hour Outlook</div>
+                ${outlookHtml || '<p style="color:var(--text-subtle); margin:0;">Outlook data unavailable.</p>'}
+            </div>
         `;
     }
 
+    function renderTransportPane(taxiAvailability, coe) {
+        if (!transportContent) return;
+
+        const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
+            <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML((coe && coe.synced_at) || getRetrievalTimestamp())}
+        </div>`;
+
+        const taxiHtml = !taxiAvailability
+            ? `<div style="flex: 1; min-width: 180px; background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px; color: var(--text-subtle); font-size: 13px;">
+                🚕 Taxi availability unavailable (LTA DataMall key not configured).
+            </div>`
+            : `<div id="taxi-stat-block" style="flex: 1; min-width: 180px; background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px;">
+                ${islandwideTaxiHtml(taxiAvailability)}
+            </div>`;
+
+        const coeCategoryColors = { 'A': '#2563eb', 'B': '#7c3aed', 'C': '#d97706', 'D': '#059669', 'E': '#dc2626' };
+        const coeCategoriesHtml = (coe && coe.categories && coe.categories.length)
+            ? coe.categories.map(c => `
+                <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; min-width: 130px; flex: 1;">
+                    <span style="background:${coeCategoryColors[c.category] || 'var(--primary)'}; color:#fff; font-size:10px; font-weight:800; padding:2px 7px; border-radius:4px;">CAT ${escapeHTML(c.category)}</span>
+                    <div style="font-size: 15px; font-weight: 700; color: var(--text-main); margin-top: 6px;">${escapeHTML(c.premium)}</div>
+                    <div style="font-size: 10px; color: var(--text-muted);">${escapeHTML(c.label)}</div>
+                </div>`).join('')
+            : `<p style="color: var(--text-subtle); margin:0; font-size: 13px;">COE data unavailable.</p>`;
+
+        transportContent.innerHTML = banner + `
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;">
+                ${taxiHtml}
+                <div style="flex: 2; min-width: 220px; background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px;">
+                    <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 8px;">🚗 COE BIDDING — ${coe ? escapeHTML(coe.exercise) : 'N/A'}</span>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        ${coeCategoriesHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        bindTaxiButtons(taxiAvailability);
+    }
+
+    const TAXI_BTN_STYLE = "background: var(--bg-panel); border: 1px solid var(--border); color: var(--text-main); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; display:inline-flex; align-items:center; gap:5px;";
+
+    function islandwideTaxiHtml(taxiAvailability) {
+        return `
+            <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">🚕 TAXIS AVAILABLE ISLANDWIDE</span>
+            <strong style="font-size: 22px; color: var(--primary); display:block;">${taxiAvailability.count.toLocaleString()}</strong>
+            <span style="font-size: 10px; color: var(--text-muted); display:block; margin-bottom:8px;">${escapeHTML(taxiAvailability.retrieved_at)}</span>
+            <button type="button" id="taxi-around-you-btn" style="${TAXI_BTN_STYLE}">
+                <i class="fa-solid fa-location-crosshairs"></i> Around You
+            </button>
+        `;
+    }
+
+    function nearbyTaxiHtml(nearby) {
+        return `
+            <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">🚕 TAXIS WITHIN ${nearby.nearby_radius_km}KM${nearby.area_name ? "" : " OF YOU"}</span>
+            ${nearby.area_name ? `<span style="font-size: 13px; font-weight: 700; color: var(--text-main); display:block; margin-bottom: 2px;"><i class="fa-solid fa-location-dot" style="color: var(--primary);"></i> Near ${escapeHTML(nearby.area_name)}</span>` : ""}
+            <strong style="font-size: 22px; color: var(--primary); display:block;">${nearby.nearby_count.toLocaleString()}</strong>
+            <span style="font-size: 10px; color: var(--text-muted); display:block; margin-bottom:8px;">${nearby.count.toLocaleString()} available islandwide &middot; ${escapeHTML(nearby.retrieved_at)}</span>
+            <div style="display:flex; gap:6px;">
+                <button type="button" id="taxi-around-you-btn" style="${TAXI_BTN_STYLE}">
+                    <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                </button>
+                <button type="button" id="taxi-show-all-btn" style="${TAXI_BTN_STYLE}">
+                    <i class="fa-solid fa-globe"></i> Show All
+                </button>
+            </div>
+        `;
+    }
+
+    function showTaxiError(block, message) {
+        if (!block) return;
+        block.querySelectorAll(".taxi-around-you-error").forEach(e => e.remove());
+        const errEl = document.createElement("div");
+        errEl.className = "taxi-around-you-error";
+        errEl.style.cssText = "font-size:10px; color: var(--text-error); margin-top:6px;";
+        errEl.textContent = `⚠️ ${message}`;
+        block.appendChild(errEl);
+    }
+
+    function bindTaxiButtons(taxiAvailability) {
+        const block = document.getElementById("taxi-stat-block");
+        const aroundBtn = document.getElementById("taxi-around-you-btn");
+        const showAllBtn = document.getElementById("taxi-show-all-btn");
+
+        if (showAllBtn) {
+            showAllBtn.addEventListener("click", () => {
+                if (block) block.innerHTML = islandwideTaxiHtml(taxiAvailability);
+                bindTaxiButtons(taxiAvailability);
+            });
+        }
+
+        if (!aroundBtn) return;
+        aroundBtn.addEventListener("click", async () => {
+            const originalLabel = aroundBtn.innerHTML;
+            aroundBtn.disabled = true;
+            aroundBtn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Locating...`;
+
+            let loc;
+            try {
+                loc = await getBrowserLocation();
+            } catch (err) {
+                const reason = err && err.code === 1 ? "Location access denied."
+                    : err && err.code === 3 ? "Location request timed out."
+                    : "Location unavailable.";
+                aroundBtn.disabled = false;
+                aroundBtn.innerHTML = originalLabel;
+                showTaxiError(block, reason);
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/sg-hub/taxi-nearby?lat=${loc.lat}&lon=${loc.lon}`);
+                if (!res.ok) throw new Error("Nearby taxi lookup failed");
+                const nearby = await res.json();
+                if (block) block.innerHTML = nearbyTaxiHtml(nearby);
+                bindTaxiButtons(taxiAvailability);
+            } catch (err) {
+                aroundBtn.disabled = false;
+                aroundBtn.innerHTML = originalLabel;
+                showTaxiError(block, "Couldn't fetch nearby taxis. Try again.");
+            }
+        });
+    }
+
     function renderGovTransit(data) {
+        renderTransportPane(data.taxi_availability, data.coe);
+
         const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
             <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${getRetrievalTimestamp()}
         </div>`;
@@ -890,12 +1214,328 @@ function initSgHub() {
             </div>`;
         });
         hdbNewsContent.innerHTML = banner + (hdbNewsHtml || "<p style='color: var(--text-subtle); margin:0;'>No active news releases.</p>");
+
+        renderHdbResalePane(data.resale);
+    }
+
+    function renderHdbResalePane(resale) {
+        if (!resale || !hdbResaleContent) return;
+
+        const yoyColor = resale.yoy_pct == null ? 'var(--text-muted)' : (resale.yoy_pct >= 0 ? '#c0392b' : '#1a7f3c');
+        const yoyIcon = resale.yoy_pct == null ? '' : (resale.yoy_pct >= 0 ? '📈' : '📉');
+        const yoyText = resale.yoy_pct == null ? ''
+            : `${resale.yoy_pct >= 0 ? '+' : ''}${resale.yoy_pct.toFixed(1)}% (vs S$${resale.prior_median_price.toLocaleString()} in ${escapeHTML(resale.prior_month)})`;
+
+        const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
+            <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML(resale.synced_at || getRetrievalTimestamp())}
+        </div>`;
+
+        const towns = resale.towns || [];
+        const maxPrice = Math.max(...towns.map(t => t.median_price), 1);
+        const townRows = towns.map(t => `
+            <div style="display:flex; align-items:center; gap:10px; padding: 6px 0; border-bottom: 1px solid var(--border);">
+                <div style="flex: 1; min-width:0; font-size:13px; font-weight:600; color: var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(t.town)}</div>
+                <div style="width:100px; flex-shrink:0;">
+                    <div style="background: var(--bg-panel); border-radius:4px; height:7px; overflow:hidden;">
+                        <div style="width:${(t.median_price / maxPrice) * 100}%; background: var(--primary); height:100%; border-radius:4px;"></div>
+                    </div>
+                </div>
+                <div style="width:90px; flex-shrink:0; text-align:right; font-size:13px; font-weight:700; color: var(--text-main);">S$${t.median_price.toLocaleString()}</div>
+                <div style="width:60px; flex-shrink:0; text-align:right; font-size:10px; color: var(--text-muted);">${t.transaction_count.toLocaleString()} txns</div>
+            </div>
+        `).join('');
+
+        hdbResaleContent.innerHTML = banner + `
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;">
+                <div style="flex: 1; min-width: 200px; background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px;">
+                    <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">📊 ISLANDWIDE MEDIAN (${escapeHTML(resale.latest_month)})</span>
+                    <strong style="font-size: 20px; color: var(--primary); display:block;">S$${resale.median_price.toLocaleString()}</strong>
+                    ${yoyText ? `<span style="font-size: 12px; font-weight: 700; color: ${yoyColor};">${yoyIcon} ${escapeHTML(yoyText)} YoY</span>` : ''}
+                </div>
+                <div style="flex: 1; min-width: 200px; background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px;">
+                    <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">🏙️ PRICIEST TOWN</span>
+                    ${towns.length ? `<strong style="font-size: 16px; color: var(--text-main); display:block;">${escapeHTML(towns[0].town)}</strong><span style="font-size:12px; color: var(--text-muted);">S$${towns[0].median_price.toLocaleString()} median</span>` : '<span style="color:var(--text-subtle);">N/A</span>'}
+                </div>
+            </div>
+
+            <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">🗺️ Median Resale Price by Town</div>
+            <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; max-height: 340px; overflow-y: auto;">
+                ${townRows || '<p style="color: var(--text-subtle); margin:0;">No town-level data available.</p>'}
+            </div>
+            <div style="font-size: 10px; color: var(--text-muted); margin-top: 10px;">💡 Source: ${escapeHTML(resale.source)}</div>
+        `;
     }
 
     function renderJobsPane(data) {
         sgHubJobsData = data.jobs;
         renderSectorDetails("tech"); // Default to Tech
         renderRetrenchmentPane(data.retrenchment);
+        renderSalaryGrowthPane(data.salary_growth);
+    }
+
+    function renderSalaryGrowthPane(salaryGrowth) {
+        const container = document.getElementById("hub-salary-growth-content");
+        if (!container) return;
+        if (!salaryGrowth || !salaryGrowth.occupations || !salaryGrowth.occupations.length) {
+            container.innerHTML = "<p style='color: var(--text-subtle); margin:0;'>Salary growth data unavailable.</p>";
+            return;
+        }
+
+        const { latest_year, prior_year, occupations } = salaryGrowth;
+        const maxAbsPct = Math.max(...occupations.map(o => Math.abs(o.pct_change)), 1);
+
+        const rows = occupations.map(o => {
+            const isPositive = o.pct_change >= 0;
+            const barColor = isPositive ? "#1a7f3c" : "#c0392b";
+            const barWidthPct = (Math.abs(o.pct_change) / maxAbsPct) * 100;
+            return `
+                <div style="display:flex; align-items:center; gap:10px; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                    <div style="flex: 1; min-width:0;">
+                        <div style="font-size:13px; font-weight:600; color: var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(o.occupation)}</div>
+                        <div style="font-size:11px; color: var(--text-muted);">S$${o.prior_salary.toLocaleString()} &rarr; S$${o.latest_salary.toLocaleString()}</div>
+                    </div>
+                    <div style="width:120px; flex-shrink:0;">
+                        <div style="background: var(--bg-panel); border-radius:4px; height:8px; overflow:hidden;">
+                            <div style="width:${barWidthPct}%; background:${barColor}; height:100%; border-radius:4px;"></div>
+                        </div>
+                    </div>
+                    <div style="width:60px; flex-shrink:0; text-align:right; font-size:13px; font-weight:700; color:${barColor};">${o.pct_change >= 0 ? '+' : ''}${o.pct_change.toFixed(1)}%</div>
+                </div>
+            `;
+        }).join('');
+
+        const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
+            <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML(salaryGrowth.synced_at || getRetrievalTimestamp())}
+        </div>`;
+
+        container.innerHTML = banner + `
+            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">Comparing ${escapeHTML(String(latest_year))} vs ${escapeHTML(String(prior_year))} median gross monthly income &middot; figures average published male/female medians (SingStat)</div>
+            <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px;">
+                ${rows}
+            </div>
+        `;
+    }
+
+    let occWagesData = null;
+
+    async function loadOccupationalWages() {
+        if (loadedSgHubPanes["hub-occ-wages"]) return;
+        const container = document.getElementById("hub-occ-wages-content");
+        if (!container) return;
+        container.innerHTML = "<p style='color: var(--text-subtle); margin:0; font-style: italic;'><i class='fa-solid fa-circle-notch fa-spin'></i> Loading MOM occupational wage tables (500+ job titles)...</p>";
+        try {
+            const res = await fetch("/api/sg-hub/wages");
+            if (!res.ok) throw new Error("API error fetching occupational wages");
+            occWagesData = await res.json();
+            renderOccWagesPane(occWagesData);
+            loadedSgHubPanes["hub-occ-wages"] = true;
+        } catch (err) {
+            console.error("Failed to load occupational wages", err);
+            container.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load occupational wage data.</p>";
+        }
+    }
+
+    function occMoverRow(o, maxAbsPct) {
+        const isPositive = o.pct_change >= 0;
+        const barColor = isPositive ? "#1a7f3c" : "#c0392b";
+        const barWidthPct = (Math.abs(o.pct_change) / maxAbsPct) * 100;
+        return `
+            <div style="display:flex; align-items:center; gap:10px; padding: 7px 0; border-bottom: 1px solid var(--border);">
+                <div style="flex: 1; min-width:0;">
+                    <div style="font-size:13px; font-weight:600; color: var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(o.name)}</div>
+                    <div style="font-size:11px; color: var(--text-muted);">S$${o.prior_gross.toLocaleString()} &rarr; S$${o.gross.toLocaleString()} gross/mth</div>
+                </div>
+                <div style="width:110px; flex-shrink:0;">
+                    <div style="background: var(--bg-panel); border-radius:4px; height:8px; overflow:hidden;">
+                        <div style="width:${barWidthPct}%; background:${barColor}; height:100%; border-radius:4px;"></div>
+                    </div>
+                </div>
+                <div style="width:58px; flex-shrink:0; text-align:right; font-size:13px; font-weight:700; color:${barColor};">${isPositive ? '+' : ''}${o.pct_change.toFixed(1)}%</div>
+            </div>
+        `;
+    }
+
+    function renderOccWagesPane(data) {
+        const container = document.getElementById("hub-occ-wages-content");
+        if (!container || !data || !data.all_occupations || !data.all_occupations.length) {
+            if (container) container.innerHTML = "<p style='color: var(--text-subtle); margin:0;'>Occupational wage data unavailable.</p>";
+            return;
+        }
+
+        const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
+            <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML(data.synced_at || getRetrievalTimestamp())}
+        </div>`;
+
+        const newTechCount = data.new_titles.filter(o => o.is_tech).length;
+        const best = data.top_movers[0];
+        const tiles = `
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
+                <div style="flex: 1; min-width: 160px; background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px;">
+                    <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">📊 OCCUPATIONS TRACKED (JUN ${escapeHTML(String(data.latest_year))})</span>
+                    <strong style="font-size: 20px; color: var(--primary);">${data.occupation_count.toLocaleString()}</strong>
+                </div>
+                <div style="flex: 1; min-width: 160px; background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px;">
+                    <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">🆕 NEW JOB TITLES VS ${escapeHTML(String(data.prior_year))}</span>
+                    <strong style="font-size: 20px; color: var(--primary);">${data.new_titles.length}</strong>
+                    <span style="font-size: 12px; color: var(--text-muted);"> (${newTechCount} tech/AI)</span>
+                </div>
+                <div style="flex: 1; min-width: 160px; background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px;">
+                    <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">🚀 FASTEST WAGE INCREMENT</span>
+                    ${best ? `<strong style="font-size: 14px; color: var(--text-main); display:block; line-height:1.3;">${escapeHTML(best.name)}</strong><span style="font-size:13px; font-weight:700; color:#1a7f3c;">+${best.pct_change.toFixed(1)}% YoY</span>` : '<span style="color:var(--text-subtle);">N/A</span>'}
+                </div>
+            </div>`;
+
+        const newChips = data.new_titles.map(o => `
+            <span title="${escapeHTML(o.group || '')}" style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; padding: 5px 10px; border-radius: 14px; margin: 0 6px 8px 0;
+                background: ${o.is_tech ? 'rgba(37, 99, 235, 0.10)' : 'var(--bg-muted)'};
+                border: 1px solid ${o.is_tech ? 'var(--primary)' : 'var(--border)'}; color: var(--text-main);">
+                ${o.is_tech ? '🤖 ' : ''}${escapeHTML(o.name)}${o.gross ? ` <span style="color: var(--text-muted); font-weight:700;">S$${o.gross.toLocaleString()}</span>` : ''}
+            </span>`).join('');
+
+        const techRows = data.tech_roles.filter(o => o.gross).slice(0, 14).map(o => `
+            <div style="display:flex; align-items:center; gap:10px; padding: 7px 0; border-bottom: 1px solid var(--border);">
+                <div style="flex: 1; min-width:0; font-size:13px; font-weight:600; color: var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    ${escapeHTML(o.name)}${o.is_new ? ' <span style="font-size:10px; color: var(--primary); font-weight:700;">NEW</span>' : ''}
+                </div>
+                <div style="width:88px; flex-shrink:0; text-align:right; font-size:13px; font-weight:700; color: var(--text-main);">S$${o.gross.toLocaleString()}</div>
+                <div style="width:58px; flex-shrink:0; text-align:right; font-size:12px; font-weight:700; color:${o.pct_change == null ? 'var(--text-muted)' : (o.pct_change >= 0 ? '#1a7f3c' : '#c0392b')};">
+                    ${o.pct_change == null ? '—' : `${o.pct_change >= 0 ? '+' : ''}${o.pct_change.toFixed(1)}%`}
+                </div>
+            </div>`).join('');
+
+        const upMovers = data.top_movers.slice(0, 10);
+        const downMovers = data.bottom_movers.slice(0, 5);
+        const maxAbsPct = Math.max(...upMovers.concat(downMovers).map(o => Math.abs(o.pct_change)), 1);
+
+        const groups = [...new Set(data.all_occupations.map(o => o.group).filter(Boolean))].sort();
+        const groupOptions = groups.map(g => `<option value="${escapeHTML(g)}">${escapeHTML(g)}</option>`).join('');
+
+        container.innerHTML = banner + tiles + `
+            <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🆕 Newly Created Job Titles (SSOC ${escapeHTML(String(data.latest_year - 1))} revision — 🤖 = tech/AI-era roles)</div>
+            <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px 12px 4px; margin-bottom: 16px; max-height: 190px; overflow-y: auto;">
+                ${newChips || '<p style="color: var(--text-subtle); margin:0 0 8px;">No newly created titles this edition.</p>'}
+                <div style="font-size: 10px; color: var(--text-muted); margin: 4px 0 8px;">Renamed titles are already matched to their old rows and excluded; ${data.discontinued_titles.length} titles from ${escapeHTML(String(data.prior_year))} are no longer tracked separately.</div>
+            </div>
+
+            <div style="display:flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;">
+                <div style="flex: 1; min-width: 280px;">
+                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🚀 Fastest Rising Wages (${escapeHTML(String(data.prior_year))} &rarr; ${escapeHTML(String(data.latest_year))})</div>
+                    <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px;">${upMovers.map(o => occMoverRow(o, maxAbsPct)).join('')}</div>
+                </div>
+                <div style="flex: 1; min-width: 280px;">
+                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">📉 Steepest Declines</div>
+                    <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px;">${downMovers.map(o => occMoverRow(o, maxAbsPct)).join('')}</div>
+                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 8px;">🤖 Top-Paying Tech &amp; Digital Roles</div>
+                    <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px;">${techRows}</div>
+                </div>
+            </div>
+
+            <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🔎 Full Wage Table Explorer (June ${escapeHTML(String(data.latest_year))} medians)</div>
+            <div style="display:flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; align-items: center;">
+                <input id="occ-wage-search" type="text" placeholder="Search a job title, e.g. software, nurse, analyst..." style="flex: 2; min-width: 200px; padding: 8px 12px; font-size: 13px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-muted); color: var(--text-main); outline: none;">
+                <select id="occ-wage-group-filter" style="flex: 1; min-width: 160px; padding: 8px; font-size: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-muted); color: var(--text-main); outline: none;">
+                    <option value="">All occupation groups</option>
+                    ${groupOptions}
+                </select>
+                <select id="occ-wage-sort" style="flex: 1; min-width: 140px; padding: 8px; font-size: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-muted); color: var(--text-main); outline: none;">
+                    <option value="name">Sort: Name A–Z</option>
+                    <option value="gross">Sort: Highest wage</option>
+                    <option value="pct_desc">Sort: Best YoY increment</option>
+                    <option value="pct_asc">Sort: Worst YoY increment</option>
+                </select>
+                <label style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color: var(--text-main); cursor:pointer; white-space:nowrap;">
+                    <input id="occ-wage-tech-only" type="checkbox" style="accent-color: var(--primary);"> 🤖 Tech only
+                </label>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; padding: 4px 16px; font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+                <div style="flex: 1;">Occupation</div>
+                <div style="width:88px; flex-shrink:0; text-align:right;">Gross/mth</div>
+                <div style="width:58px; flex-shrink:0; text-align:right;">YoY</div>
+                <div style="width:110px; flex-shrink:0; text-align:right;">25th–75th %ile${data.pctile_year ? ` ('${escapeHTML(String(data.pctile_year).slice(-2))})` : ''}</div>
+            </div>
+            <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 6px 16px; max-height: 320px; overflow-y: auto;">
+                <div id="occ-wage-table-body"></div>
+            </div>
+            <div id="occ-wage-table-count" style="font-size: 11px; color: var(--text-muted); margin-top: 8px;"></div>
+            <div style="font-size: 10px; color: var(--text-muted); margin-top: 8px;">⚠️ Survey-based figures (private-sector establishments with ≥25 employees; full-time residents) — small occupations can swing sharply year to year. 💡 Source: ${escapeHTML(data.source)}</div>
+            <div style="margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; display:flex; justify-content:flex-end;">
+                <button id="occ-wage-chat-btn" data-prompt="Based on Singapore's latest MOM Occupational Wage Survey, which jobs had the best salary increment rates this year, what new AI-era job titles were created and what do they pay, and should someone in a declining occupation consider a sector change?" style="background:var(--primary); color:#ffffff; font-weight:700; border:none; padding:8px 14px; border-radius:6px; font-size:12px; cursor:pointer; transition:all 0.2s ease;">
+                    <i class="fa-solid fa-robot"></i> Ask Co-Pilot for Career Insights
+                </button>
+            </div>
+        `;
+
+        document.getElementById("occ-wage-search").addEventListener("input", renderOccWageTableRows);
+        document.getElementById("occ-wage-group-filter").addEventListener("change", renderOccWageTableRows);
+        document.getElementById("occ-wage-sort").addEventListener("change", renderOccWageTableRows);
+        document.getElementById("occ-wage-tech-only").addEventListener("change", renderOccWageTableRows);
+        document.getElementById("occ-wage-chat-btn").addEventListener("click", askCopilotWithPrompt);
+        renderOccWageTableRows();
+    }
+
+    // Shared "hand this prompt to the Co-Pilot" flow (same behaviour as the sector-analysis
+    // button): switch to the Portals tab, pop the chat widget open, and submit the prompt.
+    function askCopilotWithPrompt(event) {
+        const prompt = event.currentTarget.getAttribute("data-prompt");
+        const portalsBtn = document.getElementById("main-tab-portals-btn");
+        if (portalsBtn) portalsBtn.click();
+
+        const widget = document.getElementById("chat-widget");
+        const trigger = document.getElementById("chat-trigger");
+        if (widget && widget.classList.contains("hidden")) {
+            if (trigger) trigger.click();
+        }
+
+        const input = document.getElementById("user-input");
+        if (input) {
+            input.value = prompt;
+            const form = document.getElementById("chat-form");
+            if (form) {
+                setTimeout(() => {
+                    form.dispatchEvent(new Event("submit"));
+                }, 300);
+            }
+        }
+    }
+
+    function renderOccWageTableRows() {
+        const body = document.getElementById("occ-wage-table-body");
+        const countEl = document.getElementById("occ-wage-table-count");
+        if (!body || !occWagesData) return;
+
+        const q = (document.getElementById("occ-wage-search")?.value || "").toLowerCase().trim();
+        const grp = document.getElementById("occ-wage-group-filter")?.value || "";
+        const sort = document.getElementById("occ-wage-sort")?.value || "name";
+        const techOnly = document.getElementById("occ-wage-tech-only")?.checked || false;
+        const filtered = occWagesData.all_occupations.filter(o =>
+            (!q || o.name.toLowerCase().includes(q)) && (!grp || o.group === grp) && (!techOnly || o.is_tech));
+
+        // "name" keeps the server's A–Z order; wage/YoY sorts push missing values to the bottom.
+        if (sort === "gross") filtered.sort((a, b) => (b.gross ?? -1) - (a.gross ?? -1));
+        else if (sort === "pct_desc") filtered.sort((a, b) => (b.pct_change ?? -Infinity) - (a.pct_change ?? -Infinity));
+        else if (sort === "pct_asc") filtered.sort((a, b) => (a.pct_change ?? Infinity) - (b.pct_change ?? Infinity));
+
+        const MAX_ROWS = 60;
+        body.innerHTML = filtered.slice(0, MAX_ROWS).map(o => `
+            <div style="display:flex; align-items:center; gap:10px; padding: 6px 0; border-bottom: 1px solid var(--border);">
+                <div style="flex: 1; min-width:0;">
+                    <div style="font-size:13px; font-weight:600; color: var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                        ${escapeHTML(o.name)}${o.is_new ? ' <span style="font-size:10px; color: var(--primary); font-weight:700;">NEW</span>' : ''}${o.is_tech ? ' 🤖' : ''}
+                    </div>
+                    <div style="font-size:10px; color: var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(o.group || '')}</div>
+                </div>
+                <div style="width:88px; flex-shrink:0; text-align:right; font-size:13px; font-weight:700; color: var(--text-main);">${o.gross ? `S$${o.gross.toLocaleString()}` : '—'}</div>
+                <div style="width:58px; flex-shrink:0; text-align:right; font-size:12px; font-weight:700; color:${o.pct_change == null ? 'var(--text-muted)' : (o.pct_change >= 0 ? '#1a7f3c' : '#c0392b')};">
+                    ${o.pct_change == null ? '—' : `${o.pct_change >= 0 ? '+' : ''}${o.pct_change.toFixed(1)}%`}
+                </div>
+                <div style="width:110px; flex-shrink:0; text-align:right; font-size:11px; color: var(--text-muted);">
+                    ${o.p25 && o.p75 ? `S$${o.p25.toLocaleString()}–${o.p75.toLocaleString()}` : '—'}
+                </div>
+            </div>`).join('') || '<p style="color: var(--text-subtle); margin: 8px 0;">No occupations match your search.</p>';
+
+        countEl.textContent = filtered.length > MAX_ROWS
+            ? `Showing ${MAX_ROWS} of ${filtered.length} matching occupations — refine your search to narrow down.`
+            : `${filtered.length} matching occupation${filtered.length === 1 ? '' : 's'}.`;
     }
 
     function renderRetrenchmentPane(retrenchment) {
@@ -1125,7 +1765,7 @@ function initSgHub() {
                 const targetPaneId = activeSubTab.getAttribute("data-hub-sub-tab");
                 loadSgHubPaneData(targetPaneId);
             } else {
-                loadSgHubPaneData("hub-gov-transit-pane");
+                loadSgHubPaneData("hub-transport-pane");
             }
         });
     }

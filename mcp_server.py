@@ -15,7 +15,11 @@ from tools import (
     get_singapore_live_environment_advisory,
     query_singapore_job_statistics_via_bigquery,
     query_hdb_bto_launches_and_grants,
-    query_singapore_retrenchment_advisory
+    query_singapore_retrenchment_advisory,
+    query_coe_bidding_results,
+    query_hdb_resale_price_trends,
+    query_salary_growth_by_occupation,
+    query_occupational_wage_insights
 )
 
 # Initialize FastMCP Server
@@ -75,6 +79,26 @@ def mcp_query_hdb_bto_launches_and_grants(context_query: str = "general") -> str
 def mcp_query_singapore_retrenchment_advisory(context_query: str = "general") -> str:
     """Retrieves Singapore's real quarterly retrenchment statistics (MOM, via data.gov.sg) and the top affected industries."""
     return query_singapore_retrenchment_advisory(context_query)
+
+@mcp.tool(name="query_coe_bidding_results")
+def mcp_query_coe_bidding_results(context_query: str = "general") -> str:
+    """Retrieves Singapore's latest COE (Certificate of Entitlement) bidding results and premiums by vehicle category."""
+    return query_coe_bidding_results(context_query)
+
+@mcp.tool(name="query_hdb_resale_price_trends")
+def mcp_query_hdb_resale_price_trends(context_query: str = "general") -> str:
+    """Retrieves Singapore's real HDB resale flat transaction data with islandwide median price, YoY change, and the priciest towns."""
+    return query_hdb_resale_price_trends(context_query)
+
+@mcp.tool(name="query_salary_growth_by_occupation")
+def mcp_query_salary_growth_by_occupation(context_query: str = "general") -> str:
+    """Retrieves Singapore's real median salary growth by broad occupation category (SingStat), ranked from fastest to slowest year-on-year growth."""
+    return query_salary_growth_by_occupation(context_query)
+
+@mcp.tool(name="query_occupational_wage_insights")
+def mcp_query_occupational_wage_insights(context_query: str = "general") -> str:
+    """Looks up Singapore's real per-job-title wages (MOM Occupational Wage Survey, 500+ detailed occupations) with year-on-year increment rates, newly created (AI-era) job titles, and 25th-75th percentile ranges."""
+    return query_occupational_wage_insights(context_query)
 
 if __name__ == "__main__":
     mcp.run()

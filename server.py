@@ -1,9 +1,12 @@
 import os
 import sys
 import re
+import math
+import time
 import logging
 import requests
 from fastapi import FastAPI, HTTPException, Response
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from google import genai
@@ -40,11 +43,40 @@ from tools import (
     get_singapore_live_environment_advisory,
     query_singapore_job_statistics_via_bigquery,
     query_hdb_bto_launches_and_grants,
-    query_singapore_retrenchment_advisory
+    query_singapore_retrenchment_advisory,
+    query_coe_bidding_results,
+    get_coe_synced_at,
+    query_hdb_resale_price_trends,
+    compute_hdb_resale_stats,
+    query_salary_growth_by_occupation,
+    compute_salary_growth_by_occupation,
+    query_occupational_wage_insights,
+    compute_occupational_wage_insights
 )
 
 # Initialize FastAPI app
 app = FastAPI(title="MerlionOS Portal API")
+
+# Compress every response over 1KB — the SG Hub JSON payloads (Occupational Wages ~130KB,
+# app.js ~100KB) shrink ~5-6x, which matters most on Render's free tier and mobile networks.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+
+@app.on_event("startup")
+async def prewarm_heavy_caches():
+    """Pre-warm the Occupational Wage cache in a background thread at boot, so the first
+    visitor's click on the Job Market tab is served from cache (~0.2s) instead of paying the
+    multi-download Excel fetch. Failures are non-fatal — the endpoint just fetches lazily."""
+    import threading
+
+    def _warm():
+        try:
+            data = compute_occupational_wage_insights()
+            print(f"\033[33m[MOM OWS] Startup pre-warm complete: {data['occupation_count']} occupations cached.\033[0m")
+        except Exception as e:
+            print(f"\033[31m[MOM OWS] Startup pre-warm skipped ({type(e).__name__}) — will fetch lazily on first request.\033[0m")
+
+    threading.Thread(target=_warm, daemon=True, name="ows-prewarm").start()
 
 # Initialize Gemini Client
 client = genai.Client()
@@ -61,7 +93,11 @@ TOOL_MAP = {
     "get_singapore_live_environment_advisory": get_singapore_live_environment_advisory,
     "query_singapore_job_statistics_via_bigquery": query_singapore_job_statistics_via_bigquery,
     "query_hdb_bto_launches_and_grants": query_hdb_bto_launches_and_grants,
-    "query_singapore_retrenchment_advisory": query_singapore_retrenchment_advisory
+    "query_singapore_retrenchment_advisory": query_singapore_retrenchment_advisory,
+    "query_coe_bidding_results": query_coe_bidding_results,
+    "query_hdb_resale_price_trends": query_hdb_resale_price_trends,
+    "query_salary_growth_by_occupation": query_salary_growth_by_occupation,
+    "query_occupational_wage_insights": query_occupational_wage_insights
 }
 
 # Request model
@@ -442,6 +478,103 @@ def fetch_lta_train_alerts() -> dict | None:
         return None
 
 
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle distance between two lat/lon points, in kilometres."""
+    r = 6371.0
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    d_phi = math.radians(lat2 - lat1)
+    d_lambda = math.radians(lon2 - lon1)
+    a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+# Approximate town-centre coordinates for Singapore's major planning areas/HDB towns —
+# used to label the "Around You" taxi lookup with a readable area name instead of raw
+# coordinates. OneMap's reverse-geocode API would give a precise street address, but it
+# requires a full account (email/password), not just an API key, so this lighter-weight
+# nearest-town lookup avoids that extra signup step entirely.
+SG_PLANNING_AREAS = [
+    ("Downtown Core", 1.2836, 103.8607), ("Orchard", 1.3048, 103.8318),
+    ("Novena", 1.3204, 103.8439), ("Newton", 1.3138, 103.8380),
+    ("Bukit Timah", 1.3294, 103.8021), ("Toa Payoh", 1.3343, 103.8563),
+    ("Bishan", 1.3508, 103.8484), ("Marine Parade", 1.3020, 103.9067),
+    ("Queenstown", 1.2942, 103.8060), ("Bukit Merah", 1.2819, 103.8239),
+    ("Kallang", 1.3100, 103.8651), ("Geylang", 1.3182, 103.8874),
+    ("Southern Islands", 1.2367, 103.8300), ("Bedok", 1.3236, 103.9273),
+    ("Tampines", 1.3496, 103.9568), ("Pasir Ris", 1.3721, 103.9474),
+    ("Changi", 1.3644, 103.9915), ("Hougang", 1.3612, 103.8863),
+    ("Punggol", 1.3984, 103.9072), ("Sengkang", 1.3868, 103.8914),
+    ("Serangoon", 1.3554, 103.8679), ("Ang Mo Kio", 1.3691, 103.8454),
+    ("Yishun", 1.4304, 103.8354), ("Sembawang", 1.4491, 103.8185),
+    ("Woodlands", 1.4382, 103.7891), ("Mandai", 1.4088, 103.7891),
+    ("Bukit Batok", 1.3590, 103.7637), ("Bukit Panjang", 1.3774, 103.7719),
+    ("Choa Chu Kang", 1.3840, 103.7470), ("Clementi", 1.3151, 103.7649),
+    ("Jurong East", 1.3329, 103.7436), ("Jurong West", 1.3404, 103.7090),
+    ("Pioneer", 1.3121, 103.6773), ("Tuas", 1.2966, 103.6360),
+    ("Boon Lay", 1.3387, 103.7065), ("Tengah", 1.3720, 103.7500),
+    ("Central Water Catchment", 1.3800, 103.8000), ("Western Water Catchment", 1.3900, 103.6700),
+    ("Lim Chu Kang", 1.4380, 103.7170), ("Sungei Kadut", 1.4130, 103.7500),
+]
+
+
+def _nearest_planning_area(lat: float, lon: float) -> str:
+    return min(SG_PLANNING_AREAS, key=lambda a: _haversine_km(lat, lon, a[1], a[2]))[0]
+
+
+def fetch_lta_taxi_availability(user_lat: float | None = None, user_lon: float | None = None) -> dict | None:
+    """
+    Calls the LTA DataMall Taxi-Availability API — returns the live islandwide count of taxis
+    currently available for hire, plus (if the caller's coordinates are known) how many of those
+    are within 2km, since "500 taxis somewhere on the island" isn't actionable on its own.
+    Returns None if the key is missing / call fails.
+    """
+    api_key = os.environ.get("LTA_DATAMALL_API_KEY", "").strip()
+    if not api_key or api_key == "LTA_DATAMALL_API_KEY":
+        logger.warning("[LTA DataMall] LTA_DATAMALL_API_KEY not set — skipping taxi availability fetch.")
+        return None
+
+    from datetime import datetime, timezone, timedelta
+    url = "https://datamall2.mytransport.sg/ltaodataservice/Taxi-Availability"
+    headers = {
+        "AccountKey": api_key,
+        "accept": "application/json"
+    }
+    print(f"  \033[90m[LTA DataMall] HTTP GET {url}\033[0m")
+    try:
+        r = requests.get(url, headers=headers, timeout=8)
+        print(f"  \033[90m[LTA DataMall] HTTP RESPONSE: {r.status_code}\033[0m")
+        r.raise_for_status()
+        data = r.json()
+        taxis = data.get("value", [])
+        taxi_count = len(taxis)
+
+        nearby_count = None
+        nearby_radius_km = 2.0
+        area_name = None
+        if user_lat is not None and user_lon is not None:
+            nearby_count = sum(
+                1 for t in taxis
+                if _haversine_km(user_lat, user_lon, t["Latitude"], t["Longitude"]) <= nearby_radius_km
+            )
+            area_name = _nearest_planning_area(user_lat, user_lon)
+
+        sgt = datetime.now(timezone(timedelta(hours=8)))
+        retrieved_at = sgt.strftime("%d %b %Y, %I:%M %p")
+
+        print(f"  \033[32m✔\033[0m [LTA DataMall] {taxi_count} taxis currently available islandwide"
+              f"{f', {nearby_count} within {nearby_radius_km}km of caller near {area_name}' if nearby_count is not None else ''}.")
+        return {
+            "count": taxi_count,
+            "nearby_count": nearby_count,
+            "nearby_radius_km": nearby_radius_km,
+            "area_name": area_name,
+            "retrieved_at": retrieved_at
+        }
+    except Exception as e:
+        logger.warning(f"[LTA DataMall] Taxi availability fetch failed: {e}")
+        return None
+
+
 def scrape_one_telegram_channel(channel: str) -> list:
     """Scrapes the last 3 posts from a Telegram channel (used for Gov Updates)."""
     url = f"https://t.me/s/{channel}"
@@ -573,17 +706,37 @@ def scrape_one_telegram_channel_24h(channel: str) -> list:
 
 
 
-@app.get("/api/sg-hub/weather")
-async def get_sg_hub_weather():
+_weather_cache = {"data": None, "fetched_at": 0}
+_WEATHER_CACHE_TTL_SECONDS = 3 * 60  # NEA's unauthenticated real-time APIs have a tight burst rate limit
+                                       # (~6 calls before a 429) and this endpoint fires 9 of them per
+                                       # load — caching here means only the first visitor in a 3-minute
+                                       # window actually pays that cost.
+
+
+def _fetch_weather_data() -> dict:
+    """
+    Synchronous worker (run off the event loop via anyio.to_thread.run_sync) that fires all
+    9 NEA real-time API calls this panel needs. Unauthenticated data.gov.sg real-time API calls
+    hit a burst rate limit after ~6 rapid calls (confirmed empirically — the 7th+ call in a tight
+    sequence gets HTTP 429 regardless of a small per-call delay under ~1s). If no API key is
+    configured, we pace the calls ~1s apart to stay under that burst limit; with a key configured
+    (higher rate ceiling per data.gov.sg's docs), we skip the delay entirely.
+    """
+    print("\n\033[94m[MerlionOS Orchestrator] --- Fetching Weather & PSI Data Selected ---\033[0m")
+    print("\033[96m[NEA API Weather Engine] Querying live weather forecasts & air quality...\033[0m")
+
+    headers = {"User-Agent": "Mozilla/5.0"}
+    data_gov_sg_api_key = os.environ.get("DATA_GOV_SG_API_KEY", "").strip()
+    if data_gov_sg_api_key:
+        headers["x-api-key"] = data_gov_sg_api_key
+    pace = (lambda: None) if data_gov_sg_api_key else (lambda: time.sleep(1.0))
+
     try:
-        print("\n\033[94m[MerlionOS Orchestrator] --- Fetching Weather & PSI Data Selected ---\033[0m")
-        print("\033[96m[NEA API Weather Engine] Querying live weather forecasts & air quality...\033[0m")
-        
-        headers = {"User-Agent": "Mozilla/5.0"}
         psi_val = 28
         psi_status = "Good"
         
         try:
+            print("  \033[90m[NEA API] HTTP GET https://api-open.data.gov.sg/v2/real-time/api/psi\033[0m")
             r_psi = requests.get("https://api-open.data.gov.sg/v2/real-time/api/psi", headers=headers, timeout=5)
             if r_psi.status_code == 200:
                 data = r_psi.json()
@@ -603,7 +756,9 @@ async def get_sg_hub_weather():
             logger.warning(f"PSI Fetch failed: {e}")
             
         forecasts_list = []
+        pace()
         try:
+            print("  \033[90m[NEA API] HTTP GET https://api-open.data.gov.sg/v2/real-time/api/two-hr-forecast\033[0m")
             r_weather = requests.get("https://api-open.data.gov.sg/v2/real-time/api/two-hr-forecast", headers=headers, timeout=5)
             if r_weather.status_code == 200:
                 data = r_weather.json()
@@ -630,12 +785,139 @@ async def get_sg_hub_weather():
                 {"area": "Woodlands", "forecast": "Cloudy"},
                 {"area": "Punggol", "forecast": "Thundery Showers"}
             ]
-            
+
+        # PM2.5 (national reading, same regional-average shape as PSI)
+        pm25_val = None
+        pace()
+        try:
+            print("  \033[90m[NEA API] HTTP GET https://api-open.data.gov.sg/v2/real-time/api/pm25\033[0m")
+            r_pm25 = requests.get("https://api-open.data.gov.sg/v2/real-time/api/pm25", headers=headers, timeout=5)
+            if r_pm25.status_code == 200:
+                items = r_pm25.json().get("data", {}).get("items", [])
+                if items:
+                    regional = items[0].get("readings", {}).get("pm25_one_hourly", {})
+                    if regional:
+                        pm25_val = round(sum(regional.values()) / len(regional))
+        except Exception as e:
+            logger.warning(f"PM2.5 Fetch failed: {e}")
+
+        def avg_station_reading(endpoint: str):
+            """Averages the latest reading across all NEA stations for a given real-time endpoint."""
+            pace()
+            try:
+                print(f"  \033[90m[NEA API] HTTP GET https://api-open.data.gov.sg/v2/real-time/api/{endpoint}\033[0m")
+                r = requests.get(f"https://api-open.data.gov.sg/v2/real-time/api/{endpoint}", headers=headers, timeout=5)
+                if r.status_code == 200:
+                    readings = r.json().get("data", {}).get("readings", [])
+                    if readings:
+                        values = [d["value"] for d in readings[0].get("data", []) if isinstance(d.get("value"), (int, float))]
+                        if values:
+                            return round(sum(values) / len(values), 1)
+            except Exception as e:
+                logger.warning(f"{endpoint} Fetch failed: {e}")
+            return None
+
+        air_temp = avg_station_reading("air-temperature")
+        humidity = avg_station_reading("relative-humidity")
+        wind_speed = avg_station_reading("wind-speed")
+
+        # Wind direction: circular mean (via sin/cos components — averaging raw degrees breaks
+        # down near the 0/360 boundary, e.g. 350° and 10° should average to ~0°, not 180°).
+        wind_direction = None
+        pace()
+        try:
+            print("  \033[90m[NEA API] HTTP GET https://api-open.data.gov.sg/v2/real-time/api/wind-direction\033[0m")
+            r_dir = requests.get("https://api-open.data.gov.sg/v2/real-time/api/wind-direction", headers=headers, timeout=5)
+            if r_dir.status_code == 200:
+                readings = r_dir.json().get("data", {}).get("readings", [])
+                if readings:
+                    degrees = [d["value"] for d in readings[0].get("data", []) if isinstance(d.get("value"), (int, float))]
+                    if degrees:
+                        sin_sum = sum(math.sin(math.radians(d)) for d in degrees)
+                        cos_sum = sum(math.cos(math.radians(d)) for d in degrees)
+                        mean_deg = math.degrees(math.atan2(sin_sum, cos_sum)) % 360
+                        compass = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+                                   "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+                        wind_direction = compass[round(mean_deg / 22.5) % 16]
+        except Exception as e:
+            logger.warning(f"Wind Direction Fetch failed: {e}")
+
+        # Rainfall: max reading + how many of the island's stations are currently registering rain
+        rainfall_max, rainfall_stations_wet, rainfall_stations_total = None, 0, 0
+        pace()
+        try:
+            print("  \033[90m[NEA API] HTTP GET https://api-open.data.gov.sg/v2/real-time/api/rainfall\033[0m")
+            r_rain = requests.get("https://api-open.data.gov.sg/v2/real-time/api/rainfall", headers=headers, timeout=5)
+            if r_rain.status_code == 200:
+                readings = r_rain.json().get("data", {}).get("readings", [])
+                if readings:
+                    values = [d["value"] for d in readings[0].get("data", []) if isinstance(d.get("value"), (int, float))]
+                    if values:
+                        rainfall_max = max(values)
+                        rainfall_stations_wet = sum(1 for v in values if v > 0)
+                        rainfall_stations_total = len(values)
+        except Exception as e:
+            logger.warning(f"Rainfall Fetch failed: {e}")
+
+        # 24-hour general outlook (forecast text, temp/humidity/wind ranges)
+        outlook_24hr = None
+        pace()
+        try:
+            print("  \033[90m[NEA API] HTTP GET https://api-open.data.gov.sg/v2/real-time/api/twenty-four-hr-forecast\033[0m")
+            r_outlook = requests.get("https://api-open.data.gov.sg/v2/real-time/api/twenty-four-hr-forecast", headers=headers, timeout=5)
+            if r_outlook.status_code == 200:
+                records = r_outlook.json().get("data", {}).get("records", [])
+                if records:
+                    general = records[0].get("general", {})
+                    outlook_24hr = {
+                        "forecast": general.get("forecast", {}).get("text"),
+                        "temp_low": general.get("temperature", {}).get("low"),
+                        "temp_high": general.get("temperature", {}).get("high"),
+                        "humidity_low": general.get("relativeHumidity", {}).get("low"),
+                        "humidity_high": general.get("relativeHumidity", {}).get("high"),
+                        "wind_speed_low": general.get("wind", {}).get("speed", {}).get("low"),
+                        "wind_speed_high": general.get("wind", {}).get("speed", {}).get("high"),
+                        "wind_direction": general.get("wind", {}).get("direction"),
+                    }
+        except Exception as e:
+            logger.warning(f"24-Hr Forecast Fetch failed: {e}")
+
         print("\033[96m[NEA API Weather Engine] Live environment metrics retrieved successfully.\033[0m")
-        return {
+        result = {
             "psi": {"value": psi_val, "status": psi_status},
-            "forecasts": forecasts_list
+            "pm25": pm25_val,
+            "forecasts": forecasts_list,
+            "current_conditions": {
+                "air_temperature": air_temp,
+                "humidity": humidity,
+                "wind_speed": wind_speed,
+                "wind_direction": wind_direction,
+                "rainfall_max": rainfall_max,
+                "rainfall_stations_wet": rainfall_stations_wet,
+                "rainfall_stations_total": rainfall_stations_total,
+            },
+            "outlook_24hr": outlook_24hr
         }
+        return result
+    except Exception as e:
+        logger.exception("Error fetching weather data")
+        raise
+
+
+@app.get("/api/sg-hub/weather")
+async def get_sg_hub_weather():
+    now = time.time()
+    if _weather_cache["data"] is not None and (now - _weather_cache["fetched_at"]) < _WEATHER_CACHE_TTL_SECONDS:
+        return _weather_cache["data"]
+
+    try:
+        result = await anyio.to_thread.run_sync(_fetch_weather_data)
+        from datetime import datetime, timezone, timedelta
+        sgt = datetime.fromtimestamp(now, tz=timezone(timedelta(hours=8)))
+        result["synced_at"] = sgt.strftime("%d %b %Y, %I:%M %p") + " (SGT)"
+        _weather_cache["data"] = result
+        _weather_cache["fetched_at"] = now
+        return result
     except Exception as e:
         logger.exception("Error loading Weather data")
         raise HTTPException(status_code=500, detail=str(e))
@@ -729,7 +1011,12 @@ async def get_sg_hub_hdb():
 
         hdb_news = await anyio.to_thread.run_sync(scrape_hdb_news)
         print(f"\033[93m[HDB Scraping Engine] Successfully fetched {len(hdb_news)} live HDB news articles.\033[0m")
-        return {"hdb": hdb_text, "hdb_news": hdb_news}
+
+        print("\033[93m[data.gov.sg] Fetching HDB resale flat price dataset...\033[0m")
+        resale = await anyio.to_thread.run_sync(compute_hdb_resale_stats)
+        print("\033[93m[data.gov.sg] HDB resale price fetch complete.\033[0m")
+
+        return {"hdb": hdb_text, "hdb_news": hdb_news, "resale": resale}
     except Exception as e:
         logger.exception("Error loading HDB data")
         raise HTTPException(status_code=500, detail=str(e))
@@ -799,14 +1086,52 @@ async def get_sg_hub_jobs(sector: str = "all"):
                 retrenchment["source"] = line.split("Source:")[1].strip()
         print("\033[33m[data.gov.sg] Retrenchment fetch complete.\033[0m")
 
-        return {"jobs": job_sectors, "retrenchment": retrenchment}
+        print("\033[33m[SingStat] Fetching median salary growth by occupation...\033[0m")
+        salary_growth = await anyio.to_thread.run_sync(compute_salary_growth_by_occupation)
+        print("\033[33m[SingStat] Salary growth fetch complete.\033[0m")
+
+        return {"jobs": job_sectors, "retrenchment": retrenchment, "salary_growth": salary_growth}
     except Exception as e:
         logger.exception("Error loading Jobs data")
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/sg-hub/wages")
+async def get_sg_hub_wages():
+    """MOM Occupational Wage Survey explorer — fetched separately from /api/sg-hub/jobs so the
+    Job Market pane renders immediately while the (heavier, Excel-backed) wage tables load in
+    parallel, and so sector-tab clicks never re-send the ~500-occupation payload."""
+    try:
+        print("\n\033[94m[MerlionOS Orchestrator] --- Fetching MOM Occupational Wage Tables ---\033[0m")
+        data = await anyio.to_thread.run_sync(compute_occupational_wage_insights)
+        print(f"\033[33m[MOM OWS] Fetch complete: {data['occupation_count']} occupations, June {data['latest_year']} vs {data['prior_year']}.\033[0m")
+        return data
+    except Exception as e:
+        logger.exception("Error loading Occupational Wages data")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/sg-hub/taxi-nearby")
+async def get_sg_hub_taxi_nearby(lat: float, lon: float):
+    """
+    Lightweight companion to /api/sg-hub/gov-transit for the "Around You" button — recomputes just
+    the taxi nearby-count against the caller's coordinates without re-triggering the full Telegram
+    scrape + COE fetch that the combined endpoint does.
+    """
+    try:
+        result = await anyio.to_thread.run_sync(fetch_lta_taxi_availability, lat, lon)
+        if result is None:
+            raise HTTPException(status_code=502, detail="Taxi availability could not be retrieved.")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error loading nearby taxi data")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/sg-hub/gov-transit")
-async def get_sg_hub_gov_transit():
+async def get_sg_hub_gov_transit(lat: float | None = None, lon: float | None = None):
     try:
         print("\n\033[94m[MerlionOS Orchestrator] --- Fetching Gov Updates & Transit Feeds Selected ---\033[0m")
         print("\033[95m[Telegram Scraper Service] Spawning parallel crawler tasks in an anyio TaskGroup...\033[0m")
@@ -814,6 +1139,8 @@ async def get_sg_hub_gov_transit():
 
         gov_events = []
         train_alerts = None
+        taxi_availability = None
+        coe_raw = None
 
         async def fetch_gov_channel(channel_name):
             ch_events = await anyio.to_thread.run_sync(scrape_one_telegram_channel, channel_name)
@@ -824,11 +1151,22 @@ async def get_sg_hub_gov_transit():
             print("  \033[90m[LTA DataMall] Running in parallel with Telegram scrapers...\033[0m")
             train_alerts = await anyio.to_thread.run_sync(fetch_lta_train_alerts)
 
-        # Run Telegram scrapers + DataMall API in parallel
+        async def fetch_datamall_taxis():
+            nonlocal taxi_availability
+            taxi_availability = await anyio.to_thread.run_sync(fetch_lta_taxi_availability, lat, lon)
+
+        async def fetch_coe():
+            nonlocal coe_raw
+            print("  \033[90m[data.gov.sg] Fetching latest COE bidding results...\033[0m")
+            coe_raw = await anyio.to_thread.run_sync(query_coe_bidding_results)
+
+        # Run Telegram scrapers + DataMall APIs + COE fetch in parallel
         async with anyio.create_task_group() as tg:
             for ch in GOV_CHANNELS:
                 tg.start_soon(fetch_gov_channel, ch)
             tg.start_soon(fetch_datamall_alerts)
+            tg.start_soon(fetch_datamall_taxis)
+            tg.start_soon(fetch_coe)
 
         # Fallback for Official Gov Alerts
         if not gov_events:
@@ -893,7 +1231,28 @@ async def get_sg_hub_gov_transit():
                     tg.start_soon(fetch_gov_fallback, channel)
                     
         gov_events.sort(key=lambda x: x.get("iso_date", ""), reverse=True)
-        return {"gov_events": gov_events, "train_alerts": train_alerts}
+        coe = {"exercise": "N/A", "categories": [], "source": ""}
+        if coe_raw:
+            coe_lines = coe_raw.split("\n")
+            for line in coe_lines:
+                if "Latest Exercise:" in line:
+                    coe["exercise"] = line.split("Latest Exercise:")[1].strip()
+                elif line.startswith("Category ") and "Premium:" in line:
+                    cat_letter = line.split(" ", 2)[1]
+                    premium_and_label = line.split("Premium:")[1].strip()
+                    premium = premium_and_label.split(" (")[0].strip()
+                    label = premium_and_label.split(" (")[1].rstrip(")") if " (" in premium_and_label else ""
+                    coe["categories"].append({"category": cat_letter, "premium": premium, "label": label})
+                elif "Source:" in line:
+                    coe["source"] = line.split("Source:")[1].strip()
+            coe["synced_at"] = get_coe_synced_at()
+
+        return {
+            "gov_events": gov_events,
+            "train_alerts": train_alerts,
+            "taxi_availability": taxi_availability,
+            "coe": coe
+        }
     except Exception as e:
         logger.exception("Error loading Gov updates data")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1005,7 +1364,23 @@ async def get_sg_hub_data():
 
 # Mount static folder (create if not exists)
 os.makedirs("static", exist_ok=True)
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+
+
+class NoCacheStaticFiles(StaticFiles):
+    """StaticFiles that forces revalidation (Cache-Control: no-cache) on every asset.
+
+    Without this, browsers apply heuristic freshness to index.html/app.js and keep serving
+    stale copies for hours after a deploy — users would see the old UI (and miss new panels)
+    until a hard refresh. `no-cache` still allows conditional requests, so unchanged files
+    come back as cheap 304s; only actually-changed files are re-downloaded."""
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+app.mount("/", NoCacheStaticFiles(directory="static", html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn

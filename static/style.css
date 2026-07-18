@@ -262,6 +262,120 @@ body {
     background: var(--bg-muted);
 }
 
+.hide-portal-btn {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-subtle);
+    font-size: 12px;
+    opacity: 0.5;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    transition: opacity 0.2s, color 0.2s, background-color 0.2s;
+    border-radius: 4px;
+}
+
+.hide-portal-btn:hover {
+    opacity: 1;
+    color: #dc2626;
+    background: var(--bg-muted);
+}
+
+.service-card.portal-hidden {
+    display: none;
+}
+
+.toolbar-btn-group {
+    position: relative;
+    display: flex;
+    gap: 8px;
+}
+
+.manage-portals-btn {
+    position: relative;
+}
+
+.hidden-count-badge {
+    background: var(--primary);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 10px;
+    margin-left: 4px;
+}
+
+.hidden-portals-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 50;
+    width: 300px;
+    max-height: 340px;
+    overflow-y: auto;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-md);
+    padding: 10px;
+}
+
+.hidden-portals-dropdown.hidden {
+    display: none;
+}
+
+.hidden-portal-chip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--text-main);
+}
+
+.hidden-portal-chip:hover {
+    background: var(--bg-muted);
+}
+
+.hidden-portal-chip-name {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.add-portal-back-btn {
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    padding: 4px 10px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.add-portal-back-btn:hover {
+    opacity: 0.85;
+}
+
+.hidden-portals-empty {
+    font-size: 13px;
+    color: var(--text-subtle);
+    padding: 10px;
+    text-align: center;
+}
+
 .service-card.dragging {
     opacity: 0.45;
     cursor: grabbing;

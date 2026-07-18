@@ -12,7 +12,7 @@
     <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Style Sheet -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=ows2025b">
 </head>
 <body>
     <div class="app-container">
@@ -53,10 +53,16 @@
             <!-- Portal Pane -->
             <div id="portals-pane" class="main-pane">
                 <div class="directory-toolbar" style="margin-bottom: 16px;">
-                    <span class="reorder-hint"><i class="fa-solid fa-arrows-up-down-left-right"></i> Drag any card to rearrange your portal — your layout is saved automatically.</span>
-                    <button type="button" class="reset-layout-btn" id="reset-layout-btn">
-                        <i class="fa-solid fa-rotate-left"></i> Reset layout
-                    </button>
+                    <span class="reorder-hint"><i class="fa-solid fa-arrows-up-down-left-right"></i> Drag any card to rearrange your portal — hover a card and click the eye icon to hide it.</span>
+                    <div class="toolbar-btn-group">
+                        <button type="button" class="reset-layout-btn manage-portals-btn" id="manage-portals-btn">
+                            <i class="fa-solid fa-eye-slash"></i> Hidden Portals<span class="hidden-count-badge" id="hidden-portals-count" style="display:none;">0</span>
+                        </button>
+                        <div class="hidden-portals-dropdown hidden" id="hidden-portals-dropdown"></div>
+                        <button type="button" class="reset-layout-btn" id="reset-layout-btn">
+                            <i class="fa-solid fa-rotate-left"></i> Reset layout
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="grid-container">
@@ -612,7 +618,10 @@
             <div id="hub-pane" class="main-pane hidden">
                 <!-- Sub-tab switcher for SG Hub -->
                 <div class="hub-sub-tabs" style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 8px; flex-wrap: wrap;">
-                    <button class="hub-sub-tab-btn active-hub-sub-tab" data-hub-sub-tab="hub-gov-transit-pane">
+                    <button class="hub-sub-tab-btn active-hub-sub-tab" data-hub-sub-tab="hub-transport-pane">
+                        <i class="fa-solid fa-train-subway"></i> Transit &amp; Transport
+                    </button>
+                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-gov-transit-pane">
                         <i class="fa-solid fa-bullhorn"></i> Gov Updates
                     </button>
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-hdb-pane">
@@ -630,8 +639,8 @@
                 </div>
 
                 <!-- Sub-panes -->
-                <!-- Gov Updates Pane -->
-                <div class="hub-sub-pane" id="hub-gov-transit-pane">
+                <!-- Transit & Transport Pane -->
+                <div class="hub-sub-pane" id="hub-transport-pane">
                     <!-- Transit Alerts Card -->
                     <div class="hub-card" style="margin-bottom: 20px;">
                         <h3>
@@ -642,7 +651,21 @@
                             <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading transit warnings...</p>
                         </div>
                     </div>
-                    
+
+                    <!-- Transport & Vehicle Costs Card -->
+                    <div class="hub-card">
+                        <h3>
+                            <i class="fa-solid fa-car"></i> Transport &amp; Vehicle Costs
+                        </h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Live taxi availability (LTA DataMall) and the latest COE bidding premiums by vehicle category (data.gov.sg).</p>
+                        <div id="hub-transport-content">
+                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading transport data...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gov Updates Pane -->
+                <div class="hub-sub-pane hidden" id="hub-gov-transit-pane">
                     <!-- Official Gov Bulletins Card -->
                     <div class="hub-card">
                         <h3>
@@ -671,7 +694,19 @@
                         </div>
                     </div>
                     
+                    <!-- HDB Resale Flat Prices Card -->
                     <div class="hub-card">
+                        <h3>
+                            <i class="fa-solid fa-tags"></i> HDB Resale Flat Prices
+                        </h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Real HDB resale transaction data (data.gov.sg) — islandwide median price, year-on-year trend, and the priciest towns.</p>
+                        <div id="hub-hdb-resale">
+                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading resale price data...</p>
+                        </div>
+                    </div>
+
+                    <!-- Grant Estimator Card (based on Resale data above) -->
+                    <div class="hub-card" style="margin-top: 20px;">
                         <h3>
                             <i class="fa-solid fa-calculator"></i> Enhanced CPF Housing Grant (EHG) Estimator
                         </h3>
@@ -745,6 +780,28 @@
                                 </a>
                                 <span style="font-size: 12px; color: var(--text-muted); display: block; line-height:1.45;">Access national conversion plans (SCTP), career guidance offices, and active job postings via MyCareersFuture.</span>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Salary Growth by Occupation Card -->
+                    <div class="hub-card" style="margin-top: 20px;">
+                        <h3>
+                            <i class="fa-solid fa-arrow-trend-up"></i> Salary Growth by Occupation
+                        </h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">Real median salary year-on-year growth by broad occupation category (SingStat), ranked fastest to slowest.</p>
+                        <div id="hub-salary-growth-content">
+                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading salary growth data...</p>
+                        </div>
+                    </div>
+
+                    <!-- Occupational Wage Explorer Card -->
+                    <div class="hub-card" style="margin-top: 20px;">
+                        <h3>
+                            <i class="fa-solid fa-magnifying-glass-dollar"></i> Occupational Wage Explorer (MOM OWS)
+                        </h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">Comprehensive MOM Occupational Wage Survey breakdown — 500+ detailed job titles with the latest June median wages, year-on-year increment rates, newly created (AI-era) occupations, and a searchable full wage table.</p>
+                        <div id="hub-occ-wages-content">
+                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading MOM occupational wage tables...</p>
                         </div>
                     </div>
                 </div>
@@ -836,6 +893,9 @@
                         <button class="suggestion-chip" data-query="Analyse tech industry job vacancies, YoY trend, and next-year forecast">
                             Job Vacancies
                         </button>
+                        <button class="suggestion-chip" data-query="Which new AI job titles appeared in Singapore's occupational wage tables this year, and what do they pay?">
+                            AI Job Wages
+                        </button>
                     </div>
 
                     <form class="input-form" id="chat-form">
@@ -879,6 +939,6 @@
         }
     </script>
     <!-- Script File -->
-    <script src="app.js"></script>
+    <script src="app.js?v=ows2025b"></script>
 </body>
 </html>
