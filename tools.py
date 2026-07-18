@@ -1431,6 +1431,7 @@ def _fetch_occ_wage_year(year: int) -> dict | None:
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"}
     r = requests.get(url, headers=headers, timeout=20)
     if r.status_code != 200 or len(r.content) < 10_000:  # missing years serve an HTML error page
+        print(f"  [MOM OWS] {year} edition not usable: HTTP {r.status_code}, {len(r.content)} bytes")
         return None
     return _parse_occ_wage_table1(r.content)
 
@@ -1495,8 +1496,11 @@ def compute_occupational_wage_insights() -> dict:
     def _safe_fetch_year(year):
         try:
             return _fetch_occ_wage_year(year)
-        except Exception:
-            return None  # transient error probing one year — other candidates still count
+        except Exception as e:
+            # Log the real cause — a silent None here once masked a transient network error
+            # as "no edition found", which made the failure look like a data problem.
+            print(f"  [MOM OWS] {year} edition fetch failed: {type(e).__name__}: {e}")
+            return None
 
     with ThreadPoolExecutor(max_workers=4) as pool:
         pctile_future = pool.submit(_fetch_occ_wage_percentiles)
@@ -1504,17 +1508,28 @@ def compute_occupational_wage_insights() -> dict:
         try:
             percentiles = pctile_future.result()
             pctile_year = next(iter(percentiles.values()))["year"] if percentiles else None
-        except Exception:
+        except Exception as e:
+            print(f"  [MOM OWS] percentile enrichment skipped: {type(e).__name__}: {e}")
             percentiles, pctile_year = {}, None  # optional enrichment — never fail the whole panel over it
 
     latest_year = next((y for y in candidate_years if year_results.get(y)), None)
     if latest_year is None:
-        raise ValueError("No MOM OWS table1 edition found on stats.mom.gov.sg")
+        # All concurrent probes failed — some firewalls/AV throttle burst TLS connections to
+        # one host, so retry the two most likely editions sequentially before giving up.
+        print("  [MOM OWS] all concurrent probes failed — retrying sequentially...")
+        for candidate in candidate_years[1:]:
+            parsed = _safe_fetch_year(candidate)
+            if parsed:
+                latest_year = candidate
+                year_results[candidate] = parsed
+                break
+    if latest_year is None:
+        raise ValueError("No MOM OWS table1 edition reachable on stats.mom.gov.sg (see [MOM OWS] logs above for per-year causes)")
     latest = year_results[latest_year]
     prior_year = latest_year - 1
     prior = year_results.get(prior_year) or _safe_fetch_year(prior_year)
     if not prior:
-        raise ValueError(f"Prior-year OWS table1 ({prior_year}) not found")
+        raise ValueError(f"Prior-year OWS table1 ({prior_year}) not reachable (see [MOM OWS] logs above)")
 
     # Pair latest-year occupations with prior-year rows: exact name first, then fuzzy rename match.
     new_keys = set(latest) - set(prior)
