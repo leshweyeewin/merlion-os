@@ -18,7 +18,7 @@ Furthermore, as a working professional in Singapore, staying updated on **transp
 ---
 
 ## 🏛️ Statutory Portals Directory
-MerlionOS features a drag-and-drop reorderable grid representing all **39 statutory board & national service portals** required for citizen life:
+MerlionOS features a drag-and-drop reorderable grid representing all **44 statutory board & national service portals** required for citizen life:
 1. **ICA** (Immigration & Checkpoints Authority) — Passport, NRIC, Re-entry permits
 2. **ELD** (Elections Department) — Voter registration & compulsory voting registers
 3. **IRAS** (Inland Revenue Authority of Singapore) — Income tax & property tax filings
@@ -58,8 +58,13 @@ MerlionOS features a drag-and-drop reorderable grid representing all **39 statut
 37. **STB** (Singapore Tourism Board) — Attraction licensing & VisitSingapore advisories
 38. **NHB** (National Heritage Board) — Museum bookings & heritage trail guides
 39. **MinLaw** (Ministry of Law) — e-Litigation filings & Family Justice Courts services
+40. **CDC** (Community Development Councils) — District assistance, mayoral offices, and local social support
+41. **SFA** (Singapore Food Agency) — Food safety alerts, food hygiene ratings & crop imports
+42. **Judiciary** (Judiciary of Singapore) — Supreme Court, State Courts & hearing registers
+43. **Parliament** (Parliament of Singapore) — Hansard debate transcripts, bills & MP directory
+44. **MOF** (Ministry of Finance) — National budget registers, procurement & fiscal guidelines
 
-*Since the directory includes 39 portals, you can hide cards you do not need by hovering over a card and clicking the eye icon. Restoring hidden portals is easy via the **Hidden Portals** dropdown at the top of the grid. Layout orders are automatically persisted across sessions in browser `localStorage`.*
+*Since the directory includes 44 portals, you can hide cards you do not need by hovering over a card and clicking the eye icon. Restoring hidden portals is easy via the **Hidden Portals** dropdown at the top of the grid. Layout orders are automatically persisted across sessions in browser `localStorage`.*
 
 ---
 
@@ -193,7 +198,7 @@ Current release cycle building on the baseline. What's new or changed:
 * 📢 **Gov Updates** Telegram list expanded from 7 to 12 channels (added `@MOHSingapore`, `@SPFsg`, `@SCDFsg`, `@momsg`, `@ReachSingapore`).
 
 **🏛️ Statutory Portals Directory**
-* Grown from **19 → 39** portals (+20 agencies: HPB, MSF, PUB, NLB, URA, NParks, MAS, IMDA, OneNS, SPF, SCDF, ACRA, EnterpriseSG, IPOS, SLA, CEA, PA, STB, NHB, MinLaw), with a dedicated portal index page.
+* Grown from **19 → 44** portals (+25 agencies: HPB, MSF, PUB, NLB, URA, NParks, MAS, IMDA, OneNS, SPF, SCDF, ACRA, EnterpriseSG, IPOS, SLA, CEA, PA, STB, NHB, MinLaw, CDC, SFA, Judiciary, Parliament, MOF), with a dedicated portal index page.
 * **Custom Visibility & Filtering**: Hovering any portal card lets you hide it using the eye icon. Hidden portals can be added back at any time via the new **Hidden Portals** dropdown at the top of the grid.
 
 **🧹 Code Cleanup & Refactoring**

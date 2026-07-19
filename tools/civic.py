@@ -245,5 +245,30 @@ GOV_DIRECTORY = [
         "title": "Ministry of Law (MinLaw) - e-Litigation, Family Justice Courts, Legal Aid",
         "url": "https://www.mlaw.gov.sg/",
         "keywords": ["mlaw", "ministry of law", "e-litigation", "family justice", "legal aid"]
+    },
+    {
+        "title": "Community Development Councils (CDC) - District Assistance, Mayors, Local Programmes",
+        "url": "https://www.cdc.gov.sg/",
+        "keywords": ["cdc", "community development council", "district", "mayors", "local programs", "assistance"]
+    },
+    {
+        "title": "Singapore Food Agency (SFA) - Food Hygiene, Licensing, Safety, Recall",
+        "url": "https://www.sfa.gov.sg/",
+        "keywords": ["sfa", "singapore food agency", "food safety", "food hygiene", "licensing", "food recall"]
+    },
+    {
+        "title": "Judiciary Singapore - Supreme Court, State Courts, Family Justice Courts Hearings",
+        "url": "https://www.judiciary.gov.sg/",
+        "keywords": ["judiciary", "supreme court", "state courts", "hearings", "law", "judge"]
+    },
+    {
+        "title": "Parliament of Singapore - Bills, Legislation, MP Directory, Debate Transcripts",
+        "url": "https://www.parliament.gov.sg/",
+        "keywords": ["parliament", "bills", "legislation", "mps", "debates", "hansard"]
+    },
+    {
+        "title": "Ministry of Finance (MOF) - National Budget, Treasury, Fiscal Policies",
+        "url": "https://www.mof.gov.sg/",
+        "keywords": ["mof", "ministry of finance", "budget", "fiscal", "treasury", "gst voucher"]
     }
 ]
