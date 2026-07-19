@@ -44,6 +44,7 @@ from tools import (
     query_singapore_job_statistics_via_bigquery,
     query_hdb_bto_launches_and_grants,
     query_singapore_retrenchment_advisory,
+    get_retrenchment_synced_at,
     compute_job_market_history,
     query_coe_bidding_results,
     get_coe_synced_at,
@@ -1101,6 +1102,7 @@ async def get_sg_hub_jobs(sector: str = "all"):
                 retrenchment["reemployment_rate"] = line.split("Six-Month Re-Employment Rate:")[1].strip()
             elif "Source:" in line:
                 retrenchment["source"] = line.split("Source:")[1].strip()
+        retrenchment["synced_at"] = get_retrenchment_synced_at()
         print("\033[33m[data.gov.sg] Retrenchment fetch complete.\033[0m")
         if salary_growth.get("is_stale"):
             print(f"\033[33m[SingStat] Salary growth dataset screened out (latest reference year {salary_growth['latest_year']} is >1 year old).\033[0m")

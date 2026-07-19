@@ -1508,10 +1508,14 @@ function initSgHub() {
 
         const { latest_year, prior_year, occupations } = salaryGrowth;
 
+        const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
+            <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML(salaryGrowth.synced_at || getRetrievalTimestamp())}
+        </div>`;
+
         // Data-freshness policy: annual datasets whose latest reference year is more than a
         // year old are screened out rather than shown as if current.
         if (salaryGrowth.is_stale) {
-            container.innerHTML = `
+            container.innerHTML = banner + `
                 <div style="background: var(--bg-muted); border: 1px dashed var(--border); border-radius: 8px; padding: 14px 16px; font-size: 12.5px; color: var(--text-muted); line-height: 1.55;">
                     <strong style="color: var(--text-main);">⏸️ Screened out — dataset over 1 year old.</strong><br>
                     SingStat's median income by broad occupation series currently only covers <strong>${escapeHTML(String(latest_year))}</strong> (vs ${escapeHTML(String(prior_year))}).
@@ -1547,10 +1551,6 @@ function initSgHub() {
                 </div>
             `;
         }).join('');
-
-        const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
-            <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML(salaryGrowth.synced_at || getRetrievalTimestamp())}
-        </div>`;
 
         const risingCount = occupations.filter(o => o.pct_change > 0).length;
         container.innerHTML = banner + `
@@ -1880,6 +1880,13 @@ function initSgHub() {
         const detailsEl = document.getElementById("retrenchment-details");
         const sourceEl = document.getElementById("retrenchment-source");
         if (!retrenchment || !headlineEl) return;
+
+        const syncedEl = document.getElementById("retrenchment-synced");
+        if (syncedEl) {
+            syncedEl.innerHTML = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
+                <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML(retrenchment.synced_at || getRetrievalTimestamp())}
+            </div>`;
+        }
 
         // headline looks like "3,590 workers (2025-Q4)" — split the count from the quarter label
         const match = retrenchment.headline.match(/^(.*?)\s*\(([^)]+)\)\s*$/);

@@ -650,18 +650,36 @@ def _fetch_job_vacancy_rows() -> list:
         if _job_vacancy_cache["rows"] is not None and (now - _job_vacancy_cache["fetched_at"]) < _JOB_VACANCY_CACHE_TTL_SECONDS:
             return _job_vacancy_cache["rows"]
 
-        poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{_JOB_VACANCY_DATASET_ID}/poll-download"
-        print(f"  [data.gov.sg] HTTP GET {poll_url}")
-        r = requests.get(poll_url, headers=_data_gov_sg_headers(), timeout=10)
-        r.raise_for_status()
-        download_url = r.json()["data"]["url"]
+        disk_rows, disk_ts = _disk_cache_load("job_vacancy_rows", _JOB_VACANCY_CACHE_TTL_SECONDS)
+        if disk_rows is not None:
+            _job_vacancy_cache["rows"] = disk_rows
+            _job_vacancy_cache["fetched_at"] = disk_ts
+            return disk_rows
 
-        r_csv = requests.get(download_url, timeout=15)
-        r_csv.raise_for_status()
-        rows = list(csv.DictReader(io.StringIO(r_csv.text)))
+        try:
+            poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{_JOB_VACANCY_DATASET_ID}/poll-download"
+            print(f"  [data.gov.sg] HTTP GET {poll_url}")
+            r = requests.get(poll_url, headers=_data_gov_sg_headers(), timeout=10)
+            r.raise_for_status()
+            download_url = r.json()["data"]["url"]
+
+            r_csv = requests.get(download_url, timeout=15)
+            r_csv.raise_for_status()
+            rows = list(csv.DictReader(io.StringIO(r_csv.text)))
+        except Exception as e:
+            # Annual data: an expired-but-present disk snapshot beats failing (e.g. a 429
+            # from data.gov.sg's rate limiter) — serve it and let a later request refresh.
+            stale_rows, stale_ts = _disk_cache_load("job_vacancy_rows", float("inf"))
+            if stale_rows is not None:
+                print(f"  [data.gov.sg] job vacancy fetch failed ({type(e).__name__}) — serving expired disk snapshot")
+                _job_vacancy_cache["rows"] = stale_rows
+                _job_vacancy_cache["fetched_at"] = stale_ts
+                return stale_rows
+            raise
 
         _job_vacancy_cache["rows"] = rows
         _job_vacancy_cache["fetched_at"] = now
+        _disk_cache_save("job_vacancy_rows", rows, now)
         return rows
 
 
@@ -1042,15 +1060,26 @@ def _fetch_retrenchment_rows() -> list:
             _retrenchment_cache["fetched_at"] = disk_ts
             return disk_rows
 
-        poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{_RETRENCHMENT_DATASET_ID}/poll-download"
-        print(f"  [data.gov.sg] HTTP GET {poll_url}")
-        r = requests.get(poll_url, headers=_data_gov_sg_headers(), timeout=10)
-        r.raise_for_status()
-        download_url = r.json()["data"]["url"]
+        try:
+            poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{_RETRENCHMENT_DATASET_ID}/poll-download"
+            print(f"  [data.gov.sg] HTTP GET {poll_url}")
+            r = requests.get(poll_url, headers=_data_gov_sg_headers(), timeout=10)
+            r.raise_for_status()
+            download_url = r.json()["data"]["url"]
 
-        r_csv = requests.get(download_url, timeout=15)
-        r_csv.raise_for_status()
-        rows = list(csv.DictReader(io.StringIO(r_csv.text)))
+            r_csv = requests.get(download_url, timeout=15)
+            r_csv.raise_for_status()
+            rows = list(csv.DictReader(io.StringIO(r_csv.text)))
+        except Exception as e:
+            # Quarterly data: serve an expired disk snapshot over failing outright (e.g. a
+            # 429 from data.gov.sg's rate limiter); a later request will refresh it.
+            stale_rows, stale_ts = _disk_cache_load("retrenchment_rows", float("inf"))
+            if stale_rows is not None:
+                print(f"  [data.gov.sg] retrenchment fetch failed ({type(e).__name__}) — serving expired disk snapshot")
+                _retrenchment_cache["rows"] = stale_rows
+                _retrenchment_cache["fetched_at"] = stale_ts
+                return stale_rows
+            raise
 
         _retrenchment_cache["rows"] = rows
         _retrenchment_cache["fetched_at"] = now
@@ -1062,33 +1091,46 @@ def compute_job_market_history() -> dict:
     """Multi-year vacancy totals per named sector plus the quarterly retrenchment series, for
     the SG Hub trend charts. Derived entirely from the same cached CSVs the headline cards
     already use — no extra network fetches beyond what the cards themselves trigger."""
-    vacancy_rows = _fetch_job_vacancy_rows()
-    years = sorted({r["year"] for r in vacancy_rows if (r.get("year") or "").isdigit()})[-12:]
-    sectors = {}
-    for key in ("tech", "finance", "healthcare"):
-        industries = set(_JOB_SECTOR_META[key]["industries"])
-        totals = {y: 0 for y in years}
-        for r in vacancy_rows:
-            if r.get("industry") in industries and r.get("year") in totals:
-                raw = (r.get("job_vacancy") or "").strip()
+    # Each series degrades independently — a failed fetch (e.g. a data.gov.sg 429 with no
+    # disk snapshot to fall back on) hides that one chart, never the whole Jobs endpoint.
+    vacancy = {"years": [], "sectors": {}}
+    try:
+        vacancy_rows = _fetch_job_vacancy_rows()
+        years = sorted({r["year"] for r in vacancy_rows if (r.get("year") or "").isdigit()})[-12:]
+        sectors = {}
+        for key in ("tech", "finance", "healthcare"):
+            industries = set(_JOB_SECTOR_META[key]["industries"])
+            totals = {y: 0 for y in years}
+            for r in vacancy_rows:
+                if r.get("industry") in industries and r.get("year") in totals:
+                    raw = (r.get("job_vacancy") or "").strip()
+                    if raw and raw != "-":
+                        totals[r["year"]] += int(raw)
+            sectors[key] = [totals[y] for y in years]
+        vacancy = {"years": years, "sectors": sectors}
+    except Exception as e:
+        print(f"  [history] vacancy trend skipped: {type(e).__name__}: {e}")
+
+    retrenchment = {"quarters": [], "totals": []}
+    try:
+        ret_rows = _fetch_retrenchment_rows()
+        top_level = {"services", "manufacturing", "construction"}  # same non-overlapping rollup as the advisory card
+        per_quarter: dict = {}
+        for r in ret_rows:
+            if r.get("industry") in top_level:
+                raw = (r.get("retrench") or "").strip()
                 if raw and raw != "-":
-                    totals[r["year"]] += int(raw)
-        sectors[key] = [totals[y] for y in years]
+                    per_quarter[r["quarter"]] = per_quarter.get(r["quarter"], 0) + int(raw)
+        quarters = sorted(per_quarter)[-24:]  # last 6 years of quarters
+        retrenchment = {"quarters": quarters, "totals": [per_quarter[q] for q in quarters]}
+    except Exception as e:
+        print(f"  [history] retrenchment trend skipped: {type(e).__name__}: {e}")
 
-    ret_rows = _fetch_retrenchment_rows()
-    top_level = {"services", "manufacturing", "construction"}  # same non-overlapping rollup as the advisory card
-    per_quarter: dict = {}
-    for r in ret_rows:
-        if r.get("industry") in top_level:
-            raw = (r.get("retrench") or "").strip()
-            if raw and raw != "-":
-                per_quarter[r["quarter"]] = per_quarter.get(r["quarter"], 0) + int(raw)
-    quarters = sorted(per_quarter)[-24:]  # last 6 years of quarters
+    return {"vacancy": vacancy, "retrenchment": retrenchment}
 
-    return {
-        "vacancy": {"years": years, "sectors": sectors},
-        "retrenchment": {"quarters": quarters, "totals": [per_quarter[q] for q in quarters]},
-    }
+
+def get_retrenchment_synced_at() -> str | None:
+    return _cache_synced_at(_retrenchment_cache)
 
 
 def query_singapore_retrenchment_advisory(context_query: str = "general") -> str:
