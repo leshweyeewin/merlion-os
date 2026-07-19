@@ -270,5 +270,40 @@ GOV_DIRECTORY = [
         "title": "Ministry of Finance (MOF) - National Budget, Treasury, Fiscal Policies",
         "url": "https://www.mof.gov.sg/",
         "keywords": ["mof", "ministry of finance", "budget", "fiscal", "treasury", "gst voucher"]
+    },
+    {
+        "title": "Government Technology Agency (GovTech) - Singpass, CorpPass, LifeSG, Smart Nation",
+        "url": "https://www.tech.gov.sg/",
+        "keywords": ["govtech", "tech.gov.sg", "singpass", "corppass", "lifesg", "smart nation", "technology", "identity"]
+    },
+    {
+        "title": "Health Sciences Authority (HSA) - Medicine Registration, Blood Bank, Health Products",
+        "url": "https://www.hsa.gov.sg/",
+        "keywords": ["hsa", "health sciences authority", "medicine", "blood bank", "blood donation", "health products", "clinical trials"]
+    },
+    {
+        "title": "SG Enable - Disability Support Services, Assistive Tech, Caregiver Schemes",
+        "url": "https://www.sgenable.sg/",
+        "keywords": ["sg enable", "sgenable", "disability", "assistive technology", "caregiver", "special needs", "welfare"]
+    },
+    {
+        "title": "Economic Development Board (EDB) - Foreign Investment, Industry Growth, Business Grants",
+        "url": "https://www.edb.gov.sg/",
+        "keywords": ["edb", "economic development board", "investment", "business", "grants", "industry"]
+    },
+    {
+        "title": "Prime Minister's Office (PMO) - Cabinet, Public Service Division, Corrupt Practices Bureau",
+        "url": "https://www.pmo.gov.sg/",
+        "keywords": ["pmo", "prime minister's office", "cabinet", "government leadership", "national rally"]
+    },
+    {
+        "title": "Ministry of Home Affairs (MHA) - Internal Security, Border Control, Police, Civil Defence",
+        "url": "https://www.mha.gov.sg/",
+        "keywords": ["mha", "ministry of home affairs", "internal security", "border security", "prisons"]
+    },
+    {
+        "title": "Ministry of Digital Development and Information (MDDI) - Smart Nation, Cybersecurity, MCI",
+        "url": "https://www.mddi.gov.sg/",
+        "keywords": ["mddi", "mci", "digital development", "information", "smart nation", "cybersecurity", "telecom"]
     }
 ]
