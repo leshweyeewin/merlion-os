@@ -56,3 +56,36 @@ To load the statutory tools inside development agents (like Cursor or Claude Des
 ```bash
 python mcp_server.py
 ```
+
+## 5. Repository Folder Structure
+Below is the directory layout of the codebase:
+```text
+merlion-os/
+├── docs/                 # Detailed topic-specific documentation guides
+│   ├── architecture.md   # Hardening, caching, and safety strategy
+│   ├── dashboard.md      # Data sources and APIs for SG Hub
+│   ├── optimizer.md      # IRAS progressive tax optimizer logic
+│   ├── portals.md        # List of the 81 statutory agencies
+│   └── setup.md          # Local quickstart, BigQuery, and MCP setup
+├── static/               # Frontend assets (HTML, CSS, JS, and Logos)
+│   ├── logos/            # 81 local statutory agency SVG/PNG logos
+│   ├── app.js            # Frontend logic and UI rendering (Leaflet integration)
+│   ├── index.html        # Main dashboard structure
+│   └── style.css         # Custom layout, animations, and dark mode rules
+├── tools/                # Modular statutory boards execution and chat modules
+│   ├── __init__.py       # Package exports and interfaces
+│   ├── chat.py           # Gemini parallel routing and fallback logic
+│   ├── civic.py          # ICA and IRAS scrapers
+│   ├── core.py           # Base caching and fetch utilities
+│   ├── environment.py    # NEA weather and PUB flood alerts
+│   ├── fetch_logos.py    # Standard logo updater/fetcher script
+│   ├── housing.py        # HDB BTO and resale price forecaster
+│   ├── jobs.py           # BigQuery / data.gov.sg wage statistics
+│   ├── search.py         # Telegram search scrapers
+│   ├── transport.py      # LTA train alerts, taxi, and COE premium forecaster
+│   └── wages.py          # Occupational wages analytic helper
+├── mcp_server.py         # FastMCP server for JSON-RPC agent tools export
+├── requirements.txt      # Python dependencies manifest
+├── server.py             # Uvicorn FastAPI routing entrypoint
+└── README.md             # Main repository index and hackathon brief
+```

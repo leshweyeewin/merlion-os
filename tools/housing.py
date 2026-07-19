@@ -373,10 +373,37 @@ def compute_hdb_resale_history() -> dict:
     months = sorted(by_month)
     if len(months) > 1:
         months = months[:-1]
+
+    medians = [round(statistics.median(by_month[m])) for m in months]
+    transactions = [len(by_month[m]) for m in months]
+
+    if len(medians) >= 6:
+        y_last = medians[-6:]
+        x = list(range(6))
+        n = 6
+        sum_x = sum(x)
+        sum_y = sum(y_last)
+        sum_xx = sum(xi * xi for xi in x)
+        sum_xy = sum(xi * yi for xi, yi in zip(x, y_last))
+        denom = n * sum_xx - sum_x * sum_x
+        if denom != 0:
+            slope = (n * sum_xy - sum_x * sum_y) / denom
+            intercept = (sum_y - slope * sum_x) / n
+            forecast_val = int(round(slope * 6 + intercept))
+        else:
+            forecast_val = int(round(sum_y / n))
+        forecast_val = max(0, forecast_val)
+    else:
+        forecast_val = medians[-1] if medians else None
+
+    months.append("Next Month (Forecast)")
+    medians.append(forecast_val)
+    transactions.append(0)
+
     return {
         "months": months,
-        "medians": [round(statistics.median(by_month[m])) for m in months],
-        "transactions": [len(by_month[m]) for m in months],
+        "medians": medians,
+        "transactions": transactions,
         "synced_at": _cache_synced_at(_hdb_resale_cache),
         "source": f"Resale Flat Prices based on registration date from Jan-2017 onwards (data.gov.sg, dataset `{_HDB_RESALE_DATASET_ID}`).",
     }

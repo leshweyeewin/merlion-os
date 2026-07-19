@@ -1,51 +1,112 @@
 # 🇸🇬 MerlionOS: Unified Singapore Public Sector AI Coordination Brain
 *APAC GenAI Academy (APAC Edition) — Cohort 2 Hackathon Project*
 
-**🔗 Live Demo:** [merlion-os.onrender.com](https://merlion-os.onrender.com)
-*(Hosted on Render's free tier — if the instance has spun down from inactivity, the first request can take ~30-60 seconds to wake up before the page loads.)*
+**🔗 Live Demo:** [merlion-os.onrender.com](https://merlion-os.onrender.com)  
+*(Hosted on Render's free tier — if the instance has spun down from inactivity, please allow ~30-60 seconds for the instance to wake up.)*
 
 ---
 
-## 🎯 Developer Intent & Project Motivation
+## 🎯 What is MerlionOS & Why It Was Built
 
-I recently became a Singaporean citizen. Previously as a permanent resident, my digital interactions with the government were limited — I only ever needed to check **CPF**, file taxes with **IRAS**, and occasionally access **HealthHub**.
+**MerlionOS** is a unified, secure, redirect-hardened Singapore public sector AI coordination brain and live dashboard. 
 
-Upon receiving citizenship, I realised the vast landscape of statutory boards I now had to navigate: registering for compulsory voting with the **Elections Department (ELD)**, searching for housing with the **Housing & Development Board (HDB)**, claiming CDC tranches on **RedeemSG**, and checking learning credits on **MySkillsFuture**.
+### The Problem
+Singapore's digital public service landscape is highly advanced but fragmented across **81 distinct statutory boards and agencies** (CPF, IRAS, ELD, HDB, RedeemSG, SkillsFuture, HealthHub, ActiveSG, and more). A resident transition to full citizenship exposes a massive spike in administrative complexity—moving from basic tax filing (IRAS) to checking electoral registers (ELD), claiming CDC voucher tranches (RedeemSG), checking SkillsFuture credits, and navigating complex HDB BTO launches. Searching for these portal endpoints individually via search engines is inefficient, prone to malicious redirect hijacking, and lacks a centralized view.
 
-Searching for these portals one-by-one via Google felt scattered and uncoordinated. While portals like *LifeSG* exist, they aren't fully accessible or comprehensive for all demographic needs. I built **MerlionOS** to act as a **one-stop government coordination portal** to unify this experience.
-
-Furthermore, as a working professional in Singapore, staying updated on **transport disruptions** and **employment/job market trends** is critical to my daily routine. Therefore, I consolidated live transit statuses and sector job metrics directly into the interface to create the ultimate daily utility portal.
-
----
-
-## 📑 Documentation
-
-The hub below is the at-a-glance overview. Each topic links to a dedicated deep-dive page in [`docs/`](docs/).
-
-| Topic | What's inside |
-|---|---|
-| 🏛️ **Statutory Portals Directory** | All **81** agencies, drag-and-drop reordering, and the **Manage Portals** hide / search / multi-select panel → [docs/portals.md](docs/portals.md) |
-| 📊 **Live Data Dashboard** | Exact APIs & data sources for every SG Hub panel (Weather, Transit, HDB, Jobs, IRAS…) → [docs/dashboard.md](docs/dashboard.md) |
-| ⚖️ **IRAS Tax Relief Optimizer** | Progressive brackets, CPF/SRS/Life-Insurance allocation, S$80k cap, itemised reliefs, donations → [docs/optimizer.md](docs/optimizer.md) |
-| 💻 **Local Quickstart & Setup** | Dependencies, API keys, BigQuery, FastMCP server → [docs/setup.md](docs/setup.md) |
-| 🛡️ **Security & Performance** | XSS sanitization, redirect verification, GZip/TTL/caching strategy → [docs/architecture.md](docs/architecture.md) |
-| 📋 **Version History** | What changed in each release → [docs/version-history.md](docs/version-history.md) |
+### The Solution
+MerlionOS aggregates this entire ecosystem into a single-pane-of-glass daily utility portal:
+1. **Intelligent Co-Pilot**: Conversational agent that routes queries to 10+ backend tools to answer complex citizen questions.
+2. **Live Data Dashboard (SG Hub)**: Consolidated parameters showing real-time MRT statuses (LTA DataMall), air quality/weather forecasts (NEA API), BTO launches (HDB press releases), and community deals.
+3. **Operations Terminal**: Full transparency logs streaming raw SQL queries, crawler requests, and backend execution statuses in real time.
 
 ---
 
-## 🤖 AI Co-Pilot
+## 🏗️ Architecture & Process Flow
 
-A floating **Co-Pilot Chat Assistant** runs on **Gemini 2.5 Flash** with native parallel tool routing and a Google Search grounding fallback (auto fails over to `gemini-3.1-flash-lite` on 429 quota limits) to guarantee continuous response uptime.
+```mermaid
+graph TD
+    User([Citizen / Developer]) -->|Natural Language Query| UI[Frontend Dashboard]
+    UI -->|AJAX POST /api/chat| Server[FastAPI Server]
+    
+    subgraph AI Orchestration Layer
+        Server -->|Chat Engine| Chat[tools/chat.py]
+        Chat -->|Orchestrate| Gemini[Gemini 2.5 Flash]
+        Gemini -->|Parallel Tool Calling| Tools{Statutory Tools}
+        Gemini -.->|Quota Exceeded 429| Fallback[Gemini 3.1 Flash-Lite + Google Search Grounding]
+    end
 
----
+    subgraph Data & Scraper Layer
+        Tools -->|SQL Query| BQ[(Google BigQuery MOM Employment)]
+        Tools -->|Live JSON APIs| APIS[LTA DataMall / NEA Weather / PUB Flood]
+        Tools -->|BeautifulSoup4 Scrapers| Scrapers[ELD / HDB / IRAS / ICA / Telegram]
+        Scrapers -->|Strict Domain Validation| Validate{gov.sg / trusted?}
+        Validate -->|Yes| Fetch[Secure Parse]
+        Validate -->|No/Auth| Block[Blocked Redirect/Singpass Bypass]
+    end
 
-## 🚀 Quick Start
-
-```bash
-pip install -r requirements.txt
-export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
-export LTA_DATAMALL_API_KEY="YOUR_LTA_DATAMALL_API_KEY"
-python server.py
+    Fetch --> Server
+    Server -->|JSON Stream| UI
+    UI -->|escapeHTML + safeURL Render| User
+    Server -.->|MCP JSON-RPC| FastMCP[mcp_server.py]
+    FastMCP -.->|Tool Export| Cursor[External Agent: Cursor/Claude]
 ```
 
-Then open **`http://127.0.0.1:8080/`**. Full setup (optional `DATA_GOV_SG_API_KEY`, BigQuery, FastMCP) → [docs/setup.md](docs/setup.md).
+---
+
+## 🚀 Key Technical Highlights (What Impresses the Judges)
+
+1. **Dual-Engine High-Availability AI**: 
+   - **Primary Engine**: Google Gemini 2.5 Flash with parallel tool routing coordinates complex statutory queries.
+   - **Resiliency Engine**: Dynamic automatic fallback to `gemini-3.1-flash-lite` with **Google Search Grounding** if the primary engine encounters a 429 API rate limit.
+2. **Predictive Analytics (COE & HDB Linear Regression)**:
+   - Integrates custom mathematical linear regression models directly in Python ([tools/transport.py](tools/transport.py) & [tools/housing.py](tools/housing.py)) that analyze the last 6 months of bidding rounds or flat sale records to forecast upcoming COE premiums and islandwide HDB median prices, rendering the forecast points directly on the dashboard's timeline charts.
+3. **Geo-Spatial Interactive Mapping**:
+   - Integrates a responsive Leaflet.js map layer within the Environment card. It maps geographic coordinates of key planning areas across Singapore (Woodlands, Punggol, Tampines, Orchard, etc.) and visualises live 2-hour NEA weather forecasts using custom popup forecast markers.
+4. **Analytical BigQuery Warehouse Integration**:
+   - Directly queries partitioned Google BigQuery databases containing Ministry of Manpower (MOM) employment and occupational wage datasets, computing dynamic statistics and wage percentiles in real time.
+5. **FastMCP Server Integration**:
+   - Added `mcp_server.py` to expose all statutory board tools natively via the Model Context Protocol (MCP) JSON-RPC, allowing developers to plug MerlionOS directly into IDE agents like Cursor or Claude Desktop.
+6. **Operations Terminal (Transparency Console)**:
+   - Eliminates the AI "black box" by live-streaming raw SQL queries, BeautifulSoup scraper network actions, HTTP response status codes, and crawler logs directly to a dedicated console widget in the UI.
+7. **Strict Security & Scraper Hardening**:
+   - Restricts BeautifulSoup crawlers strictly to `.gov.sg` and validated trusted domains (`healthhub.sg`, `wsg.sg`, `cdc.gov.sg`), auto-blocking any redirect to commercial domains or Singpass login interfaces.
+   - Custom client-side XSS protection via `safeURL` validation and strict HTML string escaping prevents link injection and security exploits.
+
+---
+
+## 📑 Documentation Index
+
+The repository's comprehensive guides are split into dedicated files inside [`docs/`](docs/) for modularity and clean maintenance:
+
+| Topic | What's inside | File Link |
+|---|---|---|
+| 🏛️ **Statutory Portals Directory** | All **81** agency portals list, drag-and-drop ordering, and portal search/multi-select panels. | [docs/portals.md](docs/portals.md) |
+| 📊 **Live Data Dashboard** | Detailed data sources and exact REST APIs for NEA weather, LTA transit, HDB listings, and Telegram feeds. | [docs/dashboard.md](docs/dashboard.md) |
+| ⚖️ **IRAS Tax Relief Optimizer** | Progressive income tax brackets, CPF/SRS/Life-Insurance optimization logic, and the S$80k statutory relief cap. | [docs/optimizer.md](docs/optimizer.md) |
+| 💻 **Local Setup & Quickstart** | Requirements, environment keys setup, Google Cloud BigQuery keys, and FastMCP daemon running instructions. | [docs/setup.md](docs/setup.md) |
+| 🛡️ **Security & Architecture** | Web scraping validation criteria, client-side escaping (`safeURL`), caching mechanisms, and GZip compression. | [docs/architecture.md](docs/architecture.md) |
+| 📋 **Version History** | Release notes and changes made in each version. | [docs/version-history.md](docs/version-history.md) |
+
+---
+
+## ⚡ Quick Start
+
+### 1. Installation
+Install the project dependencies inside a python virtual environment:
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Configure Environment Variables
+Create a `.env` file or export the following API keys:
+```bash
+export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
+export LTA_DATAMALL_API_KEY="YOUR_LTA_DATAMALL_API_KEY"
+```
+
+### 3. Run the Server
+Launch the FastAPI production-ready server:
+```bash
+python server.py
+```
+Open **`http://127.0.0.1:8080/`** in your browser. For advanced features (BigQuery, FastMCP), check out [docs/setup.md](docs/setup.md).
