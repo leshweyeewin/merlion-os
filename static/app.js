@@ -1341,9 +1341,9 @@ function initSgHub() {
                     return;
                 }
 
-                // Read statutory relief caps (loaded dynamically from API)
-                const maxCPFReliefSelf = Math.max(0, parseFloat(taxCpfCap.value) || 0);
-                const maxSRSRelief = Math.max(0, parseFloat(taxSrsCap.value) || 0);
+                // Read statutory relief caps (shown as labels now, read textContent)
+                const maxCPFReliefSelf = Math.max(0, parseFloat(taxCpfCap.textContent.replace(/,/g, '')) || 0);
+                const maxSRSRelief = Math.max(0, parseFloat(taxSrsCap.textContent.replace(/,/g, '')) || 0);
 
                 // --- S$80,000 total personal relief cap (effective YA 2018+) ---
                 const RELIEF_CAP = 80000;
@@ -1373,10 +1373,15 @@ function initSgHub() {
                 const referenceIncome = Math.max(0, income - preExisting - donations);
 
                 // Calculate taxes
+                // Note: referenceIncome already excludes donations (2.5x deduction applied above)
+                let originalTaxNoDonation = calculateSingaporeTax(Math.max(0, income - preExisting));
                 let originalTax = calculateSingaporeTax(referenceIncome);
                 let optimizedChargeableIncome = Math.max(0, referenceIncome - effectiveDeduction);
                 let optimizedTax = calculateSingaporeTax(optimizedChargeableIncome);
                 let totalSaved = Math.max(0, originalTax - optimizedTax);
+                // Donation tax saving = tax without donations - tax with donations applied
+                const donationDeduction = donations * 2.5;
+                const donationTaxSaving = Math.max(0, originalTaxNoDonation - originalTax);
 
                 // --- Effective & Marginal Rate (on chargeable income) ---
                 const effRate = referenceIncome > 0 ? (originalTax / referenceIncome) * 100 : 0;
@@ -1566,6 +1571,19 @@ function initSgHub() {
                             <span style="font-weight:800; font-size:16px; color:#6b21a8;">S$${srsAlloc.toLocaleString()}</span>
                         </div>
 
+
+                        ${donations > 0 ? `
+                        <!-- Donation Deduction Card -->
+                        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-left:4px solid #16a34a; padding:12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <span style="font-weight:700; font-size:13px; color:#15803d; display:block;"><i class="fa-solid fa-heart"></i> IPC-Approved Donations (2.5× Deduction)</span>
+                                <span style="font-size:11px; color:#166534; line-height:1.3;">S$${donations.toLocaleString()} donated → S$${donationDeduction.toLocaleString(undefined,{minimumFractionDigits:0})} deducted from chargeable income (outside S$80k cap)</span>
+                            </div>
+                            <div style="text-align:right; flex-shrink:0; margin-left:12px;">
+                                <span style="font-weight:800; font-size:16px; color:#15803d; display:block;">−S$${donationTaxSaving.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                                <span style="font-size:10px; color:#166534;">tax saved</span>
+                            </div>
+                        </div>` : ''}
 
                         ${unusedBudget > 0 ? `
                         <!-- Unused Excess Card -->

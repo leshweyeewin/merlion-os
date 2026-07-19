@@ -6,3 +6,9 @@ walkthrough.md
 submission_kit.md
 .data_cache/
 .claude/
+
+# GCP service account credentials — never commit these
+service-account-key.json
+*-service-account*.json
+*-credentials*.json
+*.serviceaccount.json

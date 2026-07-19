@@ -85,14 +85,17 @@ async def lifespan(app: FastAPI):
     import threading
     import logging
 
+    _SUPPRESS_PATHS = {"/favicon.ico", "/merlion-icon.png"}
+    _SUPPRESS_PREFIXES = ("/logos/", "/style.css", "/app.js")
+
     class LogFilter(logging.Filter):
         def filter(self, record):
             if record.args and len(record.args) >= 3:
-                path = str(record.args[2])
-                if path.startswith("/logos/") or path == "/favicon.ico" or "/logos/" in path:
+                path = str(record.args[2]).split("?")[0]  # strip query string
+                if path in _SUPPRESS_PATHS or path.startswith(_SUPPRESS_PREFIXES):
                     return False
             msg = record.getMessage()
-            if "/logos/" in msg or "/favicon.ico" in msg:
+            if any(s in msg for s in ("/logos/", "/favicon.ico", "/style.css", "/app.js", "/merlion-icon.png")):
                 return False
             return True
 

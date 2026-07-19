@@ -98,16 +98,23 @@ pip install -r requirements.txt
 ```
 
 ### 2. Configure Environment Variables
-Create a `.env` file or export the following API keys:
+Create a `.env` file in the project root with the following keys:
 ```bash
 # Required
-export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
-export LTA_DATAMALL_API_KEY="YOUR_LTA_DATAMALL_API_KEY"
+GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
+LTA_DATAMALL_API_KEY="YOUR_LTA_DATAMALL_API_KEY"
 
 # Optional — data.gov.sg APIs work unauthenticated, but adding this key lifts
 # the rate limit so NEA weather/PSI calls skip the 1-second pacing delay.
-export DATA_GOV_SG_API_KEY="YOUR_DATA_GOV_SG_API_KEY"
+DATA_GOV_SG_API_KEY="YOUR_DATA_GOV_SG_API_KEY"
+
+# Optional — enables BigQuery-backed job vacancy queries (faster, pre-loaded).
+# Without these, the server falls back to live data.gov.sg fetches automatically.
+GCP_PROJECT_ID="your-gcp-project-id"
+GOOGLE_APPLICATION_CREDENTIALS="D:\Learn\Google\merlion-os\service-account-key.json"
 ```
+
+> **PowerShell users:** To set env vars temporarily in a session use `$env:KEY = "value"`, not `KEY="value"` (that's bash syntax).
 
 ### 3. Run the Server
 Launch the FastAPI production-ready server:

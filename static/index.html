@@ -1522,15 +1522,47 @@
                             <div style="font-size:11px; font-weight:800; letter-spacing:0.6px; text-transform:uppercase; color:var(--primary); margin-bottom:10px;">Relief Caps <span style="font-weight:500; text-transform:none; letter-spacing:0; color:var(--text-muted);">(Statutory limits fetched dynamically from CPF/IRAS website)</span></div>
                             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; background:var(--bg-muted); border:1px solid var(--border); padding:16px; border-radius:10px;">
                                 <div>
-                                    <label for="tax-cpf-cap" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-muted);">Max CPF SA (RSTU) Top-up (S$)</label>
-                                    <input type="number" id="tax-cpf-cap" value="8000" readonly style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-muted); color:var(--text-muted); font-weight:600; cursor:not-allowed;">
-                                    <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">Annual CPF SA top-up relief cap (S$8,000)</span>
+                                    <div style="font-weight:700; font-size:12px; margin-bottom:4px; color:var(--text-muted);">Max CPF SA (RSTU) Top-up (S$)</div>
+                                    <div id="tax-cpf-cap" style="font-size:20px; font-weight:800; color:var(--text-main); letter-spacing:0.5px;">8,000</div>
+                                    <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:2px;">Annual CPF SA top-up relief cap (S$8,000)</span>
                                 </div>
                                 <div>
-                                    <label for="tax-srs-cap" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-muted);">Max SRS Contribution (S$)</label>
-                                    <input type="number" id="tax-srs-cap" value="15300" readonly style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-muted); color:var(--text-muted); font-weight:600; cursor:not-allowed;">
-                                    <span id="tax-srs-cap-hint" style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">SRS yearly relief cap (S$15,300 Citizen/PR)</span>
+                                    <div style="font-weight:700; font-size:12px; margin-bottom:4px; color:var(--text-muted);">Max SRS Contribution (S$)</div>
+                                    <div id="tax-srs-cap" style="font-size:20px; font-weight:800; color:var(--text-main); letter-spacing:0.5px;">15,300</div>
+                                    <span id="tax-srs-cap-hint" style="font-size:11px; color:var(--text-muted); display:block; margin-top:2px;">SRS yearly relief cap (S$15,300 Citizen/PR)</span>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Section 2b: Progressive Tax Tiers (always visible) -->
+                        <div style="margin-bottom:18px;">
+                            <div style="font-size:11px; font-weight:800; letter-spacing:0.6px; text-transform:uppercase; color:var(--primary); margin-bottom:10px;"><i class="fa-solid fa-table-list"></i> Progressive Tax Tiers <span style="font-weight:500; text-transform:none; letter-spacing:0; color:var(--text-muted);">(YA 2026)</span></div>
+                            <div style="background:var(--bg-muted); border:1px solid var(--border); border-radius:10px; padding:12px 14px;">
+                                <table style="width:100%; border-collapse:collapse;">
+                                    <thead>
+                                        <tr>
+                                            <th style="text-align:left; font-size:10.5px; text-transform:uppercase; color:var(--text-muted); padding:4px 8px; border-bottom:2px solid var(--border);">Chargeable Income Band</th>
+                                            <th style="text-align:right; font-size:10.5px; text-transform:uppercase; color:var(--text-muted); padding:4px 8px; border-bottom:2px solid var(--border);">Rate</th>
+                                            <th style="padding:4px 8px; border-bottom:2px solid var(--border);"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tax-tier-static-rows">
+                                        <tr><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px;">S$0 – S$20,000</td><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px; text-align:right;">0.0%</td><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11px; color:var(--text-muted);">Tax-free threshold</td></tr>
+                                        <tr><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px;">S$20,001 – S$30,000</td><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px; text-align:right;">2.0%</td><td style="padding:6px 8px; border-bottom:1px solid var(--border);"></td></tr>
+                                        <tr><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px;">S$30,001 – S$40,000</td><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px; text-align:right;">3.5%</td><td style="padding:6px 8px; border-bottom:1px solid var(--border);"></td></tr>
+                                        <tr><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px;">S$40,001 – S$80,000</td><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px; text-align:right;">7.0%</td><td style="padding:6px 8px; border-bottom:1px solid var(--border);"></td></tr>
+                                        <tr id="tax-tier-row-80k"><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px;">S$80,001 – S$120,000</td><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px; text-align:right;">11.5%</td><td style="padding:6px 8px; border-bottom:1px solid var(--border);"></td></tr>
+                                        <tr><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px;">S$120,001 – S$160,000</td><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px; text-align:right;">15.0%</td><td style="padding:6px 8px; border-bottom:1px solid var(--border);"></td></tr>
+                                        <tr><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px;">S$160,001 – S$200,000</td><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px; text-align:right;">18.0%</td><td style="padding:6px 8px; border-bottom:1px solid var(--border);"></td></tr>
+                                        <tr><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px;">S$200,001 – S$240,000</td><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px; text-align:right;">19.0%</td><td style="padding:6px 8px; border-bottom:1px solid var(--border);"></td></tr>
+                                        <tr><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px;">S$240,001 – S$280,000</td><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px; text-align:right;">19.5%</td><td style="padding:6px 8px; border-bottom:1px solid var(--border);"></td></tr>
+                                        <tr><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px;">S$280,001 – S$320,000</td><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px; text-align:right;">20.0%</td><td style="padding:6px 8px; border-bottom:1px solid var(--border);"></td></tr>
+                                        <tr><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px;">S$320,001 – S$500,000</td><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px; text-align:right;">22.0%</td><td style="padding:6px 8px; border-bottom:1px solid var(--border);"></td></tr>
+                                        <tr><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px;">S$500,001 – S$1,000,000</td><td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px; text-align:right;">23.0%</td><td style="padding:6px 8px; border-bottom:1px solid var(--border);"></td></tr>
+                                        <tr><td style="padding:6px 8px; font-size:11.5px;">S$1,000,001+</td><td style="padding:6px 8px; font-size:11.5px; text-align:right;">24.0%</td><td style="padding:6px 8px;"></td></tr>
+                                    </tbody>
+                                </table>
+                                <div id="tax-tier-effective-rate" style="font-size:11px; color:var(--text-muted); margin-top:8px; text-align:right;"></div>
                             </div>
                         </div>
 
