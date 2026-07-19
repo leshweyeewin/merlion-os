@@ -28,7 +28,7 @@ import sys
 import urllib.request
 import urllib.error
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HTML = os.path.join(ROOT, "static", "index.html")
 LOGOS_DIR = os.path.join(ROOT, "static", "logos")
 

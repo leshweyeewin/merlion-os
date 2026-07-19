@@ -36,10 +36,6 @@ _OCC_TECH_PATTERN = _occ_re.compile(
 _OCC_TECH_EXCLUDE_PATTERN = _occ_re.compile(r"data entry", _occ_re.IGNORECASE)
 
 
-def get_occ_wage_synced_at() -> str | None:
-    return _cache_synced_at(_occ_wage_cache)
-
-
 def _occ_is_tech(name: str) -> bool:
     return bool(_OCC_TECH_PATTERN.search(name)) and not _OCC_TECH_EXCLUDE_PATTERN.search(name)
 

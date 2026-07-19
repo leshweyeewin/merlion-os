@@ -4,7 +4,13 @@ tools/transport.py — COE bidding results
 Fetches and caches the LTA COE Bidding Results dataset from data.gov.sg.
 """
 
+import os
+import math
+import logging
+import requests
 from tools.core import _data_gov_sg_headers, _cache_synced_at
+
+logger = logging.getLogger("merlion-os-transport")
 
 _COE_DATASET_ID = "d_69b3380ad7e51aff3a7dcc84eba52b8a"  # data.gov.sg: LTA COE Bidding Results / Prices
 _coe_cache = {"rows": None, "fetched_at": 0}
@@ -121,3 +127,195 @@ def query_coe_bidding_results(context_query: str = "general") -> str:
             f"Category E Premium: S$129,801 (Open Category)\n"
             f"\U0001F4A1 Source: COE Bidding Results / Prices (data.gov.sg) — cached snapshot."
         )
+
+
+# LTA DataMall — MRT line metadata for display
+MRT_LINE_META = {
+    "EWL": {"name": "East-West Line",     "color": "#009645"},
+    "NSL": {"name": "North-South Line",   "color": "#D42E12"},
+    "NEL": {"name": "North-East Line",    "color": "#9900AA"},
+    "CCL": {"name": "Circle Line",        "color": "#FA9E0D"},
+    "DTL": {"name": "Downtown Line",      "color": "#005EC4"},
+    "TEL": {"name": "Thomson-East Coast", "color": "#9D5B25"},
+    "BPL": {"name": "Bukit Panjang LRT",  "color": "#748477"},
+    "SLRT": {"name": "Sengkang LRT",      "color": "#748477"},
+    "PLRT": {"name": "Punggol LRT",       "color": "#748477"},
+}
+
+
+def fetch_lta_train_alerts() -> dict | None:
+    """
+    Calls the LTA DataMall TrainServiceAlerts API.
+    Returns structured train alert data or None if the key is missing / call fails.
+    """
+    api_key = os.environ.get("LTA_DATAMALL_API_KEY", "").strip()
+    if not api_key or api_key == "LTA_DATAMALL_API_KEY":
+        logger.warning("[LTA DataMall] LTA_DATAMALL_API_KEY not set — skipping train alert fetch.")
+        return None
+
+    from datetime import datetime, timezone, timedelta
+    url = "https://datamall2.mytransport.sg/ltaodataservice/TrainServiceAlerts"
+    headers = {
+        "AccountKey": api_key,
+        "accept": "application/json"
+    }
+    print(f"  \033[90m[LTA DataMall] HTTP GET {url}\033[0m")
+    try:
+        r = requests.get(url, headers=headers, timeout=8)
+        print(f"  \033[90m[LTA DataMall] HTTP RESPONSE: {r.status_code}\033[0m")
+        r.raise_for_status()
+        data = r.json()
+
+        overall_value = data.get("value", {})
+        raw_status = overall_value.get("Status", 1)
+        overall_status_str = "Disrupted" if raw_status == 2 else "Normal"
+        
+        affected_segments = overall_value.get("AffectedSegments", [])
+        messages_list = overall_value.get("Message", [])
+
+        parsed_messages = []
+        for msg in messages_list:
+            parsed_messages.append({
+                "content": msg.get("Content", ""),
+                "created_date": msg.get("CreatedDate", "")
+            })
+
+        line_mappings = {
+            "SK": "SLRT",
+            "PG": "PLRT",
+            "SGP": "SLRT",
+            "PGL": "PLRT"
+        }
+
+        segments_by_line: dict[str, list] = {}
+        for seg in affected_segments:
+            line_code = seg.get("Line", "").upper().strip()
+            line_code = line_mappings.get(line_code, line_code)
+            
+            if line_code not in segments_by_line:
+                segments_by_line[line_code] = []
+            
+            segments_by_line[line_code].append({
+                "direction": seg.get("Direction", ""),
+                "stations": seg.get("Stations", ""),
+                "free_public_bus": seg.get("FreePublicBus", ""),
+                "free_mrt_shuttle": seg.get("FreeMRTShuttle", ""),
+                "mrt_shuttle_direction": seg.get("MRTShuttleDirection", "")
+            })
+
+        lines_out = []
+        for code, meta in MRT_LINE_META.items():
+            segs = segments_by_line.get(code, [])
+            lines_out.append({
+                "line_code":          code,
+                "line_name":          meta["name"],
+                "line_color":         meta["color"],
+                "status":             "Disrupted" if segs else "Normal",
+                "affected_segments":  segs
+            })
+
+        sgt = datetime.now(timezone(timedelta(hours=8)))
+        retrieved_at = sgt.strftime("%d %b %Y, %I:%M %p")
+
+        print(f"  \033[32m✔\033[0m [LTA DataMall] Overall status: {overall_status_str} ({raw_status}). "
+              f"{len(affected_segments)} segment(s) affected, {len(parsed_messages)} message(s) retrieved.")
+        return {
+            "status":       overall_status_str,
+            "messages":     parsed_messages,
+            "lines":        lines_out,
+            "retrieved_at": retrieved_at
+        }
+    except Exception as e:
+        logger.warning(f"[LTA DataMall] Train alert fetch failed: {e}")
+        return None
+
+
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle distance between two lat/lon points, in kilometres."""
+    r = 6371.0
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    d_phi = math.radians(lat2 - lat1)
+    d_lambda = math.radians(lon2 - lon1)
+    a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+# Approximate town-centre coordinates for Singapore's major planning areas/HDB towns
+SG_PLANNING_AREAS = [
+    ("Downtown Core", 1.2836, 103.8607), ("Orchard", 1.3048, 103.8318),
+    ("Novena", 1.3204, 103.8439), ("Newton", 1.3138, 103.8380),
+    ("Bukit Timah", 1.3294, 103.8021), ("Toa Payoh", 1.3343, 103.8563),
+    ("Bishan", 1.3508, 103.8484), ("Marine Parade", 1.3020, 103.9067),
+    ("Queenstown", 1.2942, 103.8060), ("Bukit Merah", 1.2819, 103.8239),
+    ("Kallang", 1.3100, 103.8651), ("Geylang", 1.3182, 103.8874),
+    ("Southern Islands", 1.2367, 103.8300), ("Bedok", 1.3236, 103.9273),
+    ("Tampines", 1.3496, 103.9568), ("Pasir Ris", 1.3721, 103.9474),
+    ("Changi", 1.3644, 103.9915), ("Hougang", 1.3612, 103.8863),
+    ("Punggol", 1.3984, 103.9072), ("Sengkang", 1.3868, 103.8914),
+    ("Serangoon", 1.3554, 103.8679), ("Ang Mo Kio", 1.3691, 103.8454),
+    ("Yishun", 1.4304, 103.8354), ("Sembawang", 1.4491, 103.8185),
+    ("Woodlands", 1.4382, 103.7891), ("Mandai", 1.4088, 103.7891),
+    ("Bukit Batok", 1.3590, 103.7637), ("Bukit Panjang", 1.3774, 103.7719),
+    ("Choa Chu Kang", 1.3840, 103.7470), ("Clementi", 1.3151, 103.7649),
+    ("Jurong East", 1.3329, 103.7436), ("Jurong West", 1.3404, 103.7090),
+    ("Pioneer", 1.3121, 103.6773), ("Tuas", 1.2966, 103.6360),
+    ("Boon Lay", 1.3387, 103.7065), ("Tengah", 1.3720, 103.7500),
+    ("Central Water Catchment", 1.3800, 103.8000), ("Western Water Catchment", 1.3900, 103.6700),
+    ("Lim Chu Kang", 1.4380, 103.7170), ("Sungei Kadut", 1.4130, 103.7500),
+]
+
+
+def _nearest_planning_area(lat: float, lon: float) -> str:
+    return min(SG_PLANNING_AREAS, key=lambda a: _haversine_km(lat, lon, a[1], a[2]))[0]
+
+
+def fetch_lta_taxi_availability(user_lat: float | None = None, user_lon: float | None = None) -> dict | None:
+    """
+    Calls the LTA DataMall Taxi-Availability API — returns available taxis.
+    """
+    api_key = os.environ.get("LTA_DATAMALL_API_KEY", "").strip()
+    if not api_key or api_key == "LTA_DATAMALL_API_KEY":
+        logger.warning("[LTA DataMall] LTA_DATAMALL_API_KEY not set — skipping taxi availability fetch.")
+        return None
+
+    from datetime import datetime, timezone, timedelta
+    url = "https://datamall2.mytransport.sg/ltaodataservice/Taxi-Availability"
+    headers = {
+        "AccountKey": api_key,
+        "accept": "application/json"
+    }
+    print(f"  \033[90m[LTA DataMall] HTTP GET {url}\033[0m")
+    try:
+        r = requests.get(url, headers=headers, timeout=8)
+        print(f"  \033[90m[LTA DataMall] HTTP RESPONSE: {r.status_code}\033[0m")
+        r.raise_for_status()
+        data = r.json()
+        taxis = data.get("value", [])
+        taxi_count = len(taxis)
+
+        nearby_count = None
+        nearby_radius_km = 2.0
+        area_name = None
+        if user_lat is not None and user_lon is not None:
+            nearby_count = sum(
+                1 for t in taxis
+                if _haversine_km(user_lat, user_lon, t["Latitude"], t["Longitude"]) <= nearby_radius_km
+            )
+            area_name = _nearest_planning_area(user_lat, user_lon)
+
+        sgt = datetime.now(timezone(timedelta(hours=8)))
+        retrieved_at = sgt.strftime("%d %b %Y, %I:%M %p")
+
+        print(f"  \033[32m✔\033[0m [LTA DataMall] {taxi_count} taxis currently available islandwide"
+              f"{f', {nearby_count} within {nearby_radius_km}km of caller near {area_name}' if nearby_count is not None else ''}.")
+        return {
+            "count": taxi_count,
+            "nearby_count": nearby_count,
+            "nearby_radius_km": nearby_radius_km,
+            "area_name": area_name,
+            "retrieved_at": retrieved_at
+        }
+    except Exception as e:
+        logger.warning(f"[LTA DataMall] Taxi availability fetch failed: {e}")
+        return None
+

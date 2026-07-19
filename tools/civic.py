@@ -6,6 +6,14 @@ civic utilities (ELD, HealthHub, SP Group), plus the GOV_DIRECTORY used by
 the government search tool.
 """
 
+import time
+import logging
+import requests
+from bs4 import BeautifulSoup
+
+logger = logging.getLogger("merlion-os-civic")
+
+
 
 def query_immigration_and_identity(context_query: str) -> str:
     """Tool: Handles ICA services including citizenship status, passport renewal, and MyICA appointments.
@@ -457,3 +465,167 @@ GOV_DIRECTORY = [
         "keywords": ["agc", "attorney-general", "prosecution", "legal advice", "drafting law"]
     }
 ]
+
+
+_ica_cache = {"data": None, "fetched_at": 0}
+_ICA_CACHE_TTL_SECONDS = 5 * 60
+
+
+def fetch_ica_media_releases() -> list:
+    """
+    Fetches the latest media releases and checkpoint advisories directly from the ICA Newsroom.
+    Cached for 5 minutes.
+    """
+    import os
+    now = time.time()
+    if (
+        _ica_cache["data"] is not None
+        and (now - _ica_cache["fetched_at"]) < _ICA_CACHE_TTL_SECONDS
+    ):
+        return _ica_cache["data"]
+
+    url = "https://www.ica.gov.sg/ICAContentInterface/MediaReleasesList/FindMediaReleases"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "year": 2026,
+        "month": 0,
+        "category": "",
+        "page": 1,
+        "pageSize": 5,
+    }
+    print(f"  \033[90m[ICA Newsroom] HTTP POST {url}\033[0m")
+    try:
+        r = requests.post(url, headers=headers, json=payload, timeout=8)
+        print(f"  \033[90m[ICA Newsroom] HTTP RESPONSE: {r.status_code}\033[0m")
+        if r.status_code == 200:
+            res_data = r.json()
+            items = res_data.get("data", [])
+            news_items = []
+            for item in items:
+                title = item.get("title", "").strip()
+                date = item.get("date", "").strip()
+                category = item.get("category", "").strip()
+                rel_url = item.get("url", "").strip()
+                full_url = f"https://www.ica.gov.sg{rel_url}" if rel_url.startswith("/") else rel_url
+                img_url = item.get("image", "").strip()
+                if img_url.startswith("/"):
+                    img_url = f"https://www.ica.gov.sg{img_url}"
+                
+                news_items.append({
+                    "title": title,
+                    "date": date,
+                    "category": category,
+                    "url": full_url,
+                    "image": img_url,
+                })
+            
+            _ica_cache["data"] = news_items
+            _ica_cache["fetched_at"] = now
+            return news_items
+    except Exception as e:
+        logger.warning(f"Error fetching ICA media releases: {e}")
+    
+    fallback_data = [
+        {
+            "title": "Heavy departure traffic at Woodlands Checkpoint due to tailback from Malaysia.",
+            "date": "19 Jul 2026",
+            "category": "Advisories",
+            "url": "https://www.ica.gov.sg/news-and-publications/media-releases",
+            "image": "https://www.ica.gov.sg/Cwp/assets/ica/images/news/mediareleases-default.jpg",
+        },
+        {
+            "title": "52 Motorists Caught for Traffic Offences at Woodlands Checkpoint over the June School Holidays",
+            "date": "08 Jul 2026",
+            "category": "Media Releases",
+            "url": "https://www.ica.gov.sg/news-and-publications/media-releases",
+            "image": "https://www.ica.gov.sg/Cwp/assets/ica/images/news/mediareleases-default.jpg",
+        },
+        {
+            "title": "Introduction of a New Passenger Clearance Hall in the Departure Cargo Zone to Improve Traveller Flow at Woodlands Checkpoint",
+            "date": "30 Jun 2026",
+            "category": "Media Releases",
+            "url": "https://www.ica.gov.sg/news-and-publications/media-releases",
+            "image": "https://www.ica.gov.sg/Cwp/assets/ica/images/news/mediareleases-default.jpg",
+        },
+    ]
+    _ica_cache["data"] = fallback_data
+    _ica_cache["fetched_at"] = now
+    return fallback_data
+
+
+_tax_cache = {"data": None, "fetched_at": 0}
+_TAX_CACHE_TTL_SECONDS = 24 * 60 * 60
+
+
+def fetch_iras_due_dates() -> list:
+    """
+    Scrapes the official IRAS due dates page.
+    """
+    import os
+    now = time.time()
+    if (
+        _tax_cache["data"] is not None
+        and (now - _tax_cache["fetched_at"]) < _TAX_CACHE_TTL_SECONDS
+    ):
+        return _tax_cache["data"]
+
+    url = "https://www.iras.gov.sg/due-dates"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+    }
+    print(f"  \033[90m[IRAS Scraper] HTTP GET {url}\033[0m")
+    try:
+        r = requests.get(url, headers=headers, timeout=10)
+        print(f"  \033[90m[IRAS Scraper] HTTP RESPONSE: {r.status_code}\033[0m")
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.text, 'html.parser')
+            items = soup.find_all("article", class_="eyd-due-dates-item")
+            due_dates = []
+            for item in items:
+                date_el = item.find(class_="eyd-due-dates-item__date")
+                cat_el = item.find(class_="eyd-due-dates-item__category")
+                label_el = item.find(class_="eyd-due-dates-item__label")
+                
+                date_str = date_el.text.strip() if date_el else ""
+                cat_str = cat_el.text.strip() if cat_el else ""
+                
+                label_str = ""
+                link_url = "https://www.iras.gov.sg/due-dates"
+                if label_el:
+                    label_str = label_el.text.replace("\n", "").strip()
+                    if label_str.endswith(">") or label_str.endswith("»"):
+                        label_str = label_str[:-1].strip()
+                    
+                    href = label_el.get("href", "")
+                    if href:
+                        link_url = f"https://www.iras.gov.sg{href}" if href.startswith("/") else href
+                
+                if date_str and cat_str:
+                    due_dates.append({
+                        "date": date_str,
+                        "category": cat_str,
+                        "label": label_str,
+                        "link": link_url
+                    })
+            if due_dates:
+                _tax_cache["data"] = due_dates
+                _tax_cache["fetched_at"] = now
+                return due_dates
+    except Exception as e:
+        logger.warning(f"Error scraping IRAS due dates: {e}")
+    
+    fallback_data = [
+        {"date": "01 Mar 2026", "category": "Auto-Inclusion/ E-Submission", "label": "Submit Self-Employment Income Records", "link": "https://www.iras.gov.sg"},
+        {"date": "01 Mar 2026", "category": "Auto-Inclusion/ E-Submission", "label": "Submit Employment Income Records", "link": "https://www.iras.gov.sg"},
+        {"date": "18 Apr 2026", "category": "Individual Income Tax", "label": "File Individual & Partnership Income Tax Return", "link": "https://www.iras.gov.sg/taxes/individual-income-tax/basics-of-individual-income-tax/understanding-my-income-tax-filing/individuals-required-to-file-tax"},
+        {"date": "30 Apr 2026", "category": "Goods And Services Tax (GST)", "label": "File GST return (period ending in Mar)", "link": "https://www.iras.gov.sg"},
+        {"date": "31 May 2026", "category": "International Tax", "label": "Submit Common Reporting Standard (CRS) return", "link": "https://www.iras.gov.sg"},
+        {"date": "30 Jun 2026", "category": "Corporate Income Tax", "label": "File Estimated Chargeable Income (ECI) (Mar financial year-end)", "link": "https://www.iras.gov.sg"}
+    ]
+    _tax_cache["data"] = fallback_data
+    _tax_cache["fetched_at"] = now
+    return fallback_data
+
