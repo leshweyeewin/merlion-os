@@ -24,10 +24,8 @@ _COE_CATEGORY_LABELS = {
     "Category E": "Open Category",
 }
 
-
 def get_coe_synced_at() -> str | None:
     return _cache_synced_at(_coe_cache)
-
 
 def _fetch_coe_rows() -> list:
     """Downloads and caches the data.gov.sg LTA COE bidding dataset (CSV: month, bidding_no, vehicle_class, quota, bids_success, bids_received, premium)."""
@@ -53,7 +51,6 @@ def _fetch_coe_rows() -> list:
     _coe_cache["rows"] = rows
     _coe_cache["fetched_at"] = now
     return rows
-
 
 def compute_coe_premium_history(max_exercises: int | None = 48) -> dict:
     """Per-exercise COE premiums for every vehicle category, oldest→newest, derived from the
@@ -82,7 +79,6 @@ def compute_coe_premium_history(max_exercises: int | None = 48) -> dict:
         "synced_at": _cache_synced_at(_coe_cache),
         "source": f"COE Bidding Results / Prices (data.gov.sg, dataset `{_COE_DATASET_ID}`).",
     }
-
 
 def query_coe_bidding_results(context_query: str = "general") -> str:
     """Tool: Retrieves Singapore's latest COE (Certificate of Entitlement) bidding results and premiums by vehicle category.
@@ -128,7 +124,6 @@ def query_coe_bidding_results(context_query: str = "general") -> str:
             f"\U0001F4A1 Source: COE Bidding Results / Prices (data.gov.sg) — cached snapshot."
         )
 
-
 # LTA DataMall — MRT line metadata for display
 MRT_LINE_META = {
     "EWL": {"name": "East-West Line",     "color": "#009645"},
@@ -141,7 +136,6 @@ MRT_LINE_META = {
     "SLRT": {"name": "Sengkang LRT",      "color": "#748477"},
     "PLRT": {"name": "Punggol LRT",       "color": "#748477"},
 }
-
 
 def fetch_lta_train_alerts() -> dict | None:
     """
@@ -229,7 +223,6 @@ def fetch_lta_train_alerts() -> dict | None:
         logger.warning(f"[LTA DataMall] Train alert fetch failed: {e}")
         return None
 
-
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Great-circle distance between two lat/lon points, in kilometres."""
     r = 6371.0
@@ -238,7 +231,6 @@ def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     d_lambda = math.radians(lon2 - lon1)
     a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
     return 2 * r * math.asin(math.sqrt(a))
-
 
 # Approximate town-centre coordinates for Singapore's major planning areas/HDB towns
 SG_PLANNING_AREAS = [
@@ -264,10 +256,8 @@ SG_PLANNING_AREAS = [
     ("Lim Chu Kang", 1.4380, 103.7170), ("Sungei Kadut", 1.4130, 103.7500),
 ]
 
-
 def _nearest_planning_area(lat: float, lon: float) -> str:
     return min(SG_PLANNING_AREAS, key=lambda a: _haversine_km(lat, lon, a[1], a[2]))[0]
-
 
 def fetch_lta_taxi_availability(user_lat: float | None = None, user_lon: float | None = None) -> dict | None:
     """
@@ -318,4 +308,3 @@ def fetch_lta_taxi_availability(user_lat: float | None = None, user_lon: float |
     except Exception as e:
         logger.warning(f"[LTA DataMall] Taxi availability fetch failed: {e}")
         return None
-

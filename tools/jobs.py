@@ -38,7 +38,6 @@ _BQ_PROJECT_ID = None  # set lazily from env at call time so a missing var doesn
 _BQ_DATASET = "sg_employment"
 _BQ_TABLE = "job_vacancy_by_industry"
 
-
 def _fetch_latest_two_year_totals_from_bigquery(industries: list) -> dict:
     """Queries the real BigQuery table for the two most recent years' summed vacancies."""
     import os
@@ -69,7 +68,6 @@ def _fetch_latest_two_year_totals_from_bigquery(industries: list) -> dict:
         "totals": {latest_year: rows[0].total or 0, prior_year: rows[1].total or 0},
         "table_ref": f"{client.project}.{_BQ_DATASET}.{_BQ_TABLE}",
     }
-
 
 def _fetch_job_vacancy_rows() -> list:
     """Downloads and caches the data.gov.sg MOM job vacancy dataset (CSV: year, industry, occupation, job_vacancy)."""
@@ -115,7 +113,6 @@ def _fetch_job_vacancy_rows() -> list:
         _disk_cache_save("job_vacancy_rows", rows, now)
         return rows
 
-
 def _sector_vacancy_totals(rows: list, industries: list, years: list) -> dict:
     """Sums job_vacancy across occupation groups for the given industries, per year."""
     totals = {y: 0 for y in years}
@@ -126,13 +123,11 @@ def _sector_vacancy_totals(rows: list, industries: list, years: list) -> dict:
                 totals[row["year"]] += int(raw)
     return totals
 
-
 # Per-sector result cache for the vacancy analytics below.
 _job_sector_stats_cache: dict = {}
 _JOB_SECTOR_STATS_TTL_SECONDS = 6 * 60 * 60
 _job_sector_stats_disk_loaded = False
 _job_sector_stats_lock = _threading.Lock()
-
 
 def query_singapore_job_statistics_via_bigquery(context_query: str = "general") -> str:
     """Tool: Queries Singapore's real public job vacancy statistics (MOM, via data.gov.sg) with a YoY trend and next-year forecast.
@@ -213,14 +208,12 @@ def query_singapore_job_statistics_via_bigquery(context_query: str = "general") 
             _disk_cache_save("job_sector_stats", _job_sector_stats_cache, now)
     return result
 
-
 # ── Retrenchment ──────────────────────────────────────────────────────────────
 
 _RETRENCHMENT_DATASET_ID = "d_61d92d31ca400be135190614277da825"  # data.gov.sg: MOM retrenched employees by industry, quarterly
 _retrenchment_cache = {"rows": None, "fetched_at": 0}
 _RETRENCHMENT_CACHE_TTL_SECONDS = 6 * 60 * 60  # quarterly data — no need to refetch more than a few times a day
 _retrenchment_fetch_lock = _threading.Lock()  # advisory card + history chart fetch concurrently — dedupe the cold download
-
 
 def _fetch_retrenchment_rows() -> list:
     """Downloads and caches the data.gov.sg MOM retrenchment dataset (CSV: quarter, industry, retrench)."""
@@ -266,7 +259,6 @@ def _fetch_retrenchment_rows() -> list:
         _disk_cache_save("retrenchment_rows", rows, now)
         return rows
 
-
 def compute_job_market_history() -> dict:
     """Multi-year vacancy totals per named sector plus the quarterly retrenchment series, for
     the SG Hub trend charts. Derived entirely from the same cached CSVs the headline cards
@@ -308,10 +300,8 @@ def compute_job_market_history() -> dict:
 
     return {"vacancy": vacancy, "retrenchment": retrenchment}
 
-
 def get_retrenchment_synced_at() -> str | None:
     return _cache_synced_at(_retrenchment_cache)
-
 
 def query_singapore_retrenchment_advisory(context_query: str = "general") -> str:
     """Tool: Retrieves Singapore's real quarterly retrenchment statistics (MOM, via data.gov.sg) and the top affected industries.

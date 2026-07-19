@@ -43,7 +43,6 @@ CARD_RE = re.compile(
     re.IGNORECASE,
 )
 
-
 def sanitize_ext(url, agency):
     """Pick a sensible extension; default svg for vector, png otherwise."""
     low = url.lower().split("?")[0]
@@ -56,7 +55,6 @@ def sanitize_ext(url, agency):
     if low.endswith(".webp"):
         return f"{agency}.webp"
     return f"{agency}.png"
-
 
 def download(url, dest):
     req = urllib.request.Request(url, headers={"User-Agent": UA})
@@ -72,7 +70,6 @@ def download(url, dest):
         return False, f"HTTP {e.code}"
     except Exception as e:  # noqa: BLE001
         return False, f"{type(e).__name__}: {e}"
-
 
 def main():
     ap = argparse.ArgumentParser()
@@ -116,6 +113,10 @@ def main():
 
         if os.path.exists(dest) and os.path.getsize(dest) >= 200:
             stats["skip"] += 1
+            new_src = f'src="logos/{fname}"'
+            new_tag = re.sub(r'src="[^"]+"', new_src, img_tag)
+            if not args.dry_run:
+                new_html = new_html[:m.start(2)] + new_tag + new_html[m.end(2):]
         else:
             if args.dry_run:
                 print(f"  WOULD FETCH {agency:14s} <- {url}")
@@ -125,8 +126,6 @@ def main():
             if ok:
                 stats["downloaded"] += 1
                 print(f"  OK   {agency:14s} {fname} ({msg})")
-                # Rewrite src to local path ONLY on success; on failure we keep the
-                # original https:// URL so the live hotlink is still attempted.
                 new_src = f'src="logos/{fname}"'
                 new_tag = re.sub(r'src="[^"]+"', new_src, img_tag)
                 if not args.dry_run:
@@ -142,7 +141,6 @@ def main():
 
     print(f"Summary: {stats['downloaded']} downloaded, {stats['skip']} skipped (present), "
           f"{stats['fail']} failed.")
-
 
 if __name__ == "__main__":
     main()

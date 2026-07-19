@@ -15,7 +15,6 @@ from tools.core import _data_gov_sg_headers
 
 logger = logging.getLogger("merlion-os-environment")
 
-
 def get_singapore_live_environment_advisory(context_query: str = "general") -> str:
     """Tool: Retrieves live Singapore environment advisories, including weather forecasts and PSI (air quality index) from data.gov.sg.
 
@@ -98,7 +97,6 @@ def get_singapore_live_environment_advisory(context_query: str = "general") -> s
             results.append(f"--- [NEA LIVE ADVISORY: 2-HR WEATHER FORECAST] ---\n⚠️ Failed to fetch Weather: {str(e)}")
 
     return "\n\n".join(results)
-
 
 def fetch_weather_data() -> dict:
     """
@@ -281,10 +279,8 @@ def fetch_weather_data() -> dict:
         logger.exception("Error fetching weather data")
         raise
 
-
 _flood_alerts_cache = {"data": None, "fetched_at": 0}
 _FLOOD_ALERTS_CACHE_TTL_SECONDS = 3 * 60
-
 
 def fetch_pub_flood_alerts() -> dict:
     """
@@ -343,4 +339,3 @@ def fetch_pub_flood_alerts() -> dict:
         _flood_alerts_cache["data"] = result
         _flood_alerts_cache["fetched_at"] = now
         return result
-

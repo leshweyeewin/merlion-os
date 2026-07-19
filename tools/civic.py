@@ -13,8 +13,6 @@ from bs4 import BeautifulSoup
 
 logger = logging.getLogger("merlion-os-civic")
 
-
-
 def query_immigration_and_identity(context_query: str) -> str:
     """Tool: Handles ICA services including citizenship status, passport renewal, and MyICA appointments.
 
@@ -81,7 +79,6 @@ def query_supplementary_civic_utilities(context_query: str) -> str:
         "🏥 HealthHub NEHR: Centralized records system active. Links automatically to subsidized polyclinic matrices.\n"
         "🔌 SP Group Utilities: Setup required for home electricity/water lines. Connects with Climate Vouchers for rebates."
     )
-
 
 GOV_DIRECTORY = [
     {
@@ -466,10 +463,8 @@ GOV_DIRECTORY = [
     }
 ]
 
-
 _ica_cache = {"data": None, "fetched_at": 0}
 _ICA_CACHE_TTL_SECONDS = 5 * 60
-
 
 def fetch_ica_media_releases() -> list:
     """
@@ -555,10 +550,8 @@ def fetch_ica_media_releases() -> list:
     _ica_cache["fetched_at"] = now
     return fallback_data
 
-
 _tax_cache = {"data": None, "fetched_at": 0}
 _TAX_CACHE_TTL_SECONDS = 24 * 60 * 60
-
 
 def fetch_iras_due_dates() -> list:
     """
@@ -628,4 +621,3 @@ def fetch_iras_due_dates() -> list:
     _tax_cache["data"] = fallback_data
     _tax_cache["fetched_at"] = now
     return fallback_data
-

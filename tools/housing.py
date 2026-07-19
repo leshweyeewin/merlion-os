@@ -5,12 +5,19 @@ Covers: live HDB newsroom scraper (BTO launch details via __NEXT_DATA__),
 CPF Enhanced Housing Grant (EHG) calculation, and HDB resale price stats.
 """
 
+import logging
+import requests
+import time
+import json
+
 from tools.core import (
     _data_gov_sg_headers,
     _cache_synced_at,
     _disk_cache_load,
     _disk_cache_save,
 )
+
+logger = logging.getLogger("merlion-os-housing")
 
 _HDB_NEWS_URL = "https://www.hdb.gov.sg/hdb-pulse/news"
 _HDB_BASE = "https://www.hdb.gov.sg"
@@ -20,7 +27,6 @@ _BTO_LAUNCH_CACHE_TTL_SECONDS = 12 * 60 * 60  # BTO exercises happen a few times
 _HDB_RESALE_DATASET_ID = "d_8b84c4ee58e3cfc0ece0d773c8ca6abc"  # data.gov.sg: HDB Resale flat prices based on registration date from Jan-2017 onwards
 _hdb_resale_cache = {"rows": None, "fetched_at": 0}
 _HDB_RESALE_CACHE_TTL_SECONDS = 6 * 60 * 60  # monthly data — no need to refetch more than a few times a day
-
 
 def _parse_html_table_to_grid(table_tag) -> list:
     """Expands an HTML table (with rowspan/colspan merged cells) into a full 2D grid of cell text,
@@ -55,7 +61,6 @@ def _parse_html_table_to_grid(table_tag) -> list:
             current_cell = next(cell_iter, None)
         rows_out.append(row_out)
     return rows_out
-
 
 def _fetch_bto_launch_details() -> dict:
     """Live-scrapes the most recent HDB BTO launch press release from hdb.gov.sg's newsroom
@@ -169,7 +174,6 @@ def _fetch_bto_launch_details() -> dict:
     _bto_launch_cache["fetched_at"] = now
     return result
 
-
 def query_hdb_bto_launches_and_grants(context_query: str = "general") -> str:
     """Tool: Processes HDB BTO launches, application cycles, and CPF housing grants.
 
@@ -256,7 +260,6 @@ def query_hdb_bto_launches_and_grants(context_query: str = "general") -> str:
 
     return "\n\n".join(results)
 
-
 # ── HDB Resale ────────────────────────────────────────────────────────────────
 
 def _fetch_hdb_resale_rows() -> list:
@@ -303,7 +306,6 @@ def _fetch_hdb_resale_rows() -> list:
     _hdb_resale_cache["fetched_at"] = now
     _disk_cache_save("hdb_resale_rows", rows, now)
     return rows
-
 
 def compute_hdb_resale_stats() -> dict:
     """
@@ -353,7 +355,6 @@ def compute_hdb_resale_stats() -> dict:
         "source": f"Resale Flat Prices based on registration date from Jan-2017 onwards, {latest_month} (data.gov.sg, dataset `{_HDB_RESALE_DATASET_ID}`)."
     }
 
-
 def compute_hdb_resale_history() -> dict:
     """Monthly islandwide median resale price + transaction count across the dataset's full
     range (Jan-2017 onwards), for the trend chart and CSV export. Derived from the same cached
@@ -379,7 +380,6 @@ def compute_hdb_resale_history() -> dict:
         "synced_at": _cache_synced_at(_hdb_resale_cache),
         "source": f"Resale Flat Prices based on registration date from Jan-2017 onwards (data.gov.sg, dataset `{_HDB_RESALE_DATASET_ID}`).",
     }
-
 
 def query_hdb_resale_price_trends(context_query: str = "general") -> str:
     """Tool: Retrieves Singapore's real HDB resale flat transaction data (data.gov.sg) with islandwide median price, YoY change, and the priciest towns.
@@ -409,3 +409,74 @@ def query_hdb_resale_price_trends(context_query: str = "general") -> str:
             f"\U0001F3D9️ Priciest Towns: Bukit Timah (S$1,040,000), Queenstown (S$870,000), Toa Payoh (S$868,000)\n"
             f"\U0001F4A1 Source: Resale Flat Prices based on registration date from Jan-2017 onwards (data.gov.sg) — cached snapshot."
         )
+
+def scrape_hdb_news() -> list:
+    """Live-scrape HDB newsroom by parsing the embedded __NEXT_DATA__ JSON which contains
+    exact article paths and published dates — avoids any URL guessing."""
+    from bs4 import BeautifulSoup
+    from datetime import datetime, timezone, timedelta
+    HDB_BASE = "https://www.hdb.gov.sg"
+    url = f"{HDB_BASE}/hdb-pulse/news"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    }
+    print(f"  \033[90m[HDB News Scraper] HTTP GET {url}\033[0m")
+    try:
+        r = requests.get(url, headers=headers, timeout=10)
+        print(f"  \033[90m[HDB News Scraper] HTTP RESPONSE: {r.status_code} ({len(r.text)} bytes)\033[0m")
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.text, 'html.parser')
+            next_data_tag = soup.find("script", {"id": "__NEXT_DATA__"})
+            if next_data_tag:
+                next_data = json.loads(next_data_tag.string)
+                articles = next_data.get("props", {}).get("pageProps", {}).get("listingYearData", [])
+                print(f"  \033[90m[HDB News Scraper] Found {len(articles)} total articles in __NEXT_DATA__\033[0m")
+                
+                results = []
+                parsed = []
+                for article in articles:
+                    url_path = article.get("url", {}).get("path", "")
+                    if not url_path:
+                        continue
+                    
+                    fields = {f["name"]: f["value"] for f in article.get("fields", [])}
+                    title = fields.get("navigationTitle", fields.get("pageTitle", "")).strip()
+                    pub_date_raw = fields.get("publishedDate", "")
+                    hidden = fields.get("hidePage", "")
+                    
+                    if hidden or not title:
+                        continue
+                    
+                    dt_obj = None
+                    date_str = "N/A"
+                    if pub_date_raw:
+                        try:
+                            dt_obj = datetime.strptime(pub_date_raw, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+                            sgt = dt_obj.astimezone(timezone(timedelta(hours=8)))
+                            date_str = sgt.strftime("%d %b %Y").lstrip("0")
+                        except Exception:
+                            try:
+                                dt_obj = datetime.strptime(pub_date_raw[:8], "%Y%m%d").replace(tzinfo=timezone.utc)
+                                date_str = dt_obj.strftime("%d %b %Y").lstrip("0")
+                            except Exception:
+                                date_str = pub_date_raw
+                    
+                    parsed.append({
+                        "date": date_str,
+                        "title": title,
+                        "link": f"{HDB_BASE}{url_path}",
+                        "_sort_key": pub_date_raw
+                    })
+                
+                parsed.sort(key=lambda x: x["_sort_key"], reverse=True)
+                for item in parsed[:4]:
+                    results.append({"date": item["date"], "title": item["title"], "link": item["link"]})
+                
+                print(f"  \033[32m✔\033[0m [HDB News Scraper] Returning {len(results)} latest news articles with real embedded URLs.")
+                return results
+    except Exception as e:
+        logger.warning(f"Error scraping HDB news: {e}")
+    
+    # Return empty list or basic fallback on failure
+    return []

@@ -61,6 +61,7 @@ from tools.housing import (
     compute_hdb_resale_history,
     query_hdb_bto_launches_and_grants,
     query_hdb_resale_price_trends,
+    scrape_hdb_news,
 )
 
 # ── Transport: COE ────────────────────────────────────────────────────────────
@@ -77,6 +78,15 @@ from tools.transport import (
 from tools.wages import (
     compute_occupational_wage_insights,
     query_occupational_wage_insights,
+)
+
+# ── Chat orchestration ────────────────────────────────────────────────────────
+from tools.chat import (
+    run_chat_loop,
+    ChatMessage,
+    ChatRequest,
+    ToolLog,
+    ChatResponse,
 )
 
 __all__ = [
@@ -102,10 +112,17 @@ __all__ = [
     # housing
     "compute_hdb_resale_stats", "compute_hdb_resale_history",
     "query_hdb_bto_launches_and_grants", "query_hdb_resale_price_trends",
+    "scrape_hdb_news",
     # transport
     "compute_coe_premium_history", "get_coe_synced_at", "query_coe_bidding_results",
     "MRT_LINE_META", "fetch_lta_train_alerts", "fetch_lta_taxi_availability",
     # wages
     "compute_occupational_wage_insights",
     "query_occupational_wage_insights",
+    # chat
+    "run_chat_loop",
+    "ChatMessage",
+    "ChatRequest",
+    "ToolLog",
+    "ChatResponse",
 ]

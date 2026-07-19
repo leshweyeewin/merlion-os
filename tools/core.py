@@ -7,14 +7,12 @@ No domain logic lives here; every other tools/* module imports from this one.
 
 import os
 
-
 def _data_gov_sg_headers() -> dict:
     """x-api-key header for data.gov.sg calls, if DATA_GOV_SG_API_KEY is configured.
     Optional everywhere it's used — data.gov.sg APIs work unauthenticated too, just at a
     much lower rate limit (see the pacing workaround in server.py's weather endpoint)."""
     api_key = os.environ.get("DATA_GOV_SG_API_KEY", "").strip()
     return {"x-api-key": api_key} if api_key else {}
-
 
 def _cache_synced_at(cache: dict) -> str | None:
     """Human-readable SGT timestamp for when a module-level cache dict was last actually
@@ -28,11 +26,9 @@ def _cache_synced_at(cache: dict) -> str | None:
     sgt = datetime.fromtimestamp(ts, tz=timezone(timedelta(hours=8)))
     return sgt.strftime("%d %b %Y, %I:%M %p") + " (SGT)"
 
-
 def _sgt_now():
     from datetime import datetime, timezone, timedelta
     return datetime.now(timezone(timedelta(hours=8)))
-
 
 def _annual_dataset_is_stale(latest_ref_year) -> bool:
     """Data-freshness policy for the SG Hub dashboards: an annual dataset is screened out once
@@ -44,13 +40,11 @@ def _annual_dataset_is_stale(latest_ref_year) -> bool:
     except (TypeError, ValueError):
         return True
 
-
 # Small JSON snapshot cache on disk so a server restart (frequent during local development)
 # doesn't re-pay multi-download fetches like the OWS Excel workbooks. Complements — not
 # replaces — the module-level in-memory caches: memory is checked first, disk second, network
 # last. Failures are always non-fatal; worst case we just fetch from the network as before.
 _DISK_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".data_cache")
-
 
 def _disk_cache_load(name: str, ttl_seconds: int):
     """Returns (data, fetched_at) from .data_cache/<name>.json if fresh, else (None, 0)."""
@@ -65,7 +59,6 @@ def _disk_cache_load(name: str, ttl_seconds: int):
     except (OSError, ValueError, KeyError):
         pass
     return None, 0
-
 
 def _disk_cache_save(name: str, data, fetched_at: float) -> None:
     import json

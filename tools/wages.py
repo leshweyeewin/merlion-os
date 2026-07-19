@@ -35,16 +35,13 @@ _OCC_TECH_PATTERN = _occ_re.compile(
 )
 _OCC_TECH_EXCLUDE_PATTERN = _occ_re.compile(r"data entry", _occ_re.IGNORECASE)
 
-
 def _occ_is_tech(name: str) -> bool:
     return bool(_OCC_TECH_PATTERN.search(name)) and not _OCC_TECH_EXCLUDE_PATTERN.search(name)
-
 
 def _occ_wage_norm(name: str) -> str:
     """Exact-match key: lowercase with collapsed whitespace."""
     import re
     return re.sub(r"\s+", " ", name.lower()).strip()
-
 
 def _occ_wage_match_key(norm_name: str) -> str:
     """Fuzzy-match key that survives the SSOC 2020 → SSOC 2024 title restyling
@@ -56,7 +53,6 @@ def _occ_wage_match_key(norm_name: str) -> str:
     k = k.replace(" and ", "/").replace(", ", "/").replace(" & ", "/")
     k = re.sub(r"[^a-z0-9/ ]", "", k)
     return re.sub(r"\s+", " ", k).strip()
-
 
 def _parse_occ_wage_table1(xlsx_bytes: bytes) -> dict:
     """Parses the 'T1' (OVERALL) sheet of an OWS table1 workbook into
@@ -94,7 +90,6 @@ def _parse_occ_wage_table1(xlsx_bytes: bytes) -> dict:
         }
     return occupations
 
-
 def _fetch_occ_wage_year(year: int) -> dict | None:
     """Downloads and parses one year's OWS table1 from stats.mom.gov.sg; None if not published."""
     import requests
@@ -107,7 +102,6 @@ def _fetch_occ_wage_year(year: int) -> dict | None:
         print(f"  [MOM OWS] {year} edition not usable: HTTP {r.status_code}, {len(r.content)} bytes")
         return None
     return _parse_occ_wage_table1(r.content)
-
 
 def compute_occupational_wage_insights() -> dict:
     """
@@ -249,7 +243,6 @@ def compute_occupational_wage_insights() -> dict:
     data["synced_at"] = _cache_synced_at(_occ_wage_cache)
     _disk_cache_save("occ_wages", data, now)
     return data
-
 
 def query_occupational_wage_insights(context_query: str = "general") -> str:
     """Tool: Looks up Singapore's real per-job-title wages (MOM Occupational Wage Survey, 500+ detailed occupations) with year-on-year increment rates, newly created (AI-era) job titles, and 25th-75th percentile ranges. Use for questions like 'how much does a software developer earn' or 'which jobs got the best raises'.

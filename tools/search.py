@@ -15,7 +15,6 @@ from tools.civic import GOV_DIRECTORY
 
 logger = logging.getLogger("merlion-os-search")
 
-
 def search_singapore_government(query: str) -> str:
     """Tool: Searches the Singapore government services directory for agencies or services matching the query and returns matching URLs and titles.
 
@@ -50,7 +49,6 @@ def search_singapore_government(query: str) -> str:
     for item, score in matches[:5]:
         output_lines.append(f"- **{item['title']}**: {item['url']}")
     return "\n".join(output_lines)
-
 
 def scrape_government_page(url: str) -> str:
     """Tool: Scrapes text content from an official Singapore government website (.gov.sg) to retrieve up-to-date information.
@@ -124,7 +122,6 @@ def scrape_government_page(url: str) -> str:
     except Exception as e:
         return f"Failed to scrape {url}: {str(e)}"
 
-
 def call_tool_robustly(func, args: dict) -> str:
     """Helper to dynamically map and execute tool functions with arguments.
 
@@ -169,7 +166,6 @@ def call_tool_robustly(func, args: dict) -> str:
 
     return func(**func_args)
 
-
 GOV_CHANNELS = [
     "HealthHubSG", "scamshieldalert", "govsg", "LTAsg", "NEAsg", "MOEsg", "GovTechSG",
     "MOHSingapore", "SPFsg", "SCDFsg", "momsg",
@@ -182,7 +178,6 @@ COMMUNITY_CHANNELS = [
     "confirmgood", "moneydigest", "sgnewmovies", "greatdealssg", 
     "danielfooddiary", "allsgpromo", "sgmrt"
 ]
-
 
 def scrape_one_telegram_channel(channel: str) -> list:
     """Scrapes the last 3 posts from a Telegram channel (used for Gov Updates)."""
@@ -246,7 +241,6 @@ def scrape_one_telegram_channel(channel: str) -> list:
         logger.warning(f"Error scraping telegram channel {channel}: {e}")
     return channel_events
 
-
 def scrape_one_telegram_channel_24h(channel: str) -> list:
     """Scrapes posts from the last 24 hours from a Telegram channel."""
     url = f"https://t.me/s/{channel}"
@@ -309,4 +303,3 @@ def scrape_one_telegram_channel_24h(channel: str) -> list:
     except Exception as e:
         logger.warning(f"Error scraping community channel {channel}: {e}")
     return channel_events
-
