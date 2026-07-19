@@ -62,10 +62,8 @@ from tools.transport import (
 
 # ── Wages: salary growth & occupational wage survey ──────────────────────────
 from tools.wages import (
-    compute_salary_growth_by_occupation,
     compute_occupational_wage_insights,
     get_occ_wage_synced_at,
-    query_salary_growth_by_occupation,
     query_occupational_wage_insights,
 )
 
@@ -91,7 +89,7 @@ __all__ = [
     # transport
     "get_coe_synced_at", "query_coe_bidding_results",
     # wages
-    "compute_salary_growth_by_occupation", "compute_occupational_wage_insights",
-    "get_occ_wage_synced_at", "query_salary_growth_by_occupation",
+    "compute_occupational_wage_insights",
+    "get_occ_wage_synced_at",
     "query_occupational_wage_insights",
 ]

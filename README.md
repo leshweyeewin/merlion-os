@@ -85,7 +85,7 @@ MerlionOS features a drag-and-drop reorderable grid representing all **39 statut
 38. **NHB** (National Heritage Board) — Museum bookings & heritage trail guides
 39. **MinLaw** (Ministry of Law) — e-Litigation filings & Family Justice Courts services
 
-*Layout orders are automatically persisted across sessions in browser `localStorage`.*
+*Layout orders are automatically persisted across sessions in browser `localStorage`. Since the directory includes 39 portals, you can hide cards you do not need by hovering over a card and clicking the eye icon. Restoring hidden portals is easy via the **Manage Portals** dropdown at the top of the grid.*
 
 ---
 
@@ -152,13 +152,14 @@ INFO:     127.0.0.1:64638 - "GET /style.css HTTP/1.1" 200 OK
 INFO:     127.0.0.1:64638 - "GET /app.js HTTP/1.1" 200 OK
 ```
 
-### 3. (Optional) Enable Real BigQuery for Job Market Analysis
-By default, the Job Market Analysis panel fetches real MOM data directly from data.gov.sg. To back it with an actual BigQuery table instead:
+### 3. Setup Google BigQuery for Job Market Analysis
+By default, the Job Market Analysis panel queries Google BigQuery first. If GCP credentials or the table is not set up, it automatically falls back to fetching directly from data.gov.sg (without any loss of functionality). To populate and run with the Google BigQuery tier:
 ```bash
 gcloud auth application-default login
 python scripts/load_job_vacancy_to_bigquery.py --project YOUR_GCP_PROJECT_ID
 ```
-Then set `GCP_PROJECT_ID` alongside your other environment variables before starting the server. If this isn't configured, the app automatically falls back to the direct data.gov.sg fetch — no functionality is lost either way.
+Then set `GCP_PROJECT_ID` alongside your other environment variables before starting the server. If this isn't configured, the app automatically falls back to the direct data.gov.sg fetch.
+
 
 ### 4. Run FastMCP Tool Server
 To load the statutory tools inside development agents (like Cursor or Claude Desktop):
@@ -171,6 +172,35 @@ python mcp_server.py
 ## 📋 Version History
 
 The document above always reflects the **latest** release. This section records what changed between versions.
+
+### Version 2 — current
+Current release cycle building on the baseline. What's new or changed:
+
+**➕ New dashboard panels & widgets**
+* 🚕 **Transport & Vehicle Costs** — live islandwide taxi count (LTA `Taxi-Availability`) + latest COE bidding premiums for all 5 categories, plus an opt-in "Around You" geolocation lookup (nearby taxis within 2km + nearest planning area).
+* 🏷️ **HDB Resale Flat Prices** — real islandwide median resale price, YoY change, and a full ranked by-town breakdown for the latest complete month.
+* 💼 **Occupational Wage Explorer** — 500+ detailed job titles with real June median basic/gross wages, per-title increment ranking, genuinely new (SSOC 2024 / AI-era) job titles vs the prior edition, top-paying tech & digital roles, and a searchable filterable wage table.
+* 💧 **PUB Flood Alerts** — Integrated real-time flood advisory alerts via the PUB API, rendered as a priority warning banner at the top of the Gov Updates feed.
+
+**🔧 Expanded existing panels**
+* 🌤️ **Weather & Air Quality** widened from PSI + 2-hour forecast to also include PM2.5, a 24-hour outlook, NEA live "Current Conditions" tiles (temperature, humidity, wind speed/direction via circular mean, rainfall), and a live **UV Index** tile using NEA's 5-tier color scale.
+* 📢 **Gov Updates** Telegram list expanded from 7 to 12 channels (added `@MOHSingapore`, `@SPFsg`, `@SCDFsg`, `@momsg`, `@ReachSingapore`).
+
+**🏛️ Statutory Portals Directory**
+* Grown from **19 → 39** portals (+20 agencies: HPB, MSF, PUB, NLB, URA, NParks, MAS, IMDA, OneNS, SPF, SCDF, ACRA, EnterpriseSG, IPOS, SLA, CEA, PA, STB, NHB, MinLaw), with a dedicated portal index page.
+* **Custom Visibility & Filtering**: Hovering any portal card lets you hide it using the eye icon. Hidden portals can be added back at any time via the new **Manage Portals** dropdown at the top of the grid.
+
+**🧹 Code Cleanup & Refactoring**
+* **Monolith Refactoring**: Split the monolithic `tools.py` into a modular package under `tools/` (core, civic, search, environment, jobs, housing, transport, wages) with clean, backwards-compatible exports.
+* **Removed Stale Panels**: Completely retired the SingStat broad salary growth panel and code under data-freshness policies.
+
+**⚡ Performance engineering**
+* GZip compression on all responses >1KB, TTL caches matched to each dataset's publishing cadence, a background startup pre-warm of the heaviest (MOM Excel) pipeline, and load-on-demand panels with `?v=` browser cache busting.
+
+**⚙️ Setup change**
+* Added the optional `DATA_GOV_SG_API_KEY` environment variable, applied as an `x-api-key` header across all data.gov.sg calls to skip the unauthenticated burst-rate pacing.
+
+---
 
 ### Version 1 — baseline (commit [`c5b4657`](https://github.com/leshweyeewin/merlion-os/commit/c5b46575f3a21ae48d9a9cd3110cfe2c12597003))
 The original hackathon build. It included:
@@ -186,25 +216,5 @@ The original hackathon build. It included:
 
 **Everything else**
 * **Statutory Portals Directory** — a drag-and-drop reorderable grid of **19** statutory board & national service portals (ICA through ActiveSG).
-* **AI Co-Pilot** on Gemini 2.5 Flash with Google Search grounding fallback and the security hardening layers (XSS `safeURL`, redirect-domain verification, auth-keyword scraping blocks).
+* **AI Co-Pilot** on Gemini 2.5 Flash with Google Search grounding fallback and security hardening layers.
 * **Local Quickstart** requiring `GEMINI_API_KEY` and `LTA_DATAMALL_API_KEY`.
-
-### Version 2 — current
-Two feature commits ([`c55825a`](https://github.com/leshweyeewin/merlion-os/commit/c55825a) → [`b53d5ee`](https://github.com/leshweyeewin/merlion-os/commit/b53d5ee)) build on Version 1. What's new or changed:
-
-**➕ New dashboard panels**
-* 🚕 **Transport & Vehicle Costs** — live islandwide taxi count (LTA `Taxi-Availability`) + latest COE bidding premiums for all 5 categories, plus an opt-in "Around You" geolocation lookup (nearby taxis within 2km + nearest planning area).
-* 🏷️ **HDB Resale Flat Prices** — real islandwide median resale price, YoY change, and a full ranked by-town breakdown for the latest complete month.
-* 💼 **Occupational Wage Explorer** — 500+ detailed job titles with real June median basic/gross wages, per-title increment ranking, genuinely new (SSOC 2024 / AI-era) job titles vs the prior edition, top-paying tech & digital roles, and a searchable filterable wage table.
-
-**🔧 Expanded existing panels**
-* 🌤️ **Weather & Air Quality** widened from PSI + 2-hour forecast to also include PM2.5, a 24-hour outlook, and live "Current Conditions" tiles (temperature, humidity, wind speed/direction via circular mean, rainfall).
-
-**🏛️ Statutory Portals Directory**
-* Grown from **19 → 39** portals (+20 agencies: HPB, MSF, PUB, NLB, URA, NParks, MAS, IMDA, OneNS, SPF, SCDF, ACRA, EnterpriseSG, IPOS, SLA, CEA, PA, STB, NHB, MinLaw), with a dedicated portal index page.
-
-**⚡ Performance engineering** (new section)
-* GZip compression on all responses >1KB, TTL caches matched to each dataset's publishing cadence, a background startup pre-warm of the heaviest (MOM Excel) pipeline, and load-on-demand panels with `?v=` browser cache busting.
-
-**⚙️ Setup change**
-* Added the optional `DATA_GOV_SG_API_KEY` environment variable, applied as an `x-api-key` header across all data.gov.sg calls to skip the unauthenticated burst-rate pacing (most noticeable on the Weather panel's 9 sequential NEA calls).

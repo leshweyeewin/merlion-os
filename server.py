@@ -70,8 +70,6 @@ from tools import (
     get_coe_synced_at,
     query_hdb_resale_price_trends,
     compute_hdb_resale_stats,
-    query_salary_growth_by_occupation,
-    compute_salary_growth_by_occupation,
     query_occupational_wage_insights,
     compute_occupational_wage_insights
 )
@@ -122,7 +120,6 @@ TOOL_MAP = {
     "query_singapore_retrenchment_advisory": query_singapore_retrenchment_advisory,
     "query_coe_bidding_results": query_coe_bidding_results,
     "query_hdb_resale_price_trends": query_hdb_resale_price_trends,
-    "query_salary_growth_by_occupation": query_salary_growth_by_occupation,
     "query_occupational_wage_insights": query_occupational_wage_insights
 }
 
@@ -1133,11 +1130,10 @@ async def get_sg_hub_jobs(sector: str = "all"):
         results = await asyncio.gather(
             *(anyio.to_thread.run_sync(query_singapore_job_statistics_via_bigquery, s) for s in sectors_to_query),
             anyio.to_thread.run_sync(query_singapore_retrenchment_advisory),
-            anyio.to_thread.run_sync(compute_salary_growth_by_occupation),
             anyio.to_thread.run_sync(compute_job_market_history),
         )
         sector_stats = dict(zip(sectors_to_query, results[:len(sectors_to_query)]))
-        raw_retrenchment, salary_growth, history = results[-3], results[-2], results[-1]
+        raw_retrenchment, history = results[-2], results[-1]
 
         job_sectors = {}
         for s in sectors_to_query:
@@ -1185,10 +1181,8 @@ async def get_sg_hub_jobs(sector: str = "all"):
                 retrenchment["source"] = line.split("Source:")[1].strip()
         retrenchment["synced_at"] = get_retrenchment_synced_at()
         print("\033[33m[data.gov.sg] Retrenchment fetch complete.\033[0m")
-        if salary_growth.get("is_stale"):
-            print(f"\033[33m[SingStat] Salary growth dataset screened out (latest reference year {salary_growth['latest_year']} is >1 year old).\033[0m")
 
-        return {"jobs": job_sectors, "retrenchment": retrenchment, "salary_growth": salary_growth, "history": history}
+        return {"jobs": job_sectors, "retrenchment": retrenchment, "history": history}
     except Exception as e:
         logger.exception("Error loading Jobs data")
         raise HTTPException(status_code=500, detail=str(e))

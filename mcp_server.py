@@ -18,7 +18,6 @@ from tools import (
     query_singapore_retrenchment_advisory,
     query_coe_bidding_results,
     query_hdb_resale_price_trends,
-    query_salary_growth_by_occupation,
     query_occupational_wage_insights
 )
 
@@ -90,10 +89,6 @@ def mcp_query_hdb_resale_price_trends(context_query: str = "general") -> str:
     """Retrieves Singapore's real HDB resale flat transaction data with islandwide median price, YoY change, and the priciest towns."""
     return query_hdb_resale_price_trends(context_query)
 
-@mcp.tool(name="query_salary_growth_by_occupation")
-def mcp_query_salary_growth_by_occupation(context_query: str = "general") -> str:
-    """Retrieves Singapore's real median salary growth by broad occupation category (SingStat), ranked from fastest to slowest year-on-year growth."""
-    return query_salary_growth_by_occupation(context_query)
 
 @mcp.tool(name="query_occupational_wage_insights")
 def mcp_query_occupational_wage_insights(context_query: str = "general") -> str:

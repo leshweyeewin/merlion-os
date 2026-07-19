@@ -288,7 +288,7 @@ def compute_hdb_resale_stats() -> dict:
     Shared computation used by both the AI chat tool (query_hdb_resale_price_trends, below)
     and the /api/sg-hub/hdb REST endpoint — returns the full per-town breakdown (all ~26 towns)
     as structured data, since that doesn't fit the fixed-field string-parse pattern used
-    elsewhere in this file (same rationale as compute_salary_growth_by_occupation).
+    elsewhere in this file (same rationale as compute_occupational_wage_insights).
     """
     import statistics
     from collections import defaultdict

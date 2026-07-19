@@ -716,8 +716,6 @@ function initSgHub() {
             const retrenchmentDetailsEl = document.getElementById("retrenchment-details");
             if (retrenchmentHeadlineEl) retrenchmentHeadlineEl.textContent = "N/A";
             if (retrenchmentDetailsEl) retrenchmentDetailsEl.innerHTML = "<span style='color: var(--text-error);'>⚠️ Failed to load retrenchment data.</span>";
-            const salaryGrowthEl = document.getElementById("hub-salary-growth-content");
-            if (salaryGrowthEl) salaryGrowthEl.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load salary growth data.</p>";
         } else if (paneId === "hub-community-pane") {
             communityEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load community feeds.</p>";
         } else if (paneId === "hub-env-pane") {
@@ -1560,68 +1558,7 @@ function initSgHub() {
         sgHubJobsData = data.jobs;
         renderSectorDetails("tech"); // Default to Tech
         renderRetrenchmentPane(data.retrenchment);
-        renderSalaryGrowthPane(data.salary_growth);
         renderJobHistoryCharts(data.history);
-    }
-
-    function renderSalaryGrowthPane(salaryGrowth) {
-        const container = document.getElementById("hub-salary-growth-content");
-        if (!container) return;
-        const card = container.closest(".hub-card");
-
-        // Data-freshness policy: no data, or an annual dataset whose latest reference year is
-        // more than a year old → remove the panel entirely rather than show a placeholder.
-        if (!salaryGrowth || !salaryGrowth.occupations || !salaryGrowth.occupations.length || salaryGrowth.is_stale) {
-            if (card) card.style.display = "none";
-            return;
-        }
-        if (card) card.style.display = "";
-
-        const { latest_year, prior_year, occupations } = salaryGrowth;
-
-        const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
-            <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML(salaryGrowth.synced_at || getRetrievalTimestamp())}
-        </div>`;
-
-        // Insight-first: the top 5 risers plus the single slowest category, with a one-line
-        // takeaway — the full 8-category bar dump duplicated the OWS movers list below.
-        const sorted = occupations; // server already sorts fastest → slowest
-        const best = sorted[0], worst = sorted[sorted.length - 1];
-        const shown = sorted.slice(0, 5).concat(sorted.length > 5 ? [worst] : []);
-        const maxAbsPct = Math.max(...shown.map(o => Math.abs(o.pct_change)), 1);
-
-        const rows = shown.map(o => {
-            const isPositive = o.pct_change >= 0;
-            const barColor = isPositive ? "#1a7f3c" : "#c0392b";
-            const barWidthPct = (Math.abs(o.pct_change) / maxAbsPct) * 100;
-            return `
-                <div style="display:flex; align-items:center; gap:10px; padding: 8px 0; border-bottom: 1px solid var(--border);">
-                    <div style="flex: 1; min-width:0;">
-                        <div style="font-size:13px; font-weight:600; color: var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(o.occupation)}</div>
-                        <div style="font-size:11px; color: var(--text-muted);">S$${o.prior_salary.toLocaleString()} &rarr; S$${o.latest_salary.toLocaleString()}</div>
-                    </div>
-                    <div style="width:120px; flex-shrink:0;">
-                        <div style="background: var(--bg-panel); border-radius:4px; height:8px; overflow:hidden;">
-                            <div style="width:${barWidthPct}%; background:${barColor}; height:100%; border-radius:4px;"></div>
-                        </div>
-                    </div>
-                    <div style="width:60px; flex-shrink:0; text-align:right; font-size:13px; font-weight:700; color:${barColor};">${o.pct_change >= 0 ? '+' : ''}${o.pct_change.toFixed(1)}%</div>
-                </div>
-            `;
-        }).join('');
-
-        const risingCount = occupations.filter(o => o.pct_change > 0).length;
-        container.innerHTML = banner + `
-            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">Comparing ${escapeHTML(String(latest_year))} vs ${escapeHTML(String(prior_year))} median gross monthly income &middot; top 5 risers + slowest category &middot; figures average published male/female medians (SingStat)</div>
-            <div style="background: var(--primary-soft, var(--bg-muted)); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 12.5px; color: var(--text-main); line-height: 1.5;">
-                💡 Median pay rose in <strong>${risingCount} of ${occupations.length}</strong> broad occupation categories.
-                <strong>${escapeHTML(best.occupation)}</strong> led at <strong>${best.pct_change >= 0 ? '+' : ''}${best.pct_change.toFixed(1)}%</strong>,
-                while <strong>${escapeHTML(worst.occupation)}</strong> trailed at ${worst.pct_change >= 0 ? '+' : ''}${worst.pct_change.toFixed(1)}%.
-            </div>
-            <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px;">
-                ${rows}
-            </div>
-        `;
     }
 
     let occWagesData = null;
