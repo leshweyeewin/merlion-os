@@ -1087,7 +1087,7 @@ function initSgHub() {
 
         // --- Flood Alerts Banner (PUB real-time API) ---
         let floodBannerHtml = '';
-        if (data.flood_alerts && data.flood_alerts.alerts && data.flood_alerts.alerts.length > 0) {
+        if (data.flood_alerts && data.flood_alerts.alerts) {
             const fa = data.flood_alerts;
             const activeAlerts = fa.alerts.filter(a => a.is_active);
             const cancelledAlerts = fa.alerts.filter(a => !a.is_active);
@@ -1113,6 +1113,15 @@ function initSgHub() {
                     <div style="background:var(--bg-muted); border:1px solid var(--border); border-left:4px solid #10b981; border-radius:10px; padding:12px 16px; margin-bottom:12px; font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:8px;">
                         <i class="fa-solid fa-circle-check" style="color:#10b981;"></i>
                         <span>All earlier PUB flood alerts have been cleared.</span>
+                    </div>`;
+            } else {
+                floodBannerHtml = `
+                    <div style="background:var(--bg-muted); border:1px solid var(--border); border-left:4px solid #3b82f6; border-radius:10px; padding:10px 14px; margin-bottom:12px; font-size:11.5px; color:var(--text-muted); display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <i class="fa-solid fa-circle-info" style="color:#3b82f6;"></i>
+                            <span>No active flood alerts islandwide (PUB).</span>
+                        </div>
+                        ${fa.retrieved_at ? `<span style="font-size:9.5px; color:var(--text-muted);">Checked: ${escapeHTML(fa.retrieved_at)}</span>` : ''}
                     </div>`;
             }
         }
