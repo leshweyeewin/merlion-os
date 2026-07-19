@@ -81,11 +81,11 @@ The repository's comprehensive guides are split into dedicated files inside [`do
 | Topic | What's inside | File Link |
 |---|---|---|
 | 🏛️ **Statutory Portals Directory** | All **81** agency portals list, drag-and-drop ordering, and portal search/multi-select panels. | [docs/portals.md](docs/portals.md) |
-| 📊 **Live Data Dashboard** | Detailed data sources and exact REST APIs for NEA weather, LTA transit, HDB listings, and Telegram feeds. | [docs/dashboard.md](docs/dashboard.md) |
-| ⚖️ **IRAS Tax Relief Optimizer** | Progressive income tax brackets, CPF/SRS/Life-Insurance optimization logic, and the S$80k statutory relief cap. | [docs/optimizer.md](docs/optimizer.md) |
-| 💻 **Local Setup & Quickstart** | Requirements, environment keys setup, Google Cloud BigQuery keys, and FastMCP daemon running instructions. | [docs/setup.md](docs/setup.md) |
-| 🛡️ **Security & Architecture** | Web scraping validation criteria, client-side escaping (`safeURL`), caching mechanisms, and GZip compression. | [docs/architecture.md](docs/architecture.md) |
-| 📋 **Version History** | Release notes and changes made in each version. | [docs/version-history.md](docs/version-history.md) |
+| 📊 **Live Data Dashboard** | Detailed data sources and exact REST APIs for NEA weather, LTA transit, HDB listings, and Telegram feeds. | [docs/data_sources.md](docs/data_sources.md) |
+| ⚖️ **IRAS Tax Relief Optimizer** | Progressive income tax brackets, CPF/SRS/Life-Insurance optimization logic, and the S$80k statutory relief cap. | [docs/iras_optimizer.md](docs/iras_optimizer.md) |
+| 💻 **Local Setup & Quickstart** | Requirements, environment keys setup, Google Cloud BigQuery keys, and FastMCP daemon running instructions. | [docs/quickstart.md](docs/quickstart.md) |
+| 🛡️ **Security & Performance** | Web scraping validation criteria, client-side escaping (`safeURL`), caching mechanisms, and GZip compression. | [docs/security_and_performance.md](docs/security_and_performance.md) |
+| 📋 **Changelog** | Release notes and changes made in each version. | [docs/changelog.md](docs/changelog.md) |
 
 ---
 
@@ -100,8 +100,13 @@ pip install -r requirements.txt
 ### 2. Configure Environment Variables
 Create a `.env` file or export the following API keys:
 ```bash
+# Required
 export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 export LTA_DATAMALL_API_KEY="YOUR_LTA_DATAMALL_API_KEY"
+
+# Optional — data.gov.sg APIs work unauthenticated, but adding this key lifts
+# the rate limit so NEA weather/PSI calls skip the 1-second pacing delay.
+export DATA_GOV_SG_API_KEY="YOUR_DATA_GOV_SG_API_KEY"
 ```
 
 ### 3. Run the Server
@@ -109,4 +114,4 @@ Launch the FastAPI production-ready server:
 ```bash
 python server.py
 ```
-Open **`http://127.0.0.1:8080/`** in your browser. For advanced features (BigQuery, FastMCP), check out [docs/setup.md](docs/setup.md).
+Open **`http://127.0.0.1:8080/`** in your browser. For advanced features (BigQuery, FastMCP), check out [docs/quickstart.md](docs/quickstart.md).

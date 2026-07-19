@@ -24,6 +24,3 @@ The optimizer form is ordered for clarity:
 3. **Pre-existing Reliefs** — itemised inputs that auto-sum into the S$80k cap
 
 > **Donations are a separate deduction**, not a relief. They reduce your chargeable income (and thus tax) but do **not** consume the S$80k relief-cap headroom. Enter any charitable donations in the Profile section.
-
-## Verification
-The engine was validated against a real YA2026 notice (income S$103,701; reliefs S$22,340; **donations S$1,050**; chargeable income S$80,311; tax S$3,385.77) — the optimizer now reproduces the chargeable income **and** tax exactly, with donations entered separately from reliefs.

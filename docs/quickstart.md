@@ -62,11 +62,12 @@ Below is the directory layout of the codebase:
 ```text
 merlion-os/
 ├── docs/                 # Detailed topic-specific documentation guides
-│   ├── architecture.md   # Hardening, caching, and safety strategy
-│   ├── dashboard.md      # Data sources and APIs for SG Hub
-│   ├── optimizer.md      # IRAS progressive tax optimizer logic
-│   ├── portals.md        # List of the 81 statutory agencies
-│   └── setup.md          # Local quickstart, BigQuery, and MCP setup
+│   ├── changelog.md         # Release notes and version history
+│   ├── data_sources.md      # Data sources and APIs for SG Hub
+│   ├── iras_optimizer.md    # IRAS progressive tax optimizer logic
+│   ├── portals.md           # List of the 81 statutory agencies
+│   ├── quickstart.md        # Local quickstart, BigQuery, and MCP setup
+│   └── security_and_performance.md  # Hardening, caching, and safety strategy
 ├── static/               # Frontend assets (HTML, CSS, JS, and Logos)
 │   ├── logos/            # 81 local statutory agency SVG/PNG logos
 │   ├── app.js            # Frontend logic and UI rendering (Leaflet integration)
