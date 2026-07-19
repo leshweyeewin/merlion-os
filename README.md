@@ -9,37 +9,11 @@
 ## 🎯 Developer Intent & Project Motivation
 I recently became a Singaporean citizen. Previously as a permanent resident, my digital interactions with the government were limited—I only ever needed to check **CPF**, file taxes with **IRAS**, and occasionally access **HealthHub**. 
 
-However, upon receiving citizenship, I realized the vast landscape of statutory boards I now had to navigate: registering for compulsory voting with the **Elections Department (ELD)**, searching for housing with the **Housing & Development Board (HDB)**, claiming CDC tranches on **RedeemSG**, and checking learning credits on **MySkillsFuture**. 
+Upon receiving citizenship, I realized the vast landscape of statutory boards I now had to navigate: registering for compulsory voting with the **Elections Department (ELD)**, searching for housing with the **Housing & Development Board (HDB)**, claiming CDC tranches on **RedeemSG**, and checking learning credits on **MySkillsFuture**. 
 
 Searching for these portals one-by-one via Google felt scattered and uncoordinated. While portals like *LifeSG* exist, they aren't fully accessible or comprehensive for all demographic needs. I built **MerlionOS** to act as a **one-stop government coordination portal** to unify this experience. 
 
 Furthermore, as a working professional in Singapore, staying updated on **transport disruptions** and **employment/job market trends** is critical to my daily routine. Therefore, I consolidated live transit statuses and sector job metrics directly into the interface to create the ultimate daily utility portal.
-
----
-
-## 🗺️ Live Data Dashboard & Exact Data Sources
-All data panels in the **SG Hub Dashboard** load on-demand when clicked and show a **"Last synced"** SGT timestamp. Below are the exact sources and APIs feeding the UI:
-
-| UI Sub-Panel | Data Source / API Endpoint | Display Details |
-|---|---|---|
-| 🌤️ **Weather & Air Quality** | **NEA API** (`https://api-open.data.gov.sg/v2/real-time/api/`: `psi`, `pm25`, `two-hr-forecast`, `twenty-four-hr-forecast`, `air-temperature`, `relative-humidity`, `wind-speed`, `wind-direction`, `rainfall`, `uv-index`) | Visual PSI gauge + 6-region 2-hour forecast cards, PM2.5, live "Current Conditions" tiles (temperature, humidity, wind speed/direction via circular mean, rainfall, UV Index with NEA 5-tier scale), and a 24-hour general outlook. |
-| 🚇 **Transit & Rail Alerts** | **LTA DataMall API** (`https://datamall2.mytransport.sg/ltaodataservice/TrainServiceAlerts`) | Live line-by-line status grid (EWL, NSL, NEL, CCL, DTL, TEL, LRTs) with disruption logs, free public bus boarding notices, and free MRT shuttle routes. |
-| 🚕 **Transport & Vehicle Costs** | **LTA DataMall API** (`Taxi-Availability`) + **data.gov.sg Dataset API** (COE Bidding Results / Prices, `d_69b3380ad7e51aff3a7dcc84eba52b8a`) | Live islandwide taxi count and the latest COE bidding premiums for all 5 vehicle categories (A–E). An "Around You" button (browser geolocation, requested only on click) shows a live nearby count within 2km plus the nearest planning area name, reverse-geocoded against a built-in list of Singapore's major towns. |
-| 📢 **Gov Updates** | **Telegram Scraper** (12 Channels: `@govsg`, `@HealthHubSG`, `@scamshieldalert`, `@LTAsg`, `@NEAsg`, `@MOEsg`, `@GovTechSG`, `@MOHSingapore`, `@SPFsg`, `@SCDFsg`, `@momsg`, `@ReachSingapore`) + **PUB Flood Alerts API** (`https://api-open.data.gov.sg/v2/real-time/api/weather/flood-alerts`) | Last 3 posts per channel sorted chronologically descending by SGT post date; active flood alerts shown as a priority banner above the feed. |
-| 🏢 **HDB BTO Tracker** | **HDB Pulse & Newsroom Scraper** (`https://www.hdb.gov.sg/hdb-pulse/news`) | Live BTO launch tables + BeautifulSoup HDB newsroom Next.js `__NEXT_DATA__` JSON extraction (resolving real CMS URLs dynamically). |
-| 🏷️ **HDB Resale Flat Prices** | **data.gov.sg Dataset API** (Resale Flat Prices from Jan-2017 onwards, `d_8b84c4ee58e3cfc0ece0d773c8ca6abc`) | Real islandwide median resale price, year-on-year change, and a full median-price-by-town breakdown (all ~26 towns, ranked) for the latest complete month. |
-| 📊 **Job Market Analysis** | **Google BigQuery** (real MOM Job Vacancy by Industry & Occupation data, loaded via `scripts/load_job_vacancy_to_bigquery.py`), with automatic fallback to a direct **data.gov.sg Dataset API** call if BigQuery isn't configured | Real vacancy counts, YoY trend, and a next-year forecast per sector (Tech, Finance, Healthcare, General), plus an interactive **multi-year vacancy trend line chart** (2014→latest, hover crosshair with exact counts per sector). All displayed figures are real; the former illustrative median-salary/skills/risk fields were removed. |
-| ⚠️ **MOM Retrenchment** | **data.gov.sg Dataset API** (MOM Retrenched Employees by Industry, Quarterly, `d_61d92d31ca400be135190614277da825`) | Real latest-quarter retrenchment headcount and top affected industries, plus a **24-quarter retrenchment trend chart** with an auto-computed "vs recent average" takeaway. (The former illustrative six-month re-employment rate was removed.) |
-| 💼 **Occupational Wage Explorer** | **MOM Occupational Wage Survey Excel tables** (stats.mom.gov.sg "Occupational Wages Tables" page, table1 T1 sheet, two most recent June editions) | Insights-first breakdown of 500+ detailed job titles: key takeaways summary, a **wage-distribution histogram** (how many titles per salary band, with the cross-title median), a **pay-vs-raise scatter plot** (every occupation plotted by wage level × YoY change, tech/digital roles highlighted, per-dot hover tooltips), top 5 wage risers/decliners, top 5 highest-paying tech & digital roles, notable genuinely new (SSOC 2024 / AI-era) job titles (renamed titles fuzzy-matched to their old rows), and a search-driven wage lookup that defaults to a top-10 leaderboard. (The former 25th/75th percentile enrichment from the one-off June 2024 data.gov.sg edition was removed under the same freshness policy.) |
-| 🎟️ **Kiasu SG Deals** | **Telegram Scraper** (15 Channels: `@confirmgood`, `@goodlobang`, `@kiasufoodies`, `@sgweekend`, `@moneydigest`, etc.) | Community deals and lifestyle news posted strictly within the last 24 hours, sorted newest-first. |
-
-### ⚡ Performance Engineering
-* **GZip everywhere:** every API and static response over 1KB is compressed (the ~130KB Occupational Wages payload and ~100KB `app.js` ship ~5-6x smaller).
-* **TTL caches matched to data cadence:** each dataset is cached server-side for as long as its publishing rhythm allows (6h for quarterly/monthly feeds, 24h for annual surveys), so repeat panel loads are served in ~0.2s.
-* **Startup pre-warm + disk snapshot:** the heaviest pipeline (MOM Excel download + parse across two survey years) is warmed in a background thread at boot with its candidate-year probes fetched concurrently, and the parsed payload is snapshotted to a local `.data_cache/` JSON — server restarts within the TTL skip the Excel downloads entirely.
-* **Parallel upstream fetches:** `/api/sg-hub/jobs` runs its sector, retrenchment, and salary-growth fetches concurrently (with a lock deduping the shared vacancy CSV download), so the pane loads in the time of the slowest fetch rather than the sum of all six.
-* **Load-on-demand panels:** the wage explorer has its own endpoint, fetched in parallel with the Job Market pane and never re-sent on sector-tab clicks; browser-side cache busting (`?v=`) keeps deployed JS/CSS fresh.
-* **Dependency-free chart layer:** all trend/histogram/scatter charts are hand-rolled inline SVG (no chart library, zero extra network weight) with hover crosshairs and tooltips; the categorical palette is colorblind-validated against the app's surface, and the history series they plot are derived from the same cached CSVs the headline cards already download — charts add no extra fetches.
 
 ---
 
@@ -89,21 +63,54 @@ MerlionOS features a drag-and-drop reorderable grid representing all **39 statut
 
 ---
 
-## 🤖 AI Co-Pilot & Security Hardening
-The floating **Co-Pilot Chat Assistant** runs on **Gemini 2.5 Flash** with native parallel tool routing. It is hardened with enterprise-grade security layers:
+## 🗺️ Live Data Dashboard & Exact Data Sources
+All data panels in the **SG Hub Dashboard** load on-demand when clicked and show a **"Last synced"** SGT timestamp. Below are the exact sources and APIs feeding the UI:
+
+| UI Sub-Panel | Data Source / API Endpoint | Display Details |
+|---|---|---|
+| 🌤️ **Weather & Air Quality** | **NEA API** (`https://api-open.data.gov.sg/v2/real-time/api/`: `psi`, `pm25`, `two-hr-forecast`, `twenty-four-hr-forecast`, `air-temperature`, `relative-humidity`, `wind-speed`, `wind-direction`, `rainfall`, `uv-index`) | Visual PSI gauge + 6-region 2-hour forecast cards, PM2.5, live "Current Conditions" tiles (temperature, humidity, wind speed/direction via circular mean, rainfall, UV Index with NEA 5-tier scale), and a 24-hour general outlook. |
+| 🚇 **Transit & Rail Alerts** | **LTA DataMall API** (`https://datamall2.mytransport.sg/ltaodataservice/TrainServiceAlerts`) | Live line-by-line status grid (EWL, NSL, NEL, CCL, DTL, TEL, LRTs) with disruption logs, free public bus boarding notices, and free MRT shuttle routes. |
+| 🚕 **Transport & Vehicle Costs** | **LTA DataMall API** (`Taxi-Availability`) + **data.gov.sg Dataset API** (COE Bidding Results / Prices, `d_69b3380ad7e51aff3a7dcc84eba52b8a`) | Live islandwide taxi count and the latest COE bidding premiums for all 5 vehicle categories (A–E). An "Around You" button (browser geolocation, requested only on click) shows a live nearby count within 2km plus the nearest planning area name, reverse-geocoded against a built-in list of Singapore's major towns. |
+| 📢 **Gov Updates** | **Telegram Scraper** (12 Channels: `@govsg`, `@HealthHubSG`, `@scamshieldalert`, `@LTAsg`, `@NEAsg`, `@MOEsg`, `@GovTechSG`, `@MOHSingapore`, `@SPFsg`, `@SCDFsg`, `@momsg`, `@ReachSingapore`) + **PUB Flood Alerts API** (`https://api-open.data.gov.sg/v2/real-time/api/weather/flood-alerts`) | Last 3 posts per channel sorted chronologically descending by SGT post date; active flood alerts shown as a priority banner above the feed. |
+| 🏢 **HDB BTO Tracker** | **HDB Pulse & Newsroom Scraper** (`https://www.hdb.gov.sg/hdb-pulse/news`) | Live BTO launch tables + BeautifulSoup HDB newsroom Next.js `__NEXT_DATA__` JSON extraction (resolving real CMS URLs dynamically). |
+| 🏷️ **HDB Resale Flat Prices** | **data.gov.sg Dataset API** (Resale Flat Prices from Jan-2017 onwards, `d_8b84c4ee58e3cfc0ece0d773c8ca6abc`) | Real islandwide median resale price, year-on-year change, and a full median-price-by-town breakdown (all ~26 towns, ranked) for the latest complete month. |
+| 📊 **Job Market Analysis** | **Google BigQuery** (real MOM Job Vacancy by Industry & Occupation data, loaded via `scripts/load_job_vacancy_to_bigquery.py`), with automatic fallback to a direct **data.gov.sg Dataset API** call if BigQuery isn't configured | Real vacancy counts, YoY trend, and a next-year forecast per sector (Tech, Finance, Healthcare, General), plus an interactive **multi-year vacancy trend line chart** (2014→latest, hover crosshair with exact counts per sector). All displayed figures are real; the former illustrative median-salary/skills/risk fields were removed. |
+| ⚠️ **MOM Retrenchment** | **data.gov.sg Dataset API** (MOM Retrenched Employees by Industry, Quarterly, `d_61d92d31ca400be135190614277da825`) | Real latest-quarter retrenchment headcount and top affected industries, plus a **24-quarter retrenchment trend chart** with an auto-computed "vs recent average" takeaway. (The former illustrative six-month re-employment rate was removed.) |
+| 💼 **Occupational Wage Explorer** | **MOM Occupational Wage Survey Excel tables** (stats.mom.gov.sg "Occupational Wages Tables" page, table1 T1 sheet, two most recent June editions) | Insights-first breakdown of 500+ detailed job titles: key takeaways summary, a **wage-distribution histogram** (how many titles per salary band, with the cross-title median), a **pay-vs-raise scatter plot** (every occupation plotted by wage level × YoY change, tech/digital roles highlighted, per-dot hover tooltips), top 5 wage risers/decliners, top 5 highest-paying tech & digital roles, notable genuinely new (SSOC 2024 / AI-era) job titles (renamed titles fuzzy-matched to their old rows), and a search-driven wage lookup that defaults to a top-10 leaderboard. (The former 25th/75th percentile enrichment from the one-off June 2024 data.gov.sg edition was removed under the same freshness policy.) |
+| 🎟️ **Kiasu SG Deals** | **Telegram Scraper** (15 Channels: `@confirmgood`, `@goodlobang`, `@kiasufoodies`, `@sgweekend`, `@moneydigest`, etc.) | Community deals and lifestyle news posted strictly within the last 24 hours, sorted newest-first. |
+
+---
+
+## 🤖 AI Co-Pilot
+The floating **Co-Pilot Chat Assistant** runs on **Gemini 2.5 Flash** with native parallel tool routing:
 * **Google Search Grounding Fallback:** If the primary Gemini 2.5 Flash API hits a 429 quota limit, the chat automatically fails-over to `gemini-3.1-flash-lite` with Google Search grounding to guarantee continuous response uptime.
-* **XSS Sanitization (`safeURL`):** Client-side Javascript filters URLs starting with `javascript:`, `data:`, or `vbscript:` and escapes double/single quotes to prevent HTML attribute breakouts.
-* **Redirection Verification:** The backend BeautifulSoup scraper follows redirect chains but validates that the final landing domain belongs to the `.gov.sg` domain or trusted public domains (`healthhub.sg`, `wsg.sg`, `cdc.gov.sg`). 
-* **Auth Protection:** URLs matching authentication keywords (`singpass`, `login`, `signin`, `auth`, `corppass`) are blocked from scraping.
 
 <p align="center">
   <img src="docs/screenshots/chat-widget.png" alt="MerlionOS Co-Pilot chat widget showing the welcome message and quick-prompt suggestions" width="420">
 </p>
-<p align="center"><em>the Assistant tab.</em></p>
+<p align="center"><em>The Assistant tab.</em></p>
 <p align="center">
   <img src="docs/screenshots/operations-trace.png" alt="MerlionOS Co-Pilot Operations Trace tab showing system routing, live query matching, and error-handling logs" width="420">
 </p>
-<p align="center"><em>the Operations Trace tab, which exposes the routing brain's live decision log for auditability.</em></p>
+<p align="center"><em>The Operations Trace tab, which exposes the routing brain's live decision log for auditability.</em></p>
+
+---
+
+## 🛡️ Security Hardening
+MerlionOS is built with robust security protections to govern the AI agent and web interface:
+* **XSS Sanitization (`safeURL`):** Client-side Javascript filters URLs starting with `javascript:`, `data:`, or `vbscript:` and escapes double/single quotes to prevent HTML attribute breakouts.
+* **Redirection Verification:** The backend BeautifulSoup scraper follows redirect chains but validates that the final landing domain belongs to the `.gov.sg` domain or trusted public domains (`healthhub.sg`, `wsg.sg`, `cdc.gov.sg`). 
+* **Auth Protection:** URLs matching authentication keywords (`singpass`, `login`, `signin`, `auth`, `corppass`) are blocked from scraping.
+
+---
+
+## ⚡ Performance Engineering
+* **GZip everywhere:** every API and static response over 1KB is compressed (the ~130KB Occupational Wages payload and ~100KB `app.js` ship ~5-6x smaller).
+* **TTL caches matched to data cadence:** each dataset is cached server-side for as long as its publishing rhythm allows (6h for quarterly/monthly feeds, 24h for annual surveys), so repeat panel loads are served in ~0.2s.
+* **Startup pre-warm + disk snapshot:** the heaviest pipeline (MOM Excel download + parse across two survey years) is warmed in a background thread at boot with its candidate-year probes fetched concurrently, and the parsed payload is snapshotted to a local `.data_cache/` JSON — server restarts within the TTL skip the Excel downloads entirely.
+* **Parallel upstream fetches:** `/api/sg-hub/jobs` runs its sector, retrenchment, and history fetches concurrently (with a lock deduping the shared vacancy CSV download), so the pane loads in the time of the slowest fetch rather than the sum of all five.
+* **Load-on-demand panels:** the wage explorer has its own endpoint, fetched in parallel with the Job Market pane and never re-sent on sector-tab clicks; browser-side cache busting (`?v=`) keeps deployed JS/CSS fresh.
+* **Dependency-free chart layer:** all trend/histogram/scatter charts are hand-rolled inline SVG (no chart library, zero extra network weight) with hover crosshairs and tooltips; the categorical palette is colorblind-validated against the app's surface, and the history series they plot are derived from the same cached CSVs the headline cards already download — charts add no extra fetches.
 
 ---
 
@@ -136,7 +143,7 @@ export PORT="8080"
 python server.py
 ```
 
-> **`DATA_GOV_SG_API_KEY` (optional):** applied as the `x-api-key` header on every data.gov.sg call in the app (Weather panel's NEA real-time APIs, plus the Job Vacancy, MOM Retrenchment, HDB Resale, COE Bidding, and Salary Growth datasets). It's most impactful on the Weather panel, which fires 9 sequential NEA calls per load — unauthenticated calls hit data.gov.sg's burst rate limit after ~6 rapid requests, so without a key the last few fields (wind, rainfall, 24-hr outlook) pace themselves ~1s apart to stay under it. With a key configured, that pacing is skipped entirely for instant loads. [Get a free key](https://guide.data.gov.sg/developer-guide/api-overview/how-to-request-an-api-key) — sign in with the account you just created, then follow [how to use your API key](https://guide.data.gov.sg/developer-guide/api-overview/how-to-use-your-api-key).
+> **`DATA_GOV_SG_API_KEY` (optional):** applied as the `x-api-key` header on every data.gov.sg call in the app (Weather panel's NEA real-time APIs, plus the Job Vacancy, MOM Retrenchment, HDB Resale, and COE Bidding datasets). It's most impactful on the Weather panel, which fires 9 sequential NEA calls per load — unauthenticated calls hit data.gov.sg's burst rate limit after ~6 rapid requests, so without a key the last few fields (wind, rainfall, 24-hr outlook) pace themselves ~1s apart to stay under it. With a key configured, that pacing is skipped entirely for instant loads. [Get a free key](https://guide.data.gov.sg/developer-guide/api-overview/how-to-request-an-api-key) — sign in with the account you just created, then follow [how to use your API key](https://guide.data.gov.sg/developer-guide/api-overview/how-to-use-your-api-key).
 
 Open your browser to: **`http://127.0.0.1:8080/`**
 *(Note: If port 8000 is occupied on your machine, you can change the `PORT` env variable to run the server on any free port).*
@@ -159,7 +166,6 @@ gcloud auth application-default login
 python scripts/load_job_vacancy_to_bigquery.py --project YOUR_GCP_PROJECT_ID
 ```
 Then set `GCP_PROJECT_ID` alongside your other environment variables before starting the server. If this isn't configured, the app automatically falls back to the direct data.gov.sg fetch.
-
 
 ### 4. Run FastMCP Tool Server
 To load the statutory tools inside development agents (like Cursor or Claude Desktop):
