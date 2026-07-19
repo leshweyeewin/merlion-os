@@ -21,6 +21,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger("merlion-os-server")
 
+
+def _load_dotenv():
+    """Minimal stdlib .env loader (KEY=VALUE lines) so secrets like DATA_GOV_SG_API_KEY live
+    in the gitignored .env instead of tracked files (.claude/launch.json is committed).
+    Real environment variables always win — setdefault never overrides deployment config."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+    except FileNotFoundError:
+        pass
+
+
+_load_dotenv()
+
 # Fail-fast check for Gemini API credentials on startup
 if not os.environ.get("GEMINI_API_KEY") and not os.environ.get("GOOGLE_API_KEY"):
     logger.error("Startup Failure: Neither GEMINI_API_KEY nor GOOGLE_API_KEY environment variable is defined.")
@@ -1054,17 +1074,11 @@ async def get_sg_hub_jobs(sector: str = "all"):
 
             lines = raw_stats.split("\n")
             vacancies = "N/A"
-            salary = "N/A"
-            skills = "N/A"
             trend = "N/A"
             source = "N/A"
             for line in lines:
                 if "Active Vacancies:" in line:
                     vacancies = line.split("Active Vacancies:")[1].strip()
-                elif "Median Starting Salary:" in line:
-                    salary = line.split("Median Starting Salary:")[1].strip()
-                elif "Top Demanded Skills:" in line:
-                    skills = line.split("Top Demanded Skills:")[1].strip()
                 elif "Market Trend:" in line:
                     trend = line.split("Market Trend:")[1].strip()
                 elif "Source:" in line:
@@ -1083,8 +1097,6 @@ async def get_sg_hub_jobs(sector: str = "all"):
 
             job_sectors[s] = {
                 "vacancies": vacancies,
-                "salary": salary,
-                "skills": skills,
                 "trend": trend,
                 "trend_pct": trend_pct,
                 "source": source
@@ -1092,14 +1104,12 @@ async def get_sg_hub_jobs(sector: str = "all"):
         print("\033[33m[Job Market] Fetch complete.\033[0m")
 
         retrenchment_lines = raw_retrenchment.split("\n")
-        retrenchment = {"headline": "N/A", "industries": "N/A", "reemployment_rate": "N/A", "source": ""}
+        retrenchment = {"headline": "N/A", "industries": "N/A", "source": ""}
         for line in retrenchment_lines:
             if "Latest Quarterly Retrenchment:" in line:
                 retrenchment["headline"] = line.split("Latest Quarterly Retrenchment:")[1].strip()
             elif "Primarily in:" in line:
                 retrenchment["industries"] = line.split("Primarily in:")[1].strip()
-            elif "Six-Month Re-Employment Rate:" in line:
-                retrenchment["reemployment_rate"] = line.split("Six-Month Re-Employment Rate:")[1].strip()
             elif "Source:" in line:
                 retrenchment["source"] = line.split("Source:")[1].strip()
         retrenchment["synced_at"] = get_retrenchment_synced_at()

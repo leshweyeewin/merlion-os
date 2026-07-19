@@ -564,34 +564,18 @@ def get_singapore_live_environment_advisory(context_query: str = "general") -> s
     return "\n\n".join(results)
 
 
-# Illustrative context (median salary / top skills are not published as open sector-level
-# time series by MOM, so these stay static) alongside the industry label(s) in the real
-# data.gov.sg "Number of Job Vacancy by Industry and Occupation" dataset used for the
-# real vacancy counts, YoY trend, and next-year forecast below.
+# Maps each dashboard sector to its industry label(s) in the real data.gov.sg "Number of Job
+# Vacancy by Industry and Occupation" dataset used for the vacancy counts, YoY trend, and
+# next-year forecast below. (This once carried illustrative median-salary / top-skills fields;
+# they were removed — MOM publishes no open sector-level series for them, and the dashboard
+# no longer shows hardcoded figures.)
 _JOB_SECTOR_META = {
-    "tech": {
-        "industries": ["information and communications"],
-        "median_salary": "S$6,800/month",
-        "top_skills": ["Python", "GenAI", "Cloud Engineering", "React"],
-    },
-    "finance": {
-        "industries": ["financial and insurance services"],
-        "median_salary": "S$7,200/month",
-        "top_skills": ["Risk Assessment", "Financial Modeling", "Compliance", "SQL"],
-    },
-    "healthcare": {
-        "industries": ["health and social services"],
-        "median_salary": "S$5,100/month",
-        "top_skills": ["Clinical Care", "Patient Relations", "Health Informatics"],
-    },
-    "general": {
-        # Singapore's three mutually-exclusive producing sectors, summed as an
-        # economy-wide total (avoids double-counting against the finer-grained
-        # industry breakdowns used above).
-        "industries": ["services", "manufacturing", "construction"],
-        "median_salary": "S$4,500/month",
-        "top_skills": ["Communication", "Digital Literacy", "Project Management"],
-    },
+    "tech": {"industries": ["information and communications"]},
+    "finance": {"industries": ["financial and insurance services"]},
+    "healthcare": {"industries": ["health and social services"]},
+    # general: Singapore's three mutually-exclusive producing sectors, summed as an
+    # economy-wide total (avoids double-counting against the finer-grained industries above).
+    "general": {"industries": ["services", "manufacturing", "construction"]},
 }
 
 _JOB_VACANCY_DATASET_ID = "d_889d11a2b0a53b235abb64e3f4e0a47b"  # data.gov.sg: MOM job vacancy by industry & occupation, annual
@@ -777,8 +761,6 @@ def query_singapore_job_statistics_via_bigquery(context_query: str = "general") 
         f"--- [SG EMPLOYMENT & VACANCIES ANALYTICS] ---\n"
         f"📂 Matched Sector: {matched_sector} ({', '.join(meta['industries'])})\n"
         f"📊 Active Vacancies: {vacancies:,} open roles\n"
-        f"💵 Median Starting Salary: {meta['median_salary']}\n"
-        f"🔑 Top Demanded Skills: {', '.join(meta['top_skills'])}\n"
         f"📈 Market Trend: {trend_line}\n"
         f"{source_line}"
     )
@@ -1036,12 +1018,6 @@ _retrenchment_cache = {"rows": None, "fetched_at": 0}
 _RETRENCHMENT_CACHE_TTL_SECONDS = 6 * 60 * 60  # quarterly data — no need to refetch more than a few times a day
 _retrenchment_fetch_lock = _threading.Lock()  # advisory card + history chart fetch concurrently — dedupe the cold download
 
-# Re-employment rate is not fetched live (MOM publishes it as a "collection" of per-quarter
-# views on data.gov.sg rather than one flat CSV, so it doesn't fit the same simple fetch
-# pattern as the other datasets here) — kept as illustrative context, same as median salary above.
-_RETRENCHMENT_REEMPLOYMENT_RATE_ILLUSTRATIVE = "67.2%"
-
-
 def _fetch_retrenchment_rows() -> list:
     """Downloads and caches the data.gov.sg MOM retrenchment dataset (CSV: quarter, industry, retrench)."""
     import time
@@ -1181,7 +1157,6 @@ def query_singapore_retrenchment_advisory(context_query: str = "general") -> str
             f"--- [SG WORKFORCE RETRENCHMENT ADVISORY] ---\n"
             f"⚠️ Latest Quarterly Retrenchment: {total:,} workers ({latest_quarter})\n"
             f"📂 Primarily in: {', '.join(top_industries).title()}\n"
-            f"🔁 Six-Month Re-Employment Rate: {_RETRENCHMENT_REEMPLOYMENT_RATE_ILLUSTRATIVE} (illustrative — not yet wired to a live feed)\n"
             f"💡 Source: MOM Retrenched Employees by Industry, {latest_quarter} (data.gov.sg, dataset `{_RETRENCHMENT_DATASET_ID}`)."
         )
     except Exception as e:
@@ -1189,7 +1164,6 @@ def query_singapore_retrenchment_advisory(context_query: str = "general") -> str
             f"--- [SG WORKFORCE RETRENCHMENT ADVISORY] ---\n"
             f"⚠️ Latest Quarterly Retrenchment: 3,590 workers (Q4 2025, cached snapshot — live fetch unavailable: {type(e).__name__})\n"
             f"📂 Primarily in: Wholesale And Retail Trade, Financial And Insurance Services, Information And Communications\n"
-            f"🔁 Six-Month Re-Employment Rate: {_RETRENCHMENT_REEMPLOYMENT_RATE_ILLUSTRATIVE} (illustrative — not yet wired to a live feed)\n"
             f"💡 Source: MOM Retrenched Employees by Industry (data.gov.sg) — cached snapshot."
         )
 

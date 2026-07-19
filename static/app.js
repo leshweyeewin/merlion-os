@@ -1401,7 +1401,7 @@ function initSgHub() {
         });
     }
 
-    function renderScatterChart(el, { points, height = 250, xLabel, yLabel }) {
+    function renderScatterChart(el, { points, height = 250, xLabel, yLabel, xRef, quadrants }) {
         // points: {x, y, name, sub, highlight}; y clamped to [-50, 100] for position, true value in tooltip
         const W = Math.max(el.clientWidth || 460, 300), H = height;
         const padL = 40, padR = 12, padT = 14, padB = 30;
@@ -1421,6 +1421,17 @@ function initSgHub() {
             g += `<text x="${px(t)}" y="${H - 14}" text-anchor="middle" font-size="10" fill="${CHART_INK.label}">${fmtK(t)}</text>`;
         });
         g += `<text x="${padL + iw / 2}" y="${H - 2}" text-anchor="middle" font-size="9.5" fill="${CHART_INK.label}">${escapeHTML(xLabel)}</text>`;
+        if (xRef) {
+            g += `<line x1="${px(xRef.value)}" y1="${padT}" x2="${px(xRef.value)}" y2="${padT + ih}" stroke="${CHART_INK.axis}" stroke-width="1" stroke-dasharray="4,3"/>`
+               + `<text x="${px(xRef.value) + 5}" y="${padT + 10}" font-size="9.5" font-weight="600" fill="${CHART_INK.label}">${escapeHTML(xRef.label)}</text>`;
+        }
+        if (quadrants) {
+            const qStyle = `font-size="9.5" font-weight="700" fill="${CHART_INK.label}"`;
+            if (quadrants.tr) g += `<text x="${padL + iw - 6}" y="${padT + 10}" text-anchor="end" ${qStyle}>${escapeHTML(quadrants.tr)}</text>`;
+            if (quadrants.tl) g += `<text x="${padL + 6}" y="${padT + 10}" ${qStyle}>${escapeHTML(quadrants.tl)}</text>`;
+            if (quadrants.br) g += `<text x="${padL + iw - 6}" y="${padT + ih - 6}" text-anchor="end" ${qStyle}>${escapeHTML(quadrants.br)}</text>`;
+            if (quadrants.bl) g += `<text x="${padL + 6}" y="${padT + ih - 6}" ${qStyle}>${escapeHTML(quadrants.bl)}</text>`;
+        }
         const ordered = points.slice().sort((a, b) => (a.highlight ? 1 : 0) - (b.highlight ? 1 : 0)); // highlights drawn on top
         ordered.forEach(p => {
             g += p.highlight
@@ -1501,29 +1512,21 @@ function initSgHub() {
     function renderSalaryGrowthPane(salaryGrowth) {
         const container = document.getElementById("hub-salary-growth-content");
         if (!container) return;
-        if (!salaryGrowth || !salaryGrowth.occupations || !salaryGrowth.occupations.length) {
-            container.innerHTML = "<p style='color: var(--text-subtle); margin:0;'>Salary growth data unavailable.</p>";
+        const card = container.closest(".hub-card");
+
+        // Data-freshness policy: no data, or an annual dataset whose latest reference year is
+        // more than a year old → remove the panel entirely rather than show a placeholder.
+        if (!salaryGrowth || !salaryGrowth.occupations || !salaryGrowth.occupations.length || salaryGrowth.is_stale) {
+            if (card) card.style.display = "none";
             return;
         }
+        if (card) card.style.display = "";
 
         const { latest_year, prior_year, occupations } = salaryGrowth;
 
         const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
             <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML(salaryGrowth.synced_at || getRetrievalTimestamp())}
         </div>`;
-
-        // Data-freshness policy: annual datasets whose latest reference year is more than a
-        // year old are screened out rather than shown as if current.
-        if (salaryGrowth.is_stale) {
-            container.innerHTML = banner + `
-                <div style="background: var(--bg-muted); border: 1px dashed var(--border); border-radius: 8px; padding: 14px 16px; font-size: 12.5px; color: var(--text-muted); line-height: 1.55;">
-                    <strong style="color: var(--text-main);">⏸️ Screened out — dataset over 1 year old.</strong><br>
-                    SingStat's median income by broad occupation series currently only covers <strong>${escapeHTML(String(latest_year))}</strong> (vs ${escapeHTML(String(prior_year))}).
-                    Under this dashboard's freshness policy it stays hidden until the next annual release, so outdated medians aren't presented as current.
-                    The <strong>Occupational Wage Explorer</strong> below already carries the latest MOM June wage survey, per detailed job title.
-                </div>`;
-            return;
-        }
 
         // Insight-first: the top 5 risers plus the single slowest category, with a one-line
         // takeaway — the full 8-category bar dump duplicated the OWS movers list below.
@@ -1700,8 +1703,9 @@ function initSgHub() {
                     <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                         <span><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${CHART_SERIES[0]}; margin-right:5px;"></span>Tech / digital</span>
                         <span><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${CHART_CONTEXT}; opacity:0.7; margin-right:5px;"></span>All other occupations</span>
-                        <span>Top-right = high pay <em>and</em> still rising. Hover any dot.</span>
+                        <span>Hover any dot for the job title.</span>
                     </div>
+                    <div id="occ-wage-scatter-note" style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;"></div>
                 </div>
             </div>
 
@@ -1711,7 +1715,7 @@ function initSgHub() {
                     <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px;">${upMovers.map(o => occMoverRow(o, maxAbsPct)).join('')}</div>
                 </div>
                 <div style="flex: 1; min-width: 280px;">
-                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">📉 Top 5 Steepest Declines</div>
+                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">📉 Top 5 Steepest Declines (${escapeHTML(String(data.prior_year))} &rarr; ${escapeHTML(String(data.latest_year))})</div>
                     <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px;">${downMovers.map(o => occMoverRow(o, maxAbsPct)).join('')}</div>
                 </div>
             </div>
@@ -1775,6 +1779,8 @@ function initSgHub() {
 
     function renderOccWageCharts(data) {
         const priced = data.all_occupations.filter(o => o.gross);
+        const grosses = priced.map(o => o.gross).sort((a, b) => a - b);
+        const medianGross = grosses[Math.floor(grosses.length / 2)] || 0;
 
         // Histogram: how many job titles fall in each monthly-wage band
         const bands = [
@@ -1791,19 +1797,29 @@ function initSgHub() {
                 values: counts,
                 tooltipFor: i => `<div style="font-weight:700;">S$${bands[i].label}/mth gross</div><div><strong>${counts[i]}</strong> of ${priced.length} job titles (${Math.round(counts[i] / priced.length * 100)}%)</div>`,
             });
-            const grosses = priced.map(o => o.gross).sort((a, b) => a - b);
-            const medianGross = grosses[Math.floor(grosses.length / 2)];
             const note = document.getElementById("occ-wage-hist-note");
             if (note) note.innerHTML = `💡 The median occupation earns <strong>S$${medianGross.toLocaleString()}/mth</strong> gross — half of all tracked job titles sit below that line.`;
         }
 
-        // Scatter: wage level vs YoY change, tech roles highlighted
+        // Scatter: wage level vs YoY change, tech roles highlighted. The median-wage line +
+        // zero line split it into quadrants so the reading is explicit: top-right = jobs that
+        // already pay above the median AND still got a raise.
         const scatterEl = document.getElementById("occ-wage-scatter");
         if (scatterEl) {
             const pts = priced.filter(o => o.pct_change != null).map(o => ({
                 x: o.gross, y: o.pct_change, name: o.name, sub: o.group || "", highlight: o.is_tech,
             }));
-            renderScatterChart(scatterEl, { points: pts, xLabel: "median gross monthly wage (S$)" });
+            renderScatterChart(scatterEl, {
+                points: pts,
+                xLabel: "median gross monthly wage (S$)",
+                xRef: { value: medianGross, label: `median S$${medianGross.toLocaleString()}` },
+                quadrants: { tl: "↑ rising", bl: "↓ falling", tr: "high pay · rising", br: "high pay · falling" },
+            });
+            const inQuad = pts.filter(p => p.x >= medianGross && p.y > 0);
+            const techPts = pts.filter(p => p.highlight);
+            const techInQuad = inQuad.filter(p => p.highlight);
+            const noteEl = document.getElementById("occ-wage-scatter-note");
+            if (noteEl) noteEl.innerHTML = `💡 <strong>${inQuad.length}</strong> of ${pts.length} occupations (${Math.round(inQuad.length / pts.length * 100)}%) land in the sweet spot — above-median pay <em>and</em> a rising wage. Tech roles get there disproportionately often: <strong>${techInQuad.length} of ${techPts.length}</strong> (${Math.round(techInQuad.length / Math.max(techPts.length, 1) * 100)}%).`;
         }
     }
 
@@ -1897,7 +1913,7 @@ function initSgHub() {
             : quarterRaw;
 
         headlineEl.textContent = workerCount;
-        detailsEl.textContent = `Primarily in ${retrenchment.industries}. Overall six-month re-employment rate stands at ${retrenchment.reemployment_rate}.`;
+        detailsEl.textContent = `Primarily in ${retrenchment.industries}.`;
         sourceEl.innerHTML = `<i class="fa-regular fa-calendar"></i> Data as of: ${escapeHTML(quarterLabel)}`;
     }
 
@@ -1970,45 +1986,16 @@ function initSgHub() {
         const details = sgHubJobsData[sector];
         
         const vacNum = parseInt(details.vacancies.replace(/[^0-9]/g, '')) || 0;
-        const salNum = parseInt(details.salary.replace(/[^0-9]/g, '')) || 0;
-        
         const vacPct = Math.min((vacNum / 30000) * 100, 100);
-        const salPct = Math.min((salNum / 12000) * 100, 100);
 
-        // Real YoY trend + forecast come from the backend (MOM job vacancy data via data.gov.sg).
-        // Risk level / drivers / support schemes below are illustrative context, not sourced from that dataset.
+        // Everything shown here is real MOM job vacancy data (BigQuery / data.gov.sg). The
+        // former illustrative fields (median salary, skills, risk level, drivers, schemes)
+        // were removed — hardcoded figures don't belong next to live ones.
         const trendPctNum = parseFloat(details.trend_pct) || 0;
         const growthRate = details.trend_pct !== "N/A"
             ? `${trendPctNum >= 0 ? "▲" : "▼"} ${details.trend_pct} YoY`
             : "N/A";
         const growthColor = trendPctNum >= 0 ? "#10b981" : "#f59e0b"; // green if growing, amber if declining — matches the real trend sign
-
-        let riskLevel = "";
-        let riskColor = "";
-        let growthDrivers = "";
-        let momSupport = "";
-
-        if (sector === "tech") {
-            riskLevel = "Moderate (210 cases last Q)";
-            riskColor = "#f59e0b";
-            growthDrivers = "Generative AI applications, Cloud Infrastructure scaling, Cyber Security defense.";
-            momSupport = "Eligible for TechSkills Accelerator (TeSA) training subsidies and SCTP transition programs.";
-        } else if (sector === "finance") {
-            riskLevel = "Low (90 cases last Q)";
-            riskColor = "#10b981";
-            growthDrivers = "Sustainable ESG Finance, Wealth Management setups, Blockchain asset tokenization.";
-            momSupport = "Supported by IBF Standards Training and Financial Sector Technology (FSTI) grants.";
-        } else if (sector === "healthcare") {
-            riskLevel = "Very Low (12 cases last Q)";
-            riskColor = "#10b981";
-            growthDrivers = "Geriatric care expansion, National Electronic Health Records (NEHR) digitization, Telehealth platforms.";
-            momSupport = "Eligible for Healthcare Professional Conversion Programmes (PCP) with up to 90% salary support.";
-        } else {
-            riskLevel = "Low-Moderate";
-            riskColor = "#f59e0b";
-            growthDrivers = "Green economy transition, advanced manufacturing automation, wholesale trade digitization.";
-            momSupport = "General SCTP conversion courses and SGUnited Skills transition frameworks.";
-        }
 
         jobsContent.innerHTML = `
             <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
@@ -2023,52 +2010,19 @@ function initSgHub() {
                     <div style="width:${vacPct}%; background:linear-gradient(90deg, var(--primary) 0%, #ff8882 100%); height:100%; border-radius:4px;"></div>
                 </div>
             </div>
-            
-            <div style="margin-bottom: 16px;">
-                <div style="display:flex; justify-content:space-between; margin-bottom: 6px; font-size:13px;">
-                    <strong>💵 Median Starting Salary:</strong>
-                    <span style="color:var(--link); font-weight:700;">${escapeHTML(details.salary)}</span>
-                </div>
-                <div style="width:100%; background:var(--border); height:8px; border-radius:4px; overflow:hidden;">
-                    <div style="width:${salPct}%; background:linear-gradient(90deg, var(--link) 0%, #8bc4ff 100%); height:100%; border-radius:4px;"></div>
-                </div>
+
+            <div style="background: var(--bg-muted); border: 1px solid var(--border); padding: 10px; border-radius: 6px; margin-bottom: 12px; max-width: 260px;">
+                <span style="font-size: 10px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px; text-transform: uppercase;">📈 YoY Growth Index</span>
+                <strong style="font-size: 14px; color: ${growthColor};">${growthRate}</strong>
             </div>
 
-            <div style="margin-bottom: 16px; font-size:13px;">
-                <span style="display:block; margin-bottom:6px; color: var(--text-muted); font-weight:700;">🔑 Top Demanded Skills:</span>
-                <div style="display:flex; flex-wrap:wrap; gap:6px;">
-                    ${details.skills.split(",").map(sk => `<span style="background: var(--primary-soft); color: var(--primary); border:1px solid var(--border); border-radius:12px; padding:2px 10px; font-size:11px; font-weight:600;">${escapeHTML(sk.trim())}</span>`).join("")}
-                </div>
-            </div>
-            
             <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; font-size:12px; color: var(--text-muted); line-height:1.5;">
                 <strong>📈 Industry Outlook:</strong> ${escapeHTML(details.trend)}
             </div>
-
-            <div style="margin-top: 16px; border-top: 1px solid var(--border); padding-top: 16px;">
-                <strong style="display:block; margin-bottom:10px; font-size:13px; color:var(--text-main); font-weight:700;">
-                    <i class="fa-solid fa-chart-pie" style="color:var(--primary);"></i> YA 2026 MOM Sector Insights
-                </strong>
-                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom: 12px;">
-                    <div style="background: var(--bg-muted); border: 1px solid var(--border); padding: 10px; border-radius: 6px;">
-                        <span style="font-size: 10px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px; text-transform: uppercase;">📈 YoY Growth Index</span>
-                        <strong style="font-size: 14px; color: ${growthColor};">${growthRate}</strong>
-                    </div>
-                    <div style="background: var(--bg-muted); border: 1px solid var(--border); padding: 10px; border-radius: 6px;">
-                        <span style="font-size: 10px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px; text-transform: uppercase;">⚠️ Retrenchment Risk</span>
-                        <strong style="font-size: 13px; color: ${riskColor};">${riskLevel}</strong>
-                    </div>
-                </div>
-                <div style="font-size:12px; line-height: 1.5; color: var(--text-main); margin-bottom:8px;">
-                    <strong>💡 Market Drivers:</strong> ${escapeHTML(growthDrivers)}
-                </div>
-                <div style="font-size:12px; line-height: 1.5; color: var(--text-main);">
-                    <strong>🎯 Support Scheme:</strong> ${escapeHTML(momSupport)}
-                </div>
-            </div>
+            <div style="font-size:10px; color: var(--text-muted); margin-top:10px;">ℹ️ All figures are live MOM Job Vacancy data (BigQuery / data.gov.sg); the forecast is a naive YoY extrapolation. For wages per job title, see the Occupational Wage Explorer below.</div>
 
             <div style="margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; display:flex; justify-content:flex-end;">
-                <button class="chat-sector-btn" data-prompt="Analyze the YA 2026 job market trends, salaries and active vacancies in Singapore's ${sector} sector" style="background:var(--primary); color:#ffffff; font-weight:700; border:none; padding:8px 14px; border-radius:6px; font-size:12px; cursor:pointer; transition:all 0.2s ease;">
+                <button class="chat-sector-btn" data-prompt="Analyze the latest job market trends, active vacancies and typical wages in Singapore's ${sector} sector" style="background:var(--primary); color:#ffffff; font-weight:700; border:none; padding:8px 14px; border-radius:6px; font-size:12px; cursor:pointer; transition:all 0.2s ease;">
                     <i class="fa-solid fa-robot"></i> Ask Co-Pilot to Analyze
                 </button>
             </div>
