@@ -1068,6 +1068,42 @@ body {
     }
 }
 
+/* ── SG Hub dashboard: mobile responsiveness ────────────────────────────────
+   The hub cards have no min-width:0 guard and the resale "by Town" rows use
+   rigid fixed-width columns that squeeze the town name to invisibility on
+   phones. These rules fix overflow + the invisible-town bug. */
+@media (max-width: 600px) {
+    .hub-card {
+        padding: 16px;
+    }
+
+    /* Resale "by Town" rows: the rigid bar(100px)+price(90px)+txns(60px)
+       columns leave only ~30px for the town name (nowrap+ellipsis) on a
+       320px screen, so the town is invisible. Let them wrap/stack. */
+    #hub-hdb-resale [style*="display:flex"][style*="gap:10px"] {
+        flex-wrap: wrap;
+        gap: 6px 10px;
+    }
+    #hub-hdb-resale [style*="width:100px"],
+    #hub-hdb-resale [style*="width:90px"],
+    #hub-hdb-resale [style*="width:60px"] {
+        flex: 1 1 100%;
+        width: 100% !important;
+        text-align: left;
+    }
+    /* top summary boxes should stack instead of fighting for 200px min-width */
+    #hub-hdb-resale [style*="min-width: 200px"] {
+        min-width: 0 !important;
+        flex-basis: 100% !important;
+    }
+
+    /* Generic alert cards: long content + "View Alert" link must wrap and
+       never spill outside the card bound. */
+    .hub-sub-pane [style*="margin-bottom: 8px"] {
+        overflow-wrap: anywhere;
+    }
+}
+
 /* ── SG Hub & Main Tabs Light Theme Aesthetics ────────────────────────────── */
 .main-tabs {
     display: flex;
@@ -1119,6 +1155,9 @@ body {
     padding: 20px;
     box-shadow: var(--shadow-sm);
     transition: box-shadow 0.2s, transform 0.2s;
+    /* prevent flex children from blowing the card width on small screens */
+    min-width: 0;
+    overflow-wrap: break-word;
 }
 
 .hub-card:hover {
