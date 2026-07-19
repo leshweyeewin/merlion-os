@@ -715,6 +715,7 @@ function initSgHub() {
     const taxSrsCapHint = document.getElementById("tax-srs-cap-hint");
     const taxExistingReliefs = document.getElementById("tax-existing-reliefs");
     const taxLiCap = document.getElementById("tax-li-cap");
+    const taxDonations = document.getElementById("tax-donations");
     const relItems = Array.from(document.querySelectorAll(".rel-item"));
 
     // Pre-existing reliefs are now itemised; auto-sum them into the total display.
@@ -1118,8 +1119,11 @@ function initSgHub() {
                 const effectiveDeduction = Math.min(totalDeductible, headroom);
                 const cappedOut = Math.max(0, (preExisting + totalDeductible) - RELIEF_CAP);
 
-                // Chargeable income the optimization acts on (assessable less pre-existing reliefs)
-                const referenceIncome = Math.max(0, income - preExisting);
+                // Chargeable income the optimization acts on (assessable less pre-existing
+                // reliefs AND donations — donations are a separate deduction, not a relief,
+                // so they reduce taxable income but do NOT consume the S$80k relief cap).
+                const donations = Math.max(0, parseFloat(taxDonations.value) || 0);
+                const referenceIncome = Math.max(0, income - preExisting - donations);
 
                 // Calculate taxes
                 let originalTax = calculateSingaporeTax(referenceIncome);
@@ -1257,7 +1261,7 @@ function initSgHub() {
                     <div style="background:#eafaf1; border: 1px solid #a3d9b1; padding:16px; border-radius:10px; margin-bottom:20px; text-align:center;">
                         <span style="font-size:12px; font-weight:700; color:#1a7f3c; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px;">Estimated Tax Savings</span>
                         <span style="font-size:32px; font-weight:900; color:#1a7f3c; display:block; margin-bottom:6px;">S$${totalSaved.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                        <p style="margin:0; font-size:12.5px; color:#1b5e20; font-weight:600;">Your chargeable income of S$${referenceIncome.toLocaleString()} (assessable S$${income.toLocaleString()} less S$${preExisting.toLocaleString()} existing reliefs) is within the <strong>S$20,000 tax-free threshold</strong>, so you currently owe <strong>S$0</strong> income tax. The top-up still grows your retirement (CPF SA + SRS) even with no immediate tax saving.</p>
+                        <p style="margin:0; font-size:12.5px; color:#1b5e20; font-weight:600;">Your chargeable income of S$${referenceIncome.toLocaleString()} (assessable S$${income.toLocaleString()} less S$${preExisting.toLocaleString()} existing reliefs${donations > 0 ? ` and S$${donations.toLocaleString()} donations` : ""}) is within the <strong>S$20,000 tax-free threshold</strong>, so you currently owe <strong>S$0</strong> income tax. The top-up still grows your retirement (CPF SA + SRS) even with no immediate tax saving.</p>
                     </div>`;
                 } else {
                     savingsBoxHtml = `
@@ -2278,83 +2282,116 @@ function initSgHub() {
         const groups = [...new Set(data.all_occupations.map(o => o.group).filter(Boolean))].sort();
         const groupOptions = groups.map(g => `<option value="${escapeHTML(g)}">${escapeHTML(g)}</option>`).join('');
 
-        container.innerHTML = banner + tiles + insights + `
-            <div style="display:flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;">
-                <div style="flex: 1; min-width: 300px;">
-                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">📊 Where Do Wages Sit? (${data.occupation_count} titles)</div>
-                    <div id="occ-wage-hist" style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 4px;"></div>
-                    <div id="occ-wage-hist-note" style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;"></div>
+        // The card is split into four small views behind a tab bar — one focused section
+        // at a time instead of every chart, list and table stacked in a single scroll.
+        const viewTabs = `
+            <div style="display:flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+                <button class="sector-tab-btn occ-view-btn active-sector" data-occ-view="overview">💡 Overview</button>
+                <button class="sector-tab-btn occ-view-btn" data-occ-view="charts">📊 Charts</button>
+                <button class="sector-tab-btn occ-view-btn" data-occ-view="movers">🚀 Movers &amp; New Titles</button>
+                <button class="sector-tab-btn occ-view-btn" data-occ-view="lookup">🔎 Wage Lookup</button>
+            </div>`;
+
+        container.innerHTML = banner + viewTabs + `
+            <div class="occ-view" data-occ-pane="overview">
+                ${tiles}
+                ${insights}
+                <div style="display:flex; justify-content:flex-end;">
+                    <button id="occ-wage-chat-btn" data-prompt="Based on Singapore's latest MOM Occupational Wage Survey, which jobs had the best salary increment rates this year, what new AI-era job titles were created and what do they pay, and should someone in a declining occupation consider a sector change?" style="background:var(--primary); color:#ffffff; font-weight:700; border:none; padding:8px 14px; border-radius:6px; font-size:12px; cursor:pointer; transition:all 0.2s ease;">
+                        <i class="fa-solid fa-robot"></i> Ask Co-Pilot for Career Insights
+                    </button>
                 </div>
-                <div style="flex: 1; min-width: 300px;">
-                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🎯 Pay vs Raise — Every Occupation</div>
-                    <div id="occ-wage-scatter" style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 4px;"></div>
-                    <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                        <span><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${CHART_SERIES[0]}; margin-right:5px;"></span>Tech / digital</span>
-                        <span><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${CHART_CONTEXT}; opacity:0.7; margin-right:5px;"></span>All other occupations</span>
-                        <span>Hover any dot for the job title.</span>
+            </div>
+
+            <div class="occ-view hidden" data-occ-pane="charts">
+                <div style="display:flex; gap: 16px; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 300px;">
+                        <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">📊 Where Do Wages Sit? (${data.occupation_count} titles)</div>
+                        <div id="occ-wage-hist" style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 4px;"></div>
+                        <div id="occ-wage-hist-note" style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;"></div>
                     </div>
-                    <div id="occ-wage-scatter-note" style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;"></div>
-                </div>
-            </div>
-
-            <div style="display:flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;">
-                <div style="flex: 1; min-width: 280px;">
-                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🚀 Top 5 Fastest Rising Wages (${escapeHTML(String(data.prior_year))} &rarr; ${escapeHTML(String(data.latest_year))})</div>
-                    <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px;">${upMovers.map(o => occMoverRow(o, maxAbsPct)).join('')}</div>
-                </div>
-                <div style="flex: 1; min-width: 280px;">
-                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">📉 Top 5 Steepest Declines (${escapeHTML(String(data.prior_year))} &rarr; ${escapeHTML(String(data.latest_year))})</div>
-                    <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px;">${downMovers.map(o => occMoverRow(o, maxAbsPct)).join('')}</div>
-                </div>
-            </div>
-
-            <div style="display:flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;">
-                <div style="flex: 1; min-width: 280px;">
-                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🤖 Top 5 Highest-Paying Tech &amp; Digital Roles</div>
-                    <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px;">${techRows}</div>
-                </div>
-                <div style="flex: 1; min-width: 280px;">
-                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🆕 Notable New Job Titles (🤖 = tech/AI-era)</div>
-                    <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px 12px 4px;">
-                        ${newChips || '<p style="color: var(--text-subtle); margin:0 0 8px;">No newly created titles this edition.</p>'}
-                        <div style="font-size: 10px; color: var(--text-muted); margin: 4px 0 8px;">${moreNewCount > 0 ? `+${moreNewCount} more new titles — find them in the wage lookup below. ` : ''}Renamed titles are already matched to their old rows and excluded.</div>
+                    <div style="flex: 1; min-width: 300px;">
+                        <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🎯 Pay vs Raise — Every Occupation</div>
+                        <div id="occ-wage-scatter" style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 4px;"></div>
+                        <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                            <span><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${CHART_SERIES[0]}; margin-right:5px;"></span>Tech / digital</span>
+                            <span><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${CHART_CONTEXT}; opacity:0.7; margin-right:5px;"></span>All other occupations</span>
+                            <span>Hover any dot for the job title.</span>
+                        </div>
+                        <div id="occ-wage-scatter-note" style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;"></div>
                     </div>
                 </div>
             </div>
 
-            <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🔎 Wage Lookup (June ${escapeHTML(String(data.latest_year))} medians)</div>
-            <div style="display:flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; align-items: center;">
-                <input id="occ-wage-search" type="text" placeholder="Search a job title, e.g. software, nurse, analyst..." style="flex: 2; min-width: 200px; padding: 8px 12px; font-size: 13px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-muted); color: var(--text-main); outline: none;">
-                <select id="occ-wage-group-filter" style="flex: 1; min-width: 160px; padding: 8px; font-size: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-muted); color: var(--text-main); outline: none;">
-                    <option value="">All occupation groups</option>
-                    ${groupOptions}
-                </select>
-                <select id="occ-wage-sort" style="flex: 1; min-width: 140px; padding: 8px; font-size: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-muted); color: var(--text-main); outline: none;">
-                    <option value="gross">Sort: Highest wage</option>
-                    <option value="pct_desc">Sort: Best YoY increment</option>
-                    <option value="pct_asc">Sort: Worst YoY increment</option>
-                    <option value="name">Sort: Name A–Z</option>
-                </select>
-                <label style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color: var(--text-main); cursor:pointer; white-space:nowrap;">
-                    <input id="occ-wage-tech-only" type="checkbox" style="accent-color: var(--primary);"> 🤖 Tech only
-                </label>
+            <div class="occ-view hidden" data-occ-pane="movers">
+                <div style="display:flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;">
+                    <div style="flex: 1; min-width: 280px;">
+                        <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🚀 Top 5 Fastest Rising Wages (${escapeHTML(String(data.prior_year))} &rarr; ${escapeHTML(String(data.latest_year))})</div>
+                        <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px;">${upMovers.map(o => occMoverRow(o, maxAbsPct)).join('')}</div>
+                    </div>
+                    <div style="flex: 1; min-width: 280px;">
+                        <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">📉 Top 5 Steepest Declines (${escapeHTML(String(data.prior_year))} &rarr; ${escapeHTML(String(data.latest_year))})</div>
+                        <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px;">${downMovers.map(o => occMoverRow(o, maxAbsPct)).join('')}</div>
+                    </div>
+                </div>
+                <div style="display:flex; gap: 16px; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 280px;">
+                        <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🤖 Top 5 Highest-Paying Tech &amp; Digital Roles</div>
+                        <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px;">${techRows}</div>
+                    </div>
+                    <div style="flex: 1; min-width: 280px;">
+                        <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🆕 Notable New Job Titles (🤖 = tech/AI-era)</div>
+                        <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px 12px 4px;">
+                            ${newChips || '<p style="color: var(--text-subtle); margin:0 0 8px;">No newly created titles this edition.</p>'}
+                            <div style="font-size: 10px; color: var(--text-muted); margin: 4px 0 8px;">${moreNewCount > 0 ? `+${moreNewCount} more new titles — find them in the Wage Lookup tab. ` : ''}Renamed titles are already matched to their old rows and excluded.</div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div style="display:flex; align-items:center; gap:10px; padding: 4px 16px; font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
-                <div style="flex: 1;">Occupation</div>
-                <div style="width:88px; flex-shrink:0; text-align:right;">Gross/mth</div>
-                <div style="width:58px; flex-shrink:0; text-align:right;">YoY</div>
-            </div>
-            <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 6px 16px; max-height: 320px; overflow-y: auto;">
-                <div id="occ-wage-table-body"></div>
-            </div>
-            <div id="occ-wage-table-count" style="font-size: 11px; color: var(--text-muted); margin-top: 8px;"></div>
-            <div style="font-size: 10px; color: var(--text-muted); margin-top: 8px;">⚠️ Survey-based figures (private-sector establishments with ≥25 employees; full-time residents) — small occupations can swing sharply year to year. 💡 Source: ${escapeHTML(data.source)}</div>
-            <div style="margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; display:flex; justify-content:flex-end;">
-                <button id="occ-wage-chat-btn" data-prompt="Based on Singapore's latest MOM Occupational Wage Survey, which jobs had the best salary increment rates this year, what new AI-era job titles were created and what do they pay, and should someone in a declining occupation consider a sector change?" style="background:var(--primary); color:#ffffff; font-weight:700; border:none; padding:8px 14px; border-radius:6px; font-size:12px; cursor:pointer; transition:all 0.2s ease;">
-                    <i class="fa-solid fa-robot"></i> Ask Co-Pilot for Career Insights
-                </button>
+
+            <div class="occ-view hidden" data-occ-pane="lookup">
+                <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🔎 Wage Lookup (June ${escapeHTML(String(data.latest_year))} medians)</div>
+                <div style="display:flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; align-items: center;">
+                    <input id="occ-wage-search" type="text" placeholder="Search a job title, e.g. software, nurse, analyst..." style="flex: 2; min-width: 200px; padding: 8px 12px; font-size: 13px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-muted); color: var(--text-main); outline: none;">
+                    <select id="occ-wage-group-filter" style="flex: 1; min-width: 160px; padding: 8px; font-size: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-muted); color: var(--text-main); outline: none;">
+                        <option value="">All occupation groups</option>
+                        ${groupOptions}
+                    </select>
+                    <select id="occ-wage-sort" style="flex: 1; min-width: 140px; padding: 8px; font-size: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-muted); color: var(--text-main); outline: none;">
+                        <option value="gross">Sort: Highest wage</option>
+                        <option value="pct_desc">Sort: Best YoY increment</option>
+                        <option value="pct_asc">Sort: Worst YoY increment</option>
+                        <option value="name">Sort: Name A–Z</option>
+                    </select>
+                    <label style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color: var(--text-main); cursor:pointer; white-space:nowrap;">
+                        <input id="occ-wage-tech-only" type="checkbox" style="accent-color: var(--primary);"> 🤖 Tech only
+                    </label>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; padding: 4px 16px; font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+                    <div style="flex: 1;">Occupation</div>
+                    <div style="width:88px; flex-shrink:0; text-align:right;">Gross/mth</div>
+                    <div style="width:58px; flex-shrink:0; text-align:right;">YoY</div>
+                </div>
+                <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 6px 16px; max-height: 320px; overflow-y: auto;">
+                    <div id="occ-wage-table-body"></div>
+                </div>
+                <div id="occ-wage-table-count" style="font-size: 11px; color: var(--text-muted); margin-top: 8px;"></div>
+                <div style="font-size: 10px; color: var(--text-muted); margin-top: 8px;">⚠️ Survey-based figures (private-sector establishments with ≥25 employees; full-time residents) — small occupations can swing sharply year to year. 💡 Source: ${escapeHTML(data.source)}</div>
             </div>
         `;
+
+        container.querySelectorAll(".occ-view-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                container.querySelectorAll(".occ-view-btn").forEach(b => b.classList.remove("active-sector"));
+                btn.classList.add("active-sector");
+                const view = btn.getAttribute("data-occ-view");
+                container.querySelectorAll(".occ-view").forEach(p =>
+                    p.classList.toggle("hidden", p.getAttribute("data-occ-pane") !== view));
+                // Charts are first laid out inside a hidden pane (clientWidth 0 → fallback
+                // width); re-render on reveal so they size to the real pane width.
+                if (view === "charts") renderOccWageCharts(data);
+            });
+        });
 
         document.getElementById("occ-wage-search").addEventListener("input", renderOccWageTableRows);
         document.getElementById("occ-wage-group-filter").addEventListener("change", renderOccWageTableRows);

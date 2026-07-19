@@ -19,9 +19,11 @@ Singapore caps **total tax reliefs at S$80,000** (YA2018+). The optimizer:
 
 ## Form layout
 The optimizer form is ordered for clarity:
-1. **Your Profile** — Residency Status → Annual Assessable Income → Top-up Budget → Life Insurance Relief Top-up
+1. **Your Profile** — Residency Status → Annual Assessable Income → Top-up Budget → Life Insurance Relief Top-up → **Donations**
 2. **Relief Caps** — Max CPF SA and Max SRS (in their own section, outside the profile grid)
 3. **Pre-existing Reliefs** — itemised inputs that auto-sum into the S$80k cap
 
+> **Donations are a separate deduction**, not a relief. They reduce your chargeable income (and thus tax) but do **not** consume the S$80k relief-cap headroom. Enter any charitable donations in the Profile section.
+
 ## Verification
-The engine was validated against a real YA2026 notice (income S$103,701; reliefs S$22,340; chargeable income S$80,311; tax S$3,385.77) — the optimizer reproduces the chargeable income and tax exactly once donations are accounted for separately.
+The engine was validated against a real YA2026 notice (income S$103,701; reliefs S$22,340; **donations S$1,050**; chargeable income S$80,311; tax S$3,385.77) — the optimizer now reproduces the chargeable income **and** tax exactly, with donations entered separately from reliefs.

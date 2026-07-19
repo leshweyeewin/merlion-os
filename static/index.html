@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Style Sheet -->
     <link rel="icon" type="image/png" href="merlion-icon.png">
-    <link rel="stylesheet" href="style.css?v=jobins11">
+    <link rel="stylesheet" href="style.css?v=jobins12">
 </head>
 <body>
     <div class="app-container">
@@ -1421,7 +1421,7 @@
                         <h3>
                             <i class="fa-solid fa-magnifying-glass-dollar"></i> Occupational Wage Explorer (MOM OWS)
                         </h3>
-                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">Key takeaways from the latest MOM Occupational Wage Survey — top wage risers and decliners, best-paying tech roles, newly created (AI-era) occupations, plus a search-driven lookup across 500+ detailed job titles.</p>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">Latest MOM Occupational Wage Survey — switch between Overview, Charts, Movers &amp; New Titles, and a 500+ title Wage Lookup.</p>
                         <div id="hub-occ-wages-content">
                             <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading MOM occupational wage tables...</p>
                         </div>
@@ -1499,6 +1499,11 @@
                                     <label for="tax-li-cap" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-main);">Life Insurance Relief Top-up (S$)</label>
                                     <input type="number" id="tax-li-cap" value="0" min="0" step="500" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
                                     <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">Approved life insurance premiums (max S$5,000, capped at 7% of insured value)</span>
+                                </div>
+                                <div>
+                                    <label for="tax-donations" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-main);">Donations (S$)</label>
+                                    <input type="number" id="tax-donations" value="0" min="0" step="50" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                    <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">Charitable donations (tax deduction, separate from the S$80k relief cap)</span>
                                 </div>
                             </div>
                         </div>
@@ -1691,6 +1696,6 @@
         }
     </script>
     <!-- Script File -->
-    <script src="app.js?v=jobins11"></script>
+    <script src="app.js?v=jobins12"></script>
 </body>
 </html>
