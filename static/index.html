@@ -1508,11 +1508,6 @@
                                     <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">Amount you wish to allocate for CPF/SRS top-ups</span>
                                 </div>
                                 <div>
-                                    <label for="tax-li-cap" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-main);">Life Insurance Relief Top-up (S$)</label>
-                                    <input type="number" id="tax-li-cap" value="0" min="0" step="500" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
-                                    <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">Approved life insurance premiums (max S$5,000, capped at 7% of insured value)</span>
-                                </div>
-                                <div>
                                     <label for="tax-donations" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-main);">Donations (S$)</label>
                                     <input type="number" id="tax-donations" value="0" min="0" step="50" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
                                     <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">Charitable donations (tax deduction, separate from the S$80k relief cap)</span>
@@ -1520,18 +1515,18 @@
                             </div>
                         </div>
 
-                        <!-- Section 2: Relief Caps (advanced) -->
+                        <!-- Section 2: Relief Caps -->
                         <div style="margin-bottom:18px;">
-                            <div style="font-size:11px; font-weight:800; letter-spacing:0.6px; text-transform:uppercase; color:var(--primary); margin-bottom:10px;">Relief Caps <span style="font-weight:500; text-transform:none; letter-spacing:0; color:var(--text-muted);">(advanced — defaults to statutory YA2026 limits)</span></div>
-                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; background:var(--bg-muted); border:1px dashed var(--border); padding:16px; border-radius:10px;">
+                            <div style="font-size:11px; font-weight:800; letter-spacing:0.6px; text-transform:uppercase; color:var(--primary); margin-bottom:10px;">Relief Caps <span style="font-weight:500; text-transform:none; letter-spacing:0; color:var(--text-muted);">(Statutory limits fetched dynamically from CPF/IRAS website)</span></div>
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; background:var(--bg-muted); border:1px solid var(--border); padding:16px; border-radius:10px;">
                                 <div>
-                                    <label for="tax-cpf-cap" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-main);">Max CPF SA (RSTU) Top-up (S$)</label>
-                                    <input type="number" id="tax-cpf-cap" value="8000" min="0" step="500" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
-                                    <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">Statutory annual CPF SA top-up relief cap (S$8,000)</span>
+                                    <label for="tax-cpf-cap" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-muted);">Max CPF SA (RSTU) Top-up (S$)</label>
+                                    <input type="number" id="tax-cpf-cap" value="8000" readonly style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-muted); color:var(--text-muted); font-weight:600; cursor:not-allowed;">
+                                    <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">Annual CPF SA top-up relief cap (S$8,000)</span>
                                 </div>
                                 <div>
-                                    <label for="tax-srs-cap" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-main);">Max SRS Contribution (S$)</label>
-                                    <input type="number" id="tax-srs-cap" value="15300" min="0" step="500" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                    <label for="tax-srs-cap" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-muted);">Max SRS Contribution (S$)</label>
+                                    <input type="number" id="tax-srs-cap" value="15300" readonly style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-muted); color:var(--text-muted); font-weight:600; cursor:not-allowed;">
                                     <span id="tax-srs-cap-hint" style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">SRS yearly relief cap (S$15,300 Citizen/PR)</span>
                                 </div>
                             </div>

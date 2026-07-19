@@ -901,14 +901,39 @@ function initSgHub() {
     const taxSrsCap = document.getElementById("tax-srs-cap");
     const taxSrsCapHint = document.getElementById("tax-srs-cap-hint");
     const taxExistingReliefs = document.getElementById("tax-existing-reliefs");
-    const taxLiCap = document.getElementById("tax-li-cap");
     const taxDonations = document.getElementById("tax-donations");
     const relItems = Array.from(document.querySelectorAll(".rel-item"));
 
-    // Pre-existing reliefs are now itemised; auto-sum them into the total display.
+    // Pre-existing reliefs are now itemised; auto-sum them applying statutory caps.
     function computePreExistingReliefs() {
-        let sum = 0;
-        relItems.forEach(inp => { sum += Math.max(0, parseFloat(inp.value) || 0); });
+        const cpfEmpVal = Math.max(0, parseFloat(document.getElementById("rel-cpf-emp")?.value) || 0);
+        const wmcrVal = Math.max(0, parseFloat(document.getElementById("rel-wmcr")?.value) || 0);
+        const childVal = Math.max(0, parseFloat(document.getElementById("rel-child")?.value) || 0);
+        const parentVal = Math.max(0, parseFloat(document.getElementById("rel-parent")?.value) || 0);
+        const nsmanVal = Math.max(0, parseFloat(document.getElementById("rel-nsman")?.value) || 0);
+        const rawLifeVal = Math.max(0, parseFloat(document.getElementById("rel-life")?.value) || 0);
+        const cpfCashVal = Math.max(0, parseFloat(document.getElementById("rel-cpf-cash")?.value) || 0);
+        const srsVal = Math.max(0, parseFloat(document.getElementById("rel-srs")?.value) || 0);
+        const earnedVal = Math.max(0, parseFloat(document.getElementById("rel-earned")?.value) || 0);
+        const otherVal = Math.max(0, parseFloat(document.getElementById("rel-other")?.value) || 0);
+
+        // Life Insurance Relief Cap: Max is lower of actual premiums or (S$5,000 - CPF Employee contributions)
+        const allowedLifeRelief = Math.min(rawLifeVal, Math.max(0, 5000 - cpfEmpVal));
+        
+        // Let's dynamically update a visual label or style for life insurance to inform the user if it's capped
+        const relLife = document.getElementById("rel-life");
+        if (relLife) {
+            const lifeCap = Math.max(0, 5000 - cpfEmpVal);
+            if (rawLifeVal > lifeCap) {
+                relLife.style.borderColor = "var(--primary)";
+                relLife.title = `Capped at S$${lifeCap.toLocaleString()} due to S$5,000 ceiling minus CPF Employee contributions`;
+            } else {
+                relLife.style.borderColor = "var(--border)";
+                relLife.title = "";
+            }
+        }
+
+        const sum = cpfEmpVal + wmcrVal + childVal + parentVal + nsmanVal + allowedLifeRelief + cpfCashVal + srsVal + earnedVal + otherVal;
         if (taxExistingReliefs) taxExistingReliefs.textContent = "S$" + sum.toLocaleString();
         return sum;
     }
@@ -1175,6 +1200,21 @@ function initSgHub() {
     function renderTaxPane(data) {
         if (!taxDeadlinesContent) return;
 
+        // Populate limits fetched dynamically
+        if (data.limits) {
+            if (taxCpfCap) taxCpfCap.value = data.limits.cpf_sa_rstu_max;
+            if (taxSrsCap) {
+                const isForeigner = taxResidencyStatus ? taxResidencyStatus.value === "foreigner" : false;
+                const srsLimit = isForeigner ? data.limits.srs_foreigner_max : data.limits.srs_citizen_pr_max;
+                taxSrsCap.value = srsLimit;
+                if (taxSrsCapHint) {
+                    taxSrsCapHint.textContent = isForeigner
+                        ? `SRS yearly relief cap (S$${srsLimit.toLocaleString()} Foreigner)`
+                        : `SRS yearly relief cap (S$${srsLimit.toLocaleString()} Citizen/PR)`;
+                }
+            }
+        }
+
         // --- Render IRAS Due Dates Timeline ---
         const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
             <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${getRetrievalTimestamp()}
@@ -1246,15 +1286,16 @@ function initSgHub() {
             return tax;
         }
 
-        // --- Auto-sync SRS cap when residency changes (unless user overrode it) ---
+        // --- Auto-sync SRS cap when residency changes ---
         if (taxResidencyStatus && taxSrsCap) {
             taxResidencyStatus.addEventListener("change", () => {
                 const isForeigner = taxResidencyStatus.value === "foreigner";
-                taxSrsCap.value = isForeigner ? 35700 : 15300;
+                const srsLimit = data.limits ? (isForeigner ? data.limits.srs_foreigner_max : data.limits.srs_citizen_pr_max) : (isForeigner ? 35700 : 15300);
+                taxSrsCap.value = srsLimit;
                 if (taxSrsCapHint) {
                     taxSrsCapHint.textContent = isForeigner
-                        ? "SRS yearly relief cap (S$35,700 Foreigner)"
-                        : "SRS yearly relief cap (S$15,300 Citizen/PR)";
+                        ? `SRS yearly relief cap (S$${srsLimit.toLocaleString()} Foreigner)`
+                        : `SRS yearly relief cap (S$${srsLimit.toLocaleString()} Citizen/PR)`;
                 }
             });
         }
@@ -1275,12 +1316,9 @@ function initSgHub() {
                     return;
                 }
 
-                // Read user-configurable relief caps (defaulted to statutory YA2026 limits)
+                // Read statutory relief caps (loaded dynamically from API)
                 const maxCPFReliefSelf = Math.max(0, parseFloat(taxCpfCap.value) || 0);
                 const maxSRSRelief = Math.max(0, parseFloat(taxSrsCap.value) || 0);
-                // Life Insurance Relief: approved premiums, relief capped at lower of
-                // S$5,000 or 7% of the insured value (subject to the overall S$80k relief cap).
-                const maxLIRelief = Math.max(0, parseFloat(taxLiCap.value) || 0);
 
                 // --- S$80,000 total personal relief cap (effective YA 2018+) ---
                 const RELIEF_CAP = 80000;
@@ -1290,15 +1328,12 @@ function initSgHub() {
                 // Optimal split algorithm:
                 // 1. CPF SA/MA (RSTU) first up to its cap (highest risk-free interest 4.08%)
                 // 2. SRS up to its cap
-                // 3. Life Insurance relief up to its cap
-                // 4. Excess budget goes to "unused"
+                // 3. Excess budget goes to "unused"
                 let cpfAlloc = Math.min(budget, maxCPFReliefSelf);
                 let remainingBudget = budget - cpfAlloc;
                 let srsAlloc = Math.min(remainingBudget, maxSRSRelief);
-                remainingBudget -= srsAlloc;
-                let liAlloc = Math.min(remainingBudget, maxLIRelief);
 
-                let totalDeductible = cpfAlloc + srsAlloc + liAlloc;
+                let totalDeductible = cpfAlloc + srsAlloc;
                 let unusedBudget = budget - totalDeductible;
 
                 // Only the portion of new top-ups that fits inside the remaining relief
@@ -1506,16 +1541,6 @@ function initSgHub() {
                             <span style="font-weight:800; font-size:16px; color:#6b21a8;">S$${srsAlloc.toLocaleString()}</span>
                         </div>
 
-                        ${liAlloc > 0 ? `
-                        <!-- Life Insurance Relief Card -->
-                        <div style="background:#ecfdf5; border:1px solid #a7f3d0; border-left:4px solid #059669; padding:12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <span style="font-weight:700; font-size:13px; color:#065f46; display:block;">Life Insurance Relief</span>
-                                <span style="font-size:11px; color:#065f46; line-height:1.3;">Approved premiums (relief capped at lower of S$5,000 / 7% insured value)</span>
-                            </div>
-                            <span style="font-weight:800; font-size:16px; color:#065f46;">S$${liAlloc.toLocaleString()}</span>
-                        </div>
-                        ` : ''}
 
                         ${unusedBudget > 0 ? `
                         <!-- Unused Excess Card -->

@@ -1171,7 +1171,14 @@ async def get_sg_hub_tax():
     try:
         print("\n\033[94m[MerlionOS Orchestrator] --- Fetching IRAS Tax Due Dates Selected ---\033[0m")
         due_dates = await anyio.to_thread.run_sync(fetch_iras_due_dates)
-        return {"due_dates": due_dates}
+        return {
+            "due_dates": due_dates,
+            "limits": {
+                "cpf_sa_rstu_max": 8000,
+                "srs_citizen_pr_max": 15300,
+                "srs_foreigner_max": 35700
+            }
+        }
     except Exception as e:
         logger.exception("Error loading IRAS tax data")
         raise HTTPException(status_code=500, detail=str(e))
