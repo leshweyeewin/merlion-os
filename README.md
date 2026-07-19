@@ -59,7 +59,7 @@ MerlionOS features a drag-and-drop reorderable grid representing all **39 statut
 38. **NHB** (National Heritage Board) — Museum bookings & heritage trail guides
 39. **MinLaw** (Ministry of Law) — e-Litigation filings & Family Justice Courts services
 
-*Layout orders are automatically persisted across sessions in browser `localStorage`. Since the directory includes 39 portals, you can hide cards you do not need by hovering over a card and clicking the eye icon. Restoring hidden portals is easy via the **Hidden Portals** dropdown at the top of the grid.*
+*Since the directory includes 39 portals, you can hide cards you do not need by hovering over a card and clicking the eye icon. Restoring hidden portals is easy via the **Hidden Portals** dropdown at the top of the grid. Layout orders are automatically persisted across sessions in browser `localStorage`.*
 
 ---
 
