@@ -590,6 +590,7 @@ function initSgHub() {
     const govEventsContent = document.getElementById("hub-gov-events-content");
     const communityEventsContent = document.getElementById("hub-community-events-content");
     const mrtEventsContent = document.getElementById("hub-mrt-events-content");
+    const icaEventsContent = document.getElementById("hub-ica-events-content");
     const hdbLaunchesContent = document.getElementById("hub-hdb-launches");
     const hdbNewsContent = document.getElementById("hub-hdb-news");
     const hdbResaleContent = document.getElementById("hub-hdb-resale");
@@ -1071,6 +1072,39 @@ function initSgHub() {
         const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
             <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${getRetrievalTimestamp()}
         </div>`;
+
+        // --- ICA Newsroom Advisories ---
+        if (icaEventsContent) {
+            let icaHtml = "";
+            if (data.ica_news && data.ica_news.length > 0) {
+                data.ica_news.forEach(news => {
+                    const isAdvisory = news.category.toLowerCase().includes("advisory") || news.title.toLowerCase().includes("heavy") || news.title.toLowerCase().includes("traffic") || news.title.toLowerCase().includes("checkpoint");
+                    const icon = isAdvisory ? `<i class="fa-solid fa-triangle-exclamation" style="color:#d97706;"></i>` : `<i class="fa-solid fa-newspaper" style="color:var(--primary);"></i>`;
+                    const borderLeft = isAdvisory ? "4px solid #d97706" : "1px solid var(--border)";
+                    const bg = isAdvisory ? "#fffbeb" : "var(--bg-muted)";
+                    const labelColor = isAdvisory ? "#b45309" : "var(--text-muted)";
+                    const labelBg = isAdvisory ? "#fef3c7" : "var(--border)";
+                    
+                    icaHtml += `<div style="background: ${bg}; border: 1px solid var(--border); border-left: ${borderLeft}; border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 8px; display: flex; gap: 12px; align-items: flex-start;">
+                        ${news.image ? `<img src="${safeURL(news.image)}" alt="ICA image" style="width: 64px; height: 64px; object-fit: cover; border-radius: 6px; flex-shrink:0; border: 1px solid var(--border);" onerror="this.style.display='none'">` : ''}
+                        <div style="flex-grow:1;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom: 4px; font-weight:600; flex-wrap:wrap; gap:6px;">
+                                <span style="display:inline-flex; align-items:center; gap:6px; font-size:11.5px; color:${labelColor};">
+                                    ${icon} <span style="background:${labelBg}; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:10px;">${escapeHTML(news.category)}</span>
+                                    ${news.date ? `<span style="font-weight:normal; color:var(--text-muted);">${escapeHTML(news.date)}</span>` : ''}
+                                </span>
+                                <a href="${safeURL(news.url)}" target="_blank" style="color: var(--link); text-decoration:none; font-size:12px;"><i class="fa-solid fa-up-right-from-square"></i> View</a>
+                            </div>
+                            <div style="color: var(--text-main); line-height:1.4; font-weight:500;">${escapeHTML(news.title)}</div>
+                        </div>
+                    </div>`;
+                });
+            } else {
+                icaHtml = `<p style="color: var(--text-subtle); margin: 0; font-style: italic;">No active checkpoint or media updates reported.</p>`;
+            }
+            icaEventsContent.innerHTML = banner + icaHtml;
+        }
+
         let govHtml = "";
         data.gov_events.forEach(evt => {
             govHtml += `<div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 8px;">

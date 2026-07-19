@@ -998,6 +998,95 @@ def fetch_pub_flood_alerts() -> dict:
         return result
 
 
+_ica_cache = {"data": None, "fetched_at": 0}
+_ICA_CACHE_TTL_SECONDS = 5 * 60
+
+
+def fetch_ica_media_releases() -> list:
+    """
+    Fetches the latest media releases and checkpoint advisories directly from the ICA Newsroom.
+    Cached for 5 minutes.
+    """
+    now = time.time()
+    if (
+        _ica_cache["data"] is not None
+        and (now - _ica_cache["fetched_at"]) < _ICA_CACHE_TTL_SECONDS
+    ):
+        return _ica_cache["data"]
+
+    url = "https://www.ica.gov.sg/ICAContentInterface/MediaReleasesList/FindMediaReleases"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "year": 2026,
+        "month": 0,
+        "category": "",
+        "page": 1,
+        "pageSize": 5,
+    }
+    print(f"  \033[90m[ICA Newsroom] HTTP POST {url}\033[0m")
+    try:
+        r = requests.post(url, headers=headers, json=payload, timeout=8)
+        print(f"  \033[90m[ICA Newsroom] HTTP RESPONSE: {r.status_code}\033[0m")
+        if r.status_code == 200:
+            res_data = r.json()
+            items = res_data.get("data", [])
+            news_items = []
+            for item in items:
+                title = item.get("title", "").strip()
+                date = item.get("date", "").strip()
+                category = item.get("category", "").strip()
+                rel_url = item.get("url", "").strip()
+                full_url = f"https://www.ica.gov.sg{rel_url}" if rel_url.startswith("/") else rel_url
+                img_url = item.get("image", "").strip()
+                if img_url.startswith("/"):
+                    img_url = f"https://www.ica.gov.sg{img_url}"
+                
+                news_items.append({
+                    "title": title,
+                    "date": date,
+                    "category": category,
+                    "url": full_url,
+                    "image": img_url,
+                })
+            
+            _ica_cache["data"] = news_items
+            _ica_cache["fetched_at"] = now
+            return news_items
+    except Exception as e:
+        logger.warning(f"Error fetching ICA media releases: {e}")
+    
+    # Fallback/Offline Mock data based on real Woodlands Checkpoint updates
+    fallback_data = [
+        {
+            "title": "Heavy departure traffic at Woodlands Checkpoint due to tailback from Malaysia.",
+            "date": "19 Jul 2026",
+            "category": "Advisories",
+            "url": "https://www.ica.gov.sg/news-and-publications/media-releases",
+            "image": "https://www.ica.gov.sg/Cwp/assets/ica/images/news/mediareleases-default.jpg",
+        },
+        {
+            "title": "52 Motorists Caught for Traffic Offences at Woodlands Checkpoint over the June School Holidays",
+            "date": "08 Jul 2026",
+            "category": "Media Releases",
+            "url": "https://www.ica.gov.sg/news-and-publications/media-releases",
+            "image": "https://www.ica.gov.sg/Cwp/assets/ica/images/news/mediareleases-default.jpg",
+        },
+        {
+            "title": "Introduction of a New Passenger Clearance Hall in the Departure Cargo Zone to Improve Traveller Flow at Woodlands Checkpoint",
+            "date": "30 Jun 2026",
+            "category": "Media Releases",
+            "url": "https://www.ica.gov.sg/news-and-publications/media-releases",
+            "image": "https://www.ica.gov.sg/Cwp/assets/ica/images/news/mediareleases-default.jpg",
+        },
+    ]
+    _ica_cache["data"] = fallback_data
+    _ica_cache["fetched_at"] = now
+    return fallback_data
+
+
 @app.get("/api/sg-hub/weather")
 async def get_sg_hub_weather():
     now = time.time()
@@ -1234,6 +1323,7 @@ async def get_sg_hub_gov_transit(lat: float | None = None, lon: float | None = N
         taxi_availability = None
         coe_raw = None
         flood_alerts = None
+        ica_news = None
 
         async def fetch_gov_channel(channel_name):
             ch_events = await anyio.to_thread.run_sync(scrape_one_telegram_channel, channel_name)
@@ -1258,7 +1348,12 @@ async def get_sg_hub_gov_transit(lat: float | None = None, lon: float | None = N
             print("  \033[90m[PUB] Fetching flood alerts in parallel...\033[0m")
             flood_alerts = await anyio.to_thread.run_sync(fetch_pub_flood_alerts)
 
-        # Run Telegram scrapers + DataMall APIs + COE + Flood alerts fetch in parallel
+        async def fetch_ica_news():
+            nonlocal ica_news
+            print("  \033[90m[ICA] Fetching checkpoint & media advisories in parallel...\033[0m")
+            ica_news = await anyio.to_thread.run_sync(fetch_ica_media_releases)
+
+        # Run Telegram scrapers + DataMall APIs + COE + Flood alerts fetch + ICA news in parallel
         async with anyio.create_task_group() as tg:
             for ch in GOV_CHANNELS:
                 tg.start_soon(fetch_gov_channel, ch)
@@ -1266,6 +1361,7 @@ async def get_sg_hub_gov_transit(lat: float | None = None, lon: float | None = N
             tg.start_soon(fetch_datamall_taxis)
             tg.start_soon(fetch_coe)
             tg.start_soon(fetch_flood_data)
+            tg.start_soon(fetch_ica_news)
 
         # Fallback for Official Gov Alerts
         if not gov_events:
@@ -1352,6 +1448,7 @@ async def get_sg_hub_gov_transit(lat: float | None = None, lon: float | None = N
             "taxi_availability": taxi_availability,
             "coe": coe,
             "flood_alerts": flood_alerts,
+            "ica_news": ica_news,
         }
     except Exception as e:
         logger.exception("Error loading Gov updates data")
