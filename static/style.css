@@ -376,6 +376,99 @@ body {
     text-align: center;
 }
 
+/* Manage Portals panel */
+.mp-search {
+    margin-bottom: 8px;
+}
+.mp-search input {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-main);
+    font-size: 13px;
+    box-sizing: border-box;
+}
+.mp-modes {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.mp-mode-btn {
+    flex: 1;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-muted);
+    color: var(--text-main);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.mp-mode-btn.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+.mp-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 7px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-main);
+    cursor: pointer;
+}
+.mp-row:hover {
+    background: var(--bg-muted);
+}
+.mp-row input[type="checkbox"] {
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+.mp-row-name {
+    font-weight: 600;
+}
+.mp-row-desc {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    line-height: 1.25;
+}
+.mp-row.mp-selectall {
+    border-bottom: 1px dashed var(--border);
+    border-radius: 0;
+    margin-bottom: 4px;
+}
+.mp-list {
+    max-height: 200px;
+    overflow-y: auto;
+    margin-bottom: 8px;
+}
+.mp-actions {
+    display: flex;
+    gap: 6px;
+}
+.mp-bulk-btn {
+    flex: 1;
+    padding: 8px;
+    border-radius: 6px;
+    border: none;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.mp-bulk-btn.mp-add {
+    background: var(--primary);
+    color: #fff;
+}
+.mp-bulk-btn.mp-hide {
+    background: var(--bg-muted);
+    color: var(--text-main);
+    border: 1px solid var(--border);
+}
+
 .service-card.dragging {
     opacity: 0.45;
     cursor: grabbing;

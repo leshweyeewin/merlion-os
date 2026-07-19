@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Style Sheet -->
     <link rel="icon" type="image/png" href="merlion-icon.png">
-    <link rel="stylesheet" href="style.css?v=jobins6">
+    <link rel="stylesheet" href="style.css?v=jobins11">
 </head>
 <body>
     <div class="app-container">
@@ -57,7 +57,7 @@
                     <span class="reorder-hint"><i class="fa-solid fa-arrows-up-down-left-right"></i> Drag any card to rearrange your portal — hover a card and click the eye icon to hide it.</span>
                     <div class="toolbar-btn-group">
                         <button type="button" class="reset-layout-btn manage-portals-btn" id="manage-portals-btn">
-                            <i class="fa-solid fa-eye-slash"></i> Hidden Portals<span class="hidden-count-badge" id="hidden-portals-count" style="display:none;">0</span>
+                            <i class="fa-solid fa-eye-slash"></i> Manage Portals<span class="hidden-count-badge" id="hidden-portals-count" style="display:none;">0</span>
                         </button>
                         <div class="hidden-portals-dropdown hidden" id="hidden-portals-dropdown"></div>
                         <button type="button" class="reset-layout-btn" id="reset-layout-btn">
@@ -1219,14 +1219,14 @@
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-jobs-pane">
                         <i class="fa-solid fa-chart-line"></i> Job Market Analysis
                     </button>
+                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-tax-pane">
+                        <i class="fa-solid fa-scale-balanced"></i> IRAS Tax &amp; Wealth
+                    </button>
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-community-pane">
                         <i class="fa-solid fa-tags"></i> Kiasu SG Deals &amp; Meetups
                     </button>
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-env-pane">
                         <i class="fa-solid fa-cloud-sun"></i> Weather &amp; PSI
-                    </button>
-                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-tax-pane">
-                        <i class="fa-solid fa-scale-balanced"></i> IRAS Tax &amp; Wealth
                     </button>
                 </div>
 
@@ -1473,25 +1473,102 @@
                         </h3>
                         <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Maximize your tax savings. Input your annual income and total budget to compute the optimal split between CPF SA (RSTU) and SRS.</p>
                         
-                        <!-- Form Inputs -->
-                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:20px; background:var(--bg-muted); border:1px solid var(--border); padding:16px; border-radius:10px;">
-                            <div>
-                                <label for="tax-assessable-income" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-main);">Annual Assessable Income (S$)</label>
-                                <input type="number" id="tax-assessable-income" value="85000" min="0" step="1000" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
-                                <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">Annual salary before deductions and reliefs</span>
+                        <!-- Section 1: Your Profile -->
+                        <div style="margin-bottom:18px;">
+                            <div style="font-size:11px; font-weight:800; letter-spacing:0.6px; text-transform:uppercase; color:var(--primary); margin-bottom:10px;">Your Profile</div>
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; background:var(--bg-muted); border:1px solid var(--border); padding:16px; border-radius:10px;">
+                                <div>
+                                    <label for="tax-residency-status" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-main);">Residency Status</label>
+                                    <select id="tax-residency-status" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                        <option value="citizen_pr">Singapore Citizen / PR</option>
+                                        <option value="foreigner">Foreigner (Pass Holder)</option>
+                                    </select>
+                                    <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">Affects SRS yearly contribution limits</span>
+                                </div>
+                                <div>
+                                    <label for="tax-assessable-income" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-main);">Annual Assessable Income (S$)</label>
+                                    <input type="number" id="tax-assessable-income" value="85000" min="0" step="1000" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                    <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">Annual salary before deductions and reliefs</span>
+                                </div>
+                                <div>
+                                    <label for="tax-topup-budget" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-main);">Top-up Budget (S$)</label>
+                                    <input type="number" id="tax-topup-budget" value="10000" min="0" step="500" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                    <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">Amount you wish to allocate for CPF/SRS top-ups</span>
+                                </div>
+                                <div>
+                                    <label for="tax-li-cap" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-main);">Life Insurance Relief Top-up (S$)</label>
+                                    <input type="number" id="tax-li-cap" value="0" min="0" step="500" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                    <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">Approved life insurance premiums (max S$5,000, capped at 7% of insured value)</span>
+                                </div>
                             </div>
-                            <div>
-                                <label for="tax-topup-budget" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-main);">Top-up Budget (S$)</label>
-                                <input type="number" id="tax-topup-budget" value="10000" min="0" step="500" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
-                                <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">Amount you wish to allocate for CPF/SRS top-ups</span>
+                        </div>
+
+                        <!-- Section 2: Relief Caps (advanced) -->
+                        <div style="margin-bottom:18px;">
+                            <div style="font-size:11px; font-weight:800; letter-spacing:0.6px; text-transform:uppercase; color:var(--primary); margin-bottom:10px;">Relief Caps <span style="font-weight:500; text-transform:none; letter-spacing:0; color:var(--text-muted);">(advanced — defaults to statutory YA2026 limits)</span></div>
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; background:var(--bg-muted); border:1px dashed var(--border); padding:16px; border-radius:10px;">
+                                <div>
+                                    <label for="tax-cpf-cap" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-main);">Max CPF SA (RSTU) Top-up (S$)</label>
+                                    <input type="number" id="tax-cpf-cap" value="8000" min="0" step="500" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                    <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">Statutory annual CPF SA top-up relief cap (S$8,000)</span>
+                                </div>
+                                <div>
+                                    <label for="tax-srs-cap" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-main);">Max SRS Contribution (S$)</label>
+                                    <input type="number" id="tax-srs-cap" value="15300" min="0" step="500" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                    <span id="tax-srs-cap-hint" style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">SRS yearly relief cap (S$15,300 Citizen/PR)</span>
+                                </div>
                             </div>
-                            <div>
-                                <label for="tax-residency-status" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-main);">Residency Status</label>
-                                <select id="tax-residency-status" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
-                                    <option value="citizen_pr">Singapore Citizen / PR</option>
-                                    <option value="foreigner">Foreigner (Pass Holder)</option>
-                                </select>
-                                <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">Affects SRS yearly contribution limits</span>
+                        </div>
+
+                        <!-- Section 3: Pre-existing Reliefs (itemised) -->
+                        <div style="margin-bottom:20px;">
+                            <div style="font-size:11px; font-weight:800; letter-spacing:0.6px; text-transform:uppercase; color:var(--primary); margin-bottom:4px;">Pre-existing Reliefs (itemised)</div>
+                            <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">Enter the reliefs you already claim (from your IRAS notice). They auto-sum and count toward the S$80,000 cap.</div>
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap:12px; background:var(--bg-muted); border:1px solid var(--border); padding:16px; border-radius:10px;">
+                                <div>
+                                    <label for="rel-cpf-emp" style="display:block; font-weight:600; font-size:11px; margin-bottom:4px; color:var(--text-main);">CPF Employee (S$)</label>
+                                    <input type="number" class="rel-item" id="rel-cpf-emp" data-rel="cpf_emp" value="0" min="0" step="100" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                </div>
+                                <div>
+                                    <label for="rel-wmcr" style="display:block; font-weight:600; font-size:11px; margin-bottom:4px; color:var(--text-main);">Working Mother (WMCR) (S$)</label>
+                                    <input type="number" class="rel-item" id="rel-wmcr" data-rel="wmcr" value="0" min="0" step="100" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                </div>
+                                <div>
+                                    <label for="rel-child" style="display:block; font-weight:600; font-size:11px; margin-bottom:4px; color:var(--text-main);">Qualifying Child (S$)</label>
+                                    <input type="number" class="rel-item" id="rel-child" data-rel="child" value="0" min="0" step="100" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                </div>
+                                <div>
+                                    <label for="rel-parent" style="display:block; font-weight:600; font-size:11px; margin-bottom:4px; color:var(--text-main);">Parent / Handicapped Sibling (S$)</label>
+                                    <input type="number" class="rel-item" id="rel-parent" data-rel="parent" value="0" min="0" step="100" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                </div>
+                                <div>
+                                    <label for="rel-nsman" style="display:block; font-weight:600; font-size:11px; margin-bottom:4px; color:var(--text-main);">NSman (S$)</label>
+                                    <input type="number" class="rel-item" id="rel-nsman" data-rel="nsman" value="0" min="0" step="100" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                </div>
+                                <div>
+                                    <label for="rel-life" style="display:block; font-weight:600; font-size:11px; margin-bottom:4px; color:var(--text-main);">Life Insurance (S$)</label>
+                                    <input type="number" class="rel-item" id="rel-life" data-rel="life" value="0" min="0" step="100" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                </div>
+                                <div>
+                                    <label for="rel-cpf-cash" style="display:block; font-weight:600; font-size:11px; margin-bottom:4px; color:var(--text-main);">CPF Cash Top-up (S$)</label>
+                                    <input type="number" class="rel-item" id="rel-cpf-cash" data-rel="cpf_cash" value="0" min="0" step="100" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                </div>
+                                <div>
+                                    <label for="rel-srs" style="display:block; font-weight:600; font-size:11px; margin-bottom:4px; color:var(--text-main);">SRS (S$)</label>
+                                    <input type="number" class="rel-item" id="rel-srs" data-rel="srs" value="0" min="0" step="100" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                </div>
+                                <div>
+                                    <label for="rel-earned" style="display:block; font-weight:600; font-size:11px; margin-bottom:4px; color:var(--text-main);">Earned Income (S$)</label>
+                                    <input type="number" class="rel-item" id="rel-earned" data-rel="earned" value="0" min="0" step="100" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                </div>
+                                <div>
+                                    <label for="rel-other" style="display:block; font-weight:600; font-size:11px; margin-bottom:4px; color:var(--text-main);">Other Reliefs (S$)</label>
+                                    <input type="number" class="rel-item" id="rel-other" data-rel="other" value="0" min="0" step="100" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                </div>
+                                <div style="grid-column: 1 / -1; display:flex; justify-content:space-between; align-items:center; border-top:1px dashed var(--border); padding-top:10px; margin-top:2px;">
+                                    <span style="font-weight:800; font-size:12px; color:var(--text-main);">Total Pre-existing Reliefs</span>
+                                    <span id="tax-existing-reliefs" style="font-weight:900; font-size:16px; color:var(--primary);">S$0</span>
+                                </div>
                             </div>
                         </div>
 
@@ -1614,6 +1691,6 @@
         }
     </script>
     <!-- Script File -->
-    <script src="app.js?v=jobins6"></script>
+    <script src="app.js?v=jobins11"></script>
 </body>
 </html>

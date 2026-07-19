@@ -489,6 +489,11 @@ function initPortalVisibility() {
         return nameEl ? nameEl.textContent.trim() : card.dataset.agency;
     }
 
+    function cardDesc(card) {
+        const d = card.querySelector(".card-desc");
+        return d ? d.textContent.trim() : "";
+    }
+
     function updateBadge() {
         const hidden = loadHidden();
         if (hidden.length > 0) {
@@ -499,21 +504,74 @@ function initPortalVisibility() {
         }
     }
 
+    // --- Manage Portals panel: search + multi-select + bulk add-back / hide ---
+    let panelMode = "hidden";   // "hidden" = restore portals, "visible" = hide portals
+    let panelQuery = "";
+    const selected = new Set();
+
+    function allCards() {
+        return Array.from(grid.querySelectorAll(".service-card"));
+    }
+
+    function matchesQuery(card) {
+        if (!panelQuery) return true;
+        const q = panelQuery.toLowerCase();
+        return cardName(card).toLowerCase().includes(q) || cardDesc(card).toLowerCase().includes(q);
+    }
+
     function renderDropdown() {
-        const hidden = loadHidden();
-        if (hidden.length === 0) {
-            dropdown.innerHTML = `<div class="hidden-portals-empty">No portals hidden — hover any card and click the eye icon to hide it.</div>`;
+        const hiddenSet = new Set(loadHidden());
+        const inScope = allCards().filter(card =>
+            (panelMode === "hidden") === hiddenSet.has(card.dataset.agency) && matchesQuery(card)
+        );
+        const totalScope = allCards().length;
+        const visibleCount = totalScope - hiddenSet.size;
+        const hiddenCount = hiddenSet.size;
+
+        if (inScope.length === 0) {
+            dropdown.innerHTML = `
+                <div class="mp-search"><input type="text" id="mp-search-input" placeholder="Search name or description…" autocomplete="off"></div>
+                <div class="mp-modes">
+                    <button type="button" class="mp-mode-btn ${panelMode==='hidden'?'active':''}" data-mode="hidden">Hidden (${hiddenCount})</button>
+                    <button type="button" class="mp-mode-btn ${panelMode==='visible'?'active':''}" data-mode="visible">Visible (${visibleCount})</button>
+                </div>
+                <div class="hidden-portals-empty">No matching portals.</div>`;
             return;
         }
-        const cardsByAgency = new Map(Array.from(grid.querySelectorAll(".service-card")).map(c => [c.dataset.agency, c]));
-        dropdown.innerHTML = hidden.map(agency => {
-            const card = cardsByAgency.get(agency);
-            const name = card ? cardName(card) : agency;
-            return `<div class="hidden-portal-chip">
-                <span class="hidden-portal-chip-name">${escapeHTML(name)}</span>
-                <button type="button" class="add-portal-back-btn" data-agency="${escapeHTML(agency)}">+ Add back</button>
-            </div>`;
+
+        const allSelected = inScope.every(c => selected.has(c.dataset.agency));
+        const rows = inScope.map(card => {
+            const agency = card.dataset.agency;
+            const checked = selected.has(agency) ? "checked" : "";
+            return `<label class="mp-row">
+                <input type="checkbox" class="mp-check" data-agency="${escapeHTML(agency)}" ${checked}>
+                <span class="mp-row-name">${escapeHTML(cardName(card))}</span>
+                <span class="mp-row-desc">${escapeHTML(cardDesc(card))}</span>
+            </label>`;
         }).join('');
+
+        dropdown.innerHTML = `
+            <div class="mp-search"><input type="text" id="mp-search-input" placeholder="Search name or description…" autocomplete="off" value="${escapeHTML(panelQuery)}"></div>
+            <div class="mp-modes">
+                <button type="button" class="mp-mode-btn ${panelMode==='hidden'?'active':''}" data-mode="hidden">Hidden (${hiddenCount})</button>
+                <button type="button" class="mp-mode-btn ${panelMode==='visible'?'active':''}" data-mode="visible">Visible (${visibleCount})</button>
+            </div>
+            <label class="mp-row mp-selectall">
+                <input type="checkbox" id="mp-selectall" ${allSelected?'checked':''}>
+                <span class="mp-row-name"><strong>Select all (${inScope.length})</strong></span>
+            </label>
+            <div class="mp-list">${rows}</div>
+            <div class="mp-actions">
+                <button type="button" class="mp-bulk-btn mp-add" id="mp-bulk-add">${panelMode==='hidden'?'Add back selected':'Show selected'}</button>
+                <button type="button" class="mp-bulk-btn mp-hide" id="mp-bulk-hide">${panelMode==='hidden'?'Hide all listed':'Hide selected'}</button>
+            </div>`;
+    }
+
+    function bulkApply(agencies, action) {
+        agencies.forEach(a => action(a));
+        selected.clear();
+        updateBadge();
+        renderDropdown();
     }
 
     function hidePortal(agency) {
@@ -525,7 +583,6 @@ function initPortalVisibility() {
         const card = grid.querySelector(`.service-card[data-agency="${agency}"]`);
         if (card) card.classList.add("portal-hidden");
         updateBadge();
-        renderDropdown();
     }
 
     function showPortal(agency) {
@@ -533,7 +590,6 @@ function initPortalVisibility() {
         const card = grid.querySelector(`.service-card[data-agency="${agency}"]`);
         if (card) card.classList.remove("portal-hidden");
         updateBadge();
-        renderDropdown();
     }
 
     grid.querySelectorAll(".service-card").forEach(card => {
@@ -545,6 +601,7 @@ function initPortalVisibility() {
         btn.addEventListener("click", (e) => {
             e.stopPropagation();
             hidePortal(card.dataset.agency);
+            if (dropdown && !dropdown.classList.contains("hidden")) renderDropdown();
         });
         card.appendChild(btn);
     });
@@ -559,13 +616,69 @@ function initPortalVisibility() {
         manageBtn.addEventListener("click", (e) => {
             e.stopPropagation();
             const willOpen = dropdown.classList.contains("hidden");
-            if (willOpen) renderDropdown();
+            if (willOpen) { selected.clear(); renderDropdown(); }
             dropdown.classList.toggle("hidden", !willOpen);
         });
 
+        // Delegated handlers for the panel
+        dropdown.addEventListener("input", (e) => {
+            if (e.target.id === "mp-search-input") {
+                panelQuery = e.target.value;
+                selected.clear();
+                renderDropdown();
+                const inp = dropdown.querySelector("#mp-search-input");
+                if (inp) inp.focus();
+            }
+        });
         dropdown.addEventListener("click", (e) => {
-            const btn = e.target.closest(".add-portal-back-btn");
-            if (btn) showPortal(btn.dataset.agency);
+            const modeBtn = e.target.closest(".mp-mode-btn");
+            if (modeBtn) {
+                panelMode = modeBtn.dataset.mode;
+                selected.clear();
+                renderDropdown();
+                return;
+            }
+            const addBtn = e.target.closest("#mp-bulk-add");
+            if (addBtn) {
+                const hiddenSet = new Set(loadHidden());
+                const targets = allCards().filter(c =>
+                    ((panelMode === "hidden") === hiddenSet.has(c.dataset.agency)) &&
+                    matchesQuery(c) && selected.has(c.dataset.agency)
+                ).map(c => c.dataset.agency);
+                const list = targets.length ? targets : allCards()
+                    .filter(c => ((panelMode === "hidden") === hiddenSet.has(c.dataset.agency)) && matchesQuery(c))
+                    .map(c => c.dataset.agency);
+                bulkApply(list, showPortal);
+                return;
+            }
+            const hideBtn = e.target.closest("#mp-bulk-hide");
+            if (hideBtn) {
+                const hiddenSet = new Set(loadHidden());
+                const targets = allCards().filter(c =>
+                    ((panelMode === "hidden") === hiddenSet.has(c.dataset.agency)) &&
+                    matchesQuery(c) && selected.has(c.dataset.agency)
+                ).map(c => c.dataset.agency);
+                // In "hidden" mode the visible rows are the listed ones; bulk hide hides them.
+                const list = targets.length ? targets : allCards()
+                    .filter(c => ((panelMode === "hidden") === hiddenSet.has(c.dataset.agency)) && matchesQuery(c))
+                    .map(c => c.dataset.agency);
+                bulkApply(list, hidePortal);
+                return;
+            }
+        });
+        dropdown.addEventListener("change", (e) => {
+            if (e.target.classList.contains("mp-check")) {
+                const a = e.target.dataset.agency;
+                if (e.target.checked) selected.add(a); else selected.delete(a);
+            } else if (e.target.id === "mp-selectall") {
+                const hiddenSet = new Set(loadHidden());
+                const inScope = allCards().filter(c =>
+                    ((panelMode === "hidden") === hiddenSet.has(c.dataset.agency)) && matchesQuery(c)
+                );
+                if (e.target.checked) inScope.forEach(c => selected.add(c.dataset.agency));
+                else inScope.forEach(c => selected.delete(c.dataset.agency));
+                renderDropdown();
+            }
         });
 
         document.addEventListener("click", (e) => {
@@ -597,6 +710,22 @@ function initSgHub() {
     const taxTopupBudget = document.getElementById("tax-topup-budget");
     const taxResidencyStatus = document.getElementById("tax-residency-status");
     const taxOptimizerResults = document.getElementById("tax-optimizer-results");
+    const taxCpfCap = document.getElementById("tax-cpf-cap");
+    const taxSrsCap = document.getElementById("tax-srs-cap");
+    const taxSrsCapHint = document.getElementById("tax-srs-cap-hint");
+    const taxExistingReliefs = document.getElementById("tax-existing-reliefs");
+    const taxLiCap = document.getElementById("tax-li-cap");
+    const relItems = Array.from(document.querySelectorAll(".rel-item"));
+
+    // Pre-existing reliefs are now itemised; auto-sum them into the total display.
+    function computePreExistingReliefs() {
+        let sum = 0;
+        relItems.forEach(inp => { sum += Math.max(0, parseFloat(inp.value) || 0); });
+        if (taxExistingReliefs) taxExistingReliefs.textContent = "S$" + sum.toLocaleString();
+        return sum;
+    }
+    relItems.forEach(inp => inp.addEventListener("input", computePreExistingReliefs));
+    computePreExistingReliefs();
     const hdbLaunchesContent = document.getElementById("hub-hdb-launches");
     const hdbNewsContent = document.getElementById("hub-hdb-news");
     const hdbResaleContent = document.getElementById("hub-hdb-resale");
@@ -892,25 +1021,29 @@ function initSgHub() {
         }
         taxDeadlinesContent.innerHTML = banner + timelineHtml;
 
+        // --- Singapore Progressive Tax Brackets (YA2026) ---
+        // Shared so the engine math and the displayed tier table never drift apart.
+        const TAX_BRACKETS = [
+            { limit: 20000, rate: 0.00 },  // First S$20,000 (tax-free)
+            { limit: 10000, rate: 0.02 },  // 20,001 to 30,000
+            { limit: 10000, rate: 0.035 }, // 30,001 to 40,000
+            { limit: 40000, rate: 0.07 },  // 40,001 to 80,000
+            { limit: 40000, rate: 0.115 }, // 80,001 to 120,000
+            { limit: 40000, rate: 0.15 },  // 120,001 to 160,000
+            { limit: 40000, rate: 0.18 },  // 160,001 to 200,000
+            { limit: 40000, rate: 0.19 },  // 200,001 to 240,000
+            { limit: 40000, rate: 0.195 }, // 240,001 to 280,000
+            { limit: 40000, rate: 0.20 },  // 280,001 to 320,000
+            { limit: 180000, rate: 0.22 }, // 320,001 to 500,000
+            { limit: 500000, rate: 0.23 }, // 500,001 to 1,000,000
+            { limit: Infinity, rate: 0.24 } // Above 1,000,000
+        ];
+
         // --- Tax Calculation Helper ---
         function calculateSingaporeTax(chargeableIncome) {
             if (chargeableIncome <= 20000) return 0;
 
-            const brackets = [
-                { limit: 20000, rate: 0.00 },
-                { limit: 10000, rate: 0.02 },  // 20,001 to 30,000
-                { limit: 10000, rate: 0.035 }, // 30,001 to 40,000
-                { limit: 40000, rate: 0.07 },  // 40,001 to 80,000
-                { limit: 40000, rate: 0.115 }, // 80,001 to 120,000
-                { limit: 40000, rate: 0.15 },  // 120,001 to 160,000
-                { limit: 40000, rate: 0.18 },  // 160,001 to 200,000
-                { limit: 40000, rate: 0.19 },  // 200,001 to 240,000
-                { limit: 40000, rate: 0.195 }, // 240,001 to 280,000
-                { limit: 40000, rate: 0.20 },  // 280,001 to 320,000
-                { limit: 180000, rate: 0.22 }, // 320,001 to 500,000
-                { limit: 500000, rate: 0.23 }, // 500,001 to 1,000,000
-                { limit: Infinity, rate: 0.24 } // Above 1,000,000
-            ];
+            const brackets = TAX_BRACKETS;
 
             let tax = 0;
             let tempIncome = chargeableIncome - 20000;
@@ -923,6 +1056,19 @@ function initSgHub() {
                 tempIncome -= taxableAmount;
             }
             return tax;
+        }
+
+        // --- Auto-sync SRS cap when residency changes (unless user overrode it) ---
+        if (taxResidencyStatus && taxSrsCap) {
+            taxResidencyStatus.addEventListener("change", () => {
+                const isForeigner = taxResidencyStatus.value === "foreigner";
+                taxSrsCap.value = isForeigner ? 35700 : 15300;
+                if (taxSrsCapHint) {
+                    taxSrsCapHint.textContent = isForeigner
+                        ? "SRS yearly relief cap (S$35,700 Foreigner)"
+                        : "SRS yearly relief cap (S$15,300 Citizen/PR)";
+                }
+            });
         }
 
         // --- Optimizer Form Listener ---
@@ -941,26 +1087,98 @@ function initSgHub() {
                     return;
                 }
 
-                // Singapore tax limits
-                const maxCPFReliefSelf = 8000;
-                const maxSRSRelief = isForeigner ? 35700 : 15300;
+                // Read user-configurable relief caps (defaulted to statutory YA2026 limits)
+                const maxCPFReliefSelf = Math.max(0, parseFloat(taxCpfCap.value) || 0);
+                const maxSRSRelief = Math.max(0, parseFloat(taxSrsCap.value) || 0);
+                // Life Insurance Relief: approved premiums, relief capped at lower of
+                // S$5,000 or 7% of the insured value (subject to the overall S$80k relief cap).
+                const maxLIRelief = Math.max(0, parseFloat(taxLiCap.value) || 0);
+
+                // --- S$80,000 total personal relief cap (effective YA 2018+) ---
+                const RELIEF_CAP = 80000;
+                const preExisting = Math.max(0, computePreExistingReliefs());
+                const headroom = Math.max(0, RELIEF_CAP - preExisting);
 
                 // Optimal split algorithm:
-                // 1. Allocate to CPF SA/MA (RSTU) first up to $8,000 (highest risk-free interest 4.08%)
-                // 2. Allocate the remaining budget to SRS up to limit ($15.3k Citizen/PR or $35.7k Foreigner)
-                // 3. Excess goes to "unused"
+                // 1. CPF SA/MA (RSTU) first up to its cap (highest risk-free interest 4.08%)
+                // 2. SRS up to its cap
+                // 3. Life Insurance relief up to its cap
+                // 4. Excess budget goes to "unused"
                 let cpfAlloc = Math.min(budget, maxCPFReliefSelf);
                 let remainingBudget = budget - cpfAlloc;
                 let srsAlloc = Math.min(remainingBudget, maxSRSRelief);
-                
-                let totalDeductible = cpfAlloc + srsAlloc;
+                remainingBudget -= srsAlloc;
+                let liAlloc = Math.min(remainingBudget, maxLIRelief);
+
+                let totalDeductible = cpfAlloc + srsAlloc + liAlloc;
                 let unusedBudget = budget - totalDeductible;
 
+                // Only the portion of new top-ups that fits inside the remaining relief
+                // cap actually reduces taxable income; the rest is "capped out" (no tax saving).
+                const effectiveDeduction = Math.min(totalDeductible, headroom);
+                const cappedOut = Math.max(0, (preExisting + totalDeductible) - RELIEF_CAP);
+
+                // Chargeable income the optimization acts on (assessable less pre-existing reliefs)
+                const referenceIncome = Math.max(0, income - preExisting);
+
                 // Calculate taxes
-                let originalTax = calculateSingaporeTax(income);
-                let optimizedChargeableIncome = Math.max(0, income - totalDeductible);
+                let originalTax = calculateSingaporeTax(referenceIncome);
+                let optimizedChargeableIncome = Math.max(0, referenceIncome - effectiveDeduction);
                 let optimizedTax = calculateSingaporeTax(optimizedChargeableIncome);
-                let totalSaved = originalTax - optimizedTax;
+                let totalSaved = Math.max(0, originalTax - optimizedTax);
+
+                // --- Effective & Marginal Rate (on chargeable income) ---
+                const effRate = referenceIncome > 0 ? (originalTax / referenceIncome) * 100 : 0;
+                let marginalRate = 0;
+                {
+                    let acc = 20000, found = false;
+                    for (let i = 1; i < TAX_BRACKETS.length; i++) {
+                        const b = TAX_BRACKETS[i];
+                        if (referenceIncome <= acc + b.limit) { marginalRate = b.rate * 100; found = true; break; }
+                        acc += b.limit;
+                        if (found) break;
+                    }
+                }
+
+                // --- Progressive Tax Tier Table (rendered from the same bracket data the engine uses) ---
+                const fmtMoney = (n) => "S$" + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                let tierRows = "";
+                {
+                    let lower = 0;
+                    for (let i = 0; i < TAX_BRACKETS.length; i++) {
+                        const b = TAX_BRACKETS[i];
+                        const upper = b.limit === Infinity ? null : lower + b.limit;
+                        const band = i === 0
+                            ? "First S$" + lower + (upper ? "–" + (upper).toLocaleString() : "")
+                            : "S$" + (lower + 1).toLocaleString() + (upper ? " – S$" + upper.toLocaleString() : "+");
+                        const inBand = referenceIncome > lower && (upper === null || referenceIncome <= upper);
+                        const ratePct = (b.rate * 100).toFixed(1);
+                        tierRows += `
+                            <tr style="${inBand ? 'background:#fff7ed; font-weight:700;' : ''}">
+                                <td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px; color:var(--text-main);">${band}</td>
+                                <td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px; text-align:right; color:var(--text-main);">${ratePct}%</td>
+                                ${i === 0 ? `<td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11px; color:var(--text-muted);" colspan="2">Tax-free threshold</td>` : ''}
+                            </tr>`;
+                        if (upper === null) break;
+                        lower = upper;
+                    }
+                }
+                const taxTierTableHtml = `
+                    <div style="background:var(--bg-muted); border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:20px;">
+                        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
+                            <span style="font-size:12px; font-weight:700; color:var(--text-main); text-transform:uppercase; letter-spacing:0.5px;"><i class="fa-solid fa-table-list"></i> Progressive Tax Tiers (YA 2026)</span>
+                            <span style="font-size:11px; color:var(--text-muted);">Effective: <strong style="color:var(--text-main);">${effRate.toFixed(2)}%</strong> · Marginal: <strong style="color:var(--text-main);">${marginalRate.toFixed(1)}%</strong></span>
+                        </div>
+                        <table style="width:100%; border-collapse:collapse;">
+                            <thead>
+                                <tr>
+                                    <th style="text-align:left; font-size:10.5px; text-transform:uppercase; color:var(--text-muted); padding:4px 8px; border-bottom:2px solid var(--border);">Chargeable Income Band</th>
+                                    <th style="text-align:right; font-size:10.5px; text-transform:uppercase; color:var(--text-muted); padding:4px 8px; border-bottom:2px solid var(--border);">Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody>${tierRows}</tbody>
+                        </table>
+                    </div>`;
 
                 // --- Progressive Bracket Targeter ---
                 const thresholds = [
@@ -980,7 +1198,7 @@ function initSgHub() {
 
                 let currentThreshold = null;
                 for (let t of thresholds) {
-                    if (income > t.value) {
+                    if (referenceIncome > t.value) {
                         currentThreshold = t;
                         break;
                     }
@@ -988,7 +1206,7 @@ function initSgHub() {
 
                 let bracketAdvisoryHtml = "";
                 if (currentThreshold) {
-                    const amountToDrop = income - currentThreshold.value;
+                    const amountToDrop = referenceIncome - currentThreshold.value;
                     const marginalRatePct = (currentThreshold.rate * 100).toFixed(1);
                     const lowerRatePct = (currentThreshold.nextRate * 100).toFixed(1);
 
@@ -1030,13 +1248,40 @@ function initSgHub() {
                 }
 
                 // Build results HTML
-                let resultsHtml = `
-                    ${bracketAdvisoryHtml}
+                let savingsBoxHtml;
+                const reducedNote = cappedOut > 0
+                    ? `You reduced your taxable income by <strong>S$${effectiveDeduction.toLocaleString()}</strong> (S$${cappedOut.toLocaleString()} of your S$${totalDeductible.toLocaleString()} top-up is capped out at the S$80,000 relief limit).`
+                    : `You reduced your taxable income by <strong>S$${effectiveDeduction.toLocaleString()}</strong>!`;
+                if (originalTax === 0) {
+                    savingsBoxHtml = `
                     <div style="background:#eafaf1; border: 1px solid #a3d9b1; padding:16px; border-radius:10px; margin-bottom:20px; text-align:center;">
                         <span style="font-size:12px; font-weight:700; color:#1a7f3c; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px;">Estimated Tax Savings</span>
                         <span style="font-size:32px; font-weight:900; color:#1a7f3c; display:block; margin-bottom:6px;">S$${totalSaved.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                        <p style="margin:0; font-size:12.5px; color:#1b5e20; font-weight:600;">You reduced your taxable income by S$${totalDeductible.toLocaleString()}!</p>
-                    </div>
+                        <p style="margin:0; font-size:12.5px; color:#1b5e20; font-weight:600;">Your chargeable income of S$${referenceIncome.toLocaleString()} (assessable S$${income.toLocaleString()} less S$${preExisting.toLocaleString()} existing reliefs) is within the <strong>S$20,000 tax-free threshold</strong>, so you currently owe <strong>S$0</strong> income tax. The top-up still grows your retirement (CPF SA + SRS) even with no immediate tax saving.</p>
+                    </div>`;
+                } else {
+                    savingsBoxHtml = `
+                    <div style="background:#eafaf1; border: 1px solid #a3d9b1; padding:16px; border-radius:10px; margin-bottom:20px; text-align:center;">
+                        <span style="font-size:12px; font-weight:700; color:#1a7f3c; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px;">Estimated Tax Savings</span>
+                        <span style="font-size:32px; font-weight:900; color:#1a7f3c; display:block; margin-bottom:6px;">S$${totalSaved.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        <p style="margin:0; font-size:12.5px; color:#1b5e20; font-weight:600;">${reducedNote}</p>
+                    </div>`;
+                }
+
+                // Relief-cap status strip (only when part of the top-up is capped out)
+                let capStatusHtml = "";
+                if (cappedOut > 0) {
+                    capStatusHtml = `
+                    <div style="background:#fffbeb; border:1px solid #fef3c7; border-left:4px solid #d97706; padding:12px 14px; border-radius:8px; margin-bottom:16px; font-size:12px; color:#92400e; line-height:1.45;">
+                        <i class="fa-solid fa-triangle-exclamation"></i> <strong>Relief cap reached (S$80,000 YA limit):</strong> Total reliefs now claimed = <strong>S$${(preExisting + effectiveDeduction).toLocaleString()}</strong> (S$${preExisting.toLocaleString()} existing + S$${effectiveDeduction.toLocaleString()} from this top-up). <strong>S$${cappedOut.toLocaleString()}</strong> of your top-up exceeded the cap and yields <strong>no extra tax saving</strong> — though the cash still goes into CPF SA / SRS for retirement.
+                    </div>`;
+                }
+
+                let resultsHtml = `
+                    ${bracketAdvisoryHtml}
+                    ${taxTierTableHtml}
+                    ${capStatusHtml}
+                    ${savingsBoxHtml}
 
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
                         <div style="background:var(--bg-muted); border:1px solid var(--border); padding:12px; border-radius:8px; text-align:center;">
@@ -1069,6 +1314,17 @@ function initSgHub() {
                             </div>
                             <span style="font-weight:800; font-size:16px; color:#6b21a8;">S$${srsAlloc.toLocaleString()}</span>
                         </div>
+
+                        ${liAlloc > 0 ? `
+                        <!-- Life Insurance Relief Card -->
+                        <div style="background:#ecfdf5; border:1px solid #a7f3d0; border-left:4px solid #059669; padding:12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <span style="font-weight:700; font-size:13px; color:#065f46; display:block;">Life Insurance Relief</span>
+                                <span style="font-size:11px; color:#065f46; line-height:1.3;">Approved premiums (relief capped at lower of S$5,000 / 7% insured value)</span>
+                            </div>
+                            <span style="font-weight:800; font-size:16px; color:#065f46;">S$${liAlloc.toLocaleString()}</span>
+                        </div>
+                        ` : ''}
 
                         ${unusedBudget > 0 ? `
                         <!-- Unused Excess Card -->
