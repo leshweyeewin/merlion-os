@@ -1069,17 +1069,51 @@ body {
 }
 
 /* ── SG Hub dashboard: mobile responsiveness ────────────────────────────────
-   The hub cards have no min-width:0 guard and the resale "by Town" rows use
-   rigid fixed-width columns that squeeze the town name to invisibility on
-   phones. These rules fix overflow + the invisible-town bug. */
+   Root cause of clipped headers / bars out of bound: .hub-container uses
+   minmax(320px,1fr), so cards can't shrink below 320px on a ~360px phone and
+   overflow/clip. Fix: drop the floor on mobile, wrap long H3 headers, give the
+   Co-Pilot FAB breathing room, and let the job-market + resale fixed columns
+   reflow instead of squeezing text. */
 @media (max-width: 600px) {
-    .hub-card {
-        padding: 16px;
+    .hub-container {
+        grid-template-columns: 1fr;   /* single column; cards shrink to fit */
+        gap: 14px;
     }
 
-    /* Resale "by Town" rows: the rigid bar(100px)+price(90px)+txns(60px)
-       columns leave only ~30px for the town name (nowrap+ellipsis) on a
-       320px screen, so the town is invisible. Let them wrap/stack. */
+    .hub-card {
+        padding: 16px;
+        /* keep long titles/values from spilling the card bound */
+        overflow-wrap: break-word;
+    }
+
+    /* H3 headers (e.g. "Enhanced CPF Housing Grant (EHG) Estimator") were
+       clipped mid-word because the icon+text row couldn't wrap. */
+    .hub-card h3 {
+        font-size: 16px;
+        line-height: 1.3;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+
+    /* Job-market salary rows: rigid bar(110px)+pct(58px) columns squeezed the
+       "S$x,xxx → S$y,yyy gross/mth" text and pushed the bar out of bounds.
+       Let the row wrap and the bar go full-width below the label. */
+    #hub-occ-wages-content [style*="display:flex"][style*="gap:10px"],
+    #hub-jobs-content [style*="display:flex"][style*="gap:10px"] {
+        flex-wrap: wrap;
+        gap: 6px 10px;
+    }
+    #hub-occ-wages-content [style*="width:110px"],
+    #hub-occ-wages-content [style*="width:58px"],
+    #hub-jobs-content [style*="width:110px"],
+    #hub-jobs-content [style*="width:58px"] {
+        flex: 1 1 100%;
+        width: 100% !important;
+        text-align: left;
+    }
+
+    /* Resale "by Town" rows: rigid bar(100px)+price(90px)+txns(60px) columns
+       left only ~30px for the town name (nowrap+ellipsis) → invisible. Stack. */
     #hub-hdb-resale [style*="display:flex"][style*="gap:10px"] {
         flex-wrap: wrap;
         gap: 6px 10px;
@@ -1091,7 +1125,6 @@ body {
         width: 100% !important;
         text-align: left;
     }
-    /* top summary boxes should stack instead of fighting for 200px min-width */
     #hub-hdb-resale [style*="min-width: 200px"] {
         min-width: 0 !important;
         flex-basis: 100% !important;
@@ -1101,6 +1134,20 @@ body {
        never spill outside the card bound. */
     .hub-sub-pane [style*="margin-bottom: 8px"] {
         overflow-wrap: anywhere;
+    }
+
+    /* Co-Pilot FAB: keep it above content and off the right edge; give the
+       scrolling pane right-side breathing room so nothing hides behind it. */
+    .chat-trigger {
+        right: 16px;
+        bottom: 18px;
+        max-width: calc(100% - 32px);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .hub-sub-pane {
+        padding-right: 4px;
     }
 }
 
