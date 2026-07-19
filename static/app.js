@@ -591,6 +591,12 @@ function initSgHub() {
     const communityEventsContent = document.getElementById("hub-community-events-content");
     const mrtEventsContent = document.getElementById("hub-mrt-events-content");
     const icaEventsContent = document.getElementById("hub-ica-events-content");
+    const taxDeadlinesContent = document.getElementById("hub-tax-deadlines");
+    const calcTaxOptBtn = document.getElementById("calc-tax-opt-btn");
+    const taxAssessableIncome = document.getElementById("tax-assessable-income");
+    const taxTopupBudget = document.getElementById("tax-topup-budget");
+    const taxResidencyStatus = document.getElementById("tax-residency-status");
+    const taxOptimizerResults = document.getElementById("tax-optimizer-results");
     const hdbLaunchesContent = document.getElementById("hub-hdb-launches");
     const hdbNewsContent = document.getElementById("hub-hdb-news");
     const hdbResaleContent = document.getElementById("hub-hdb-resale");
@@ -678,6 +684,51 @@ function initSgHub() {
         });
     }
 
+    // CPF HDB Accrued Interest Calculator binding
+    const cpfIntPrincipal = document.getElementById("cpf-interest-principal");
+    const cpfIntDuration = document.getElementById("cpf-interest-duration");
+    const cpfIntBtn = document.getElementById("calc-cpf-interest-btn");
+    const cpfIntResult = document.getElementById("cpf-interest-result");
+
+    if (cpfIntBtn && cpfIntPrincipal && cpfIntDuration && cpfIntResult) {
+        cpfIntBtn.addEventListener("click", () => {
+            const principal = parseFloat(cpfIntPrincipal.value);
+            const duration = parseFloat(cpfIntDuration.value);
+
+            if (isNaN(principal) || principal <= 0 || isNaN(duration) || duration <= 0) {
+                cpfIntResult.innerHTML = "<span style='color:var(--text-error); font-weight:700;'>⚠️ Please enter positive values for Principal and Duration.</span>";
+                return;
+            }
+
+            // Ordinary Account rate is 2.5% compounded annually
+            const rate = 0.025;
+            const totalRefund = principal * Math.pow(1 + rate, duration);
+            const accruedInterest = totalRefund - principal;
+
+            cpfIntResult.innerHTML = `
+                <div style="background:var(--bg-panel); border:1px solid var(--border); padding:14px; border-radius:8px; display:flex; flex-direction:column; gap:8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:12px; font-weight:700; color:var(--text-muted);">Total CPF Refund Required:</span>
+                        <span style="font-size:16px; font-weight:800; color:var(--text-main);">S$${totalRefund.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; border-top:1px dashed var(--border); padding-top:6px;">
+                        <span style="color:var(--text-muted);">Principal Used:</span>
+                        <span style="font-weight:600; color:var(--text-main);">S$${principal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
+                        <span style="color:var(--text-muted);">Accrued Interest (2.5% Compounded):</span>
+                        <span style="font-weight:700; color:#ef4444;">S$${accruedInterest.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                    </div>
+                    <div style="font-size:11px; color:var(--text-muted); line-height:1.4; border-top:1px solid var(--border); padding-top:8px; margin-top:4px;">
+                        <i class="fa-solid fa-circle-info" style="color:var(--primary);"></i> <strong>Note:</strong> When selling your HDB flat, this total refund amount is returned from sale proceeds directly back to your own CPF OA. It is **not a fee or penalty paid to the government**; it restores your own retirement balance. 
+                        <br><br>
+                        <em>Safeguard:</em> If the sale proceeds (at market value) are insufficient to cover this refund, you do not have to top up cash. The shortfall is written off by CPF.
+                    </div>
+                </div>
+            `;
+        });
+    }
+
     const loadedSgHubPanes = {
         "gov-transit-group": false,
         "hub-hdb-pane": false,
@@ -756,6 +807,7 @@ function initSgHub() {
         else if (paneId === "hub-jobs-pane") endpoint = "/api/sg-hub/jobs?sector=tech";
         else if (paneId === "hub-community-pane") endpoint = "/api/sg-hub/community";
         else if (paneId === "hub-env-pane") endpoint = "/api/sg-hub/weather";
+        else if (paneId === "hub-tax-pane") endpoint = "/api/sg-hub/tax";
 
         if (!endpoint) return;
 
@@ -780,6 +832,8 @@ function initSgHub() {
                 renderCommunityPane(data);
             } else if (paneId === "hub-env-pane") {
                 renderWeatherPane(data);
+            } else if (paneId === "hub-tax-pane") {
+                renderTaxPane(data);
             }
 
             loadedSgHubPanes[cacheKey] = true;
@@ -799,6 +853,249 @@ function initSgHub() {
             minute: '2-digit', 
             hour12: true 
         }) + " (SGT)";
+    }
+
+    function renderTaxPane(data) {
+        if (!taxDeadlinesContent) return;
+
+        // --- Render IRAS Due Dates Timeline ---
+        const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
+            <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${getRetrievalTimestamp()}
+        </div>`;
+
+        let timelineHtml = "";
+        if (data.due_dates && data.due_dates.length > 0) {
+            timelineHtml += `<div style="display:flex; flex-direction:column; gap:10px;">`;
+            data.due_dates.forEach(item => {
+                const isIIT = item.category.toLowerCase().includes("individual");
+                const borderLeft = isIIT ? "4px solid #ef4444" : "1px solid var(--border)";
+                const bg = isIIT ? "#fef2f2" : "var(--bg-muted)";
+                const badgeBg = isIIT ? "#fee2e2" : "var(--border)";
+                const badgeColor = isIIT ? "#b91c1c" : "var(--text-main)";
+
+                timelineHtml += `<div style="background:${bg}; border:1px solid var(--border); border-left:${borderLeft}; border-radius:8px; padding:12px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+                    <div style="display:flex; flex-direction:column; gap:4px; max-width:80%;">
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-weight:700; color:var(--text-main); font-size:13.5px;">${escapeHTML(item.date)}</span>
+                            <span style="background:${badgeBg}; color:${badgeColor}; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; text-transform:uppercase; letter-spacing:0.5px;">${escapeHTML(item.category)}</span>
+                        </div>
+                        <span style="color:var(--text-muted); font-size:12.5px; line-height:1.4;">${escapeHTML(item.label)}</span>
+                    </div>
+                    <a href="${safeURL(item.link)}" target="_blank" style="background:#ffffff; border:1px solid var(--border); padding:6px 12px; border-radius:6px; font-size:12px; color:var(--link); text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:5px;">
+                        File Now <i class="fa-solid fa-up-right-from-square" style="font-size:10px;"></i>
+                    </a>
+                </div>`;
+            });
+            timelineHtml += `</div>`;
+        } else {
+            timelineHtml = `<p style="color: var(--text-subtle); margin: 0; font-style: italic;">No tax deadlines reported.</p>`;
+        }
+        taxDeadlinesContent.innerHTML = banner + timelineHtml;
+
+        // --- Tax Calculation Helper ---
+        function calculateSingaporeTax(chargeableIncome) {
+            if (chargeableIncome <= 20000) return 0;
+
+            const brackets = [
+                { limit: 20000, rate: 0.00 },
+                { limit: 10000, rate: 0.02 },  // 20,001 to 30,000
+                { limit: 10000, rate: 0.035 }, // 30,001 to 40,000
+                { limit: 40000, rate: 0.07 },  // 40,001 to 80,000
+                { limit: 40000, rate: 0.115 }, // 80,001 to 120,000
+                { limit: 40000, rate: 0.15 },  // 120,001 to 160,000
+                { limit: 40000, rate: 0.18 },  // 160,001 to 200,000
+                { limit: 40000, rate: 0.19 },  // 200,001 to 240,000
+                { limit: 40000, rate: 0.195 }, // 240,001 to 280,000
+                { limit: 40000, rate: 0.20 },  // 280,001 to 320,000
+                { limit: 180000, rate: 0.22 }, // 320,001 to 500,000
+                { limit: 500000, rate: 0.23 }, // 500,001 to 1,000,000
+                { limit: Infinity, rate: 0.24 } // Above 1,000,000
+            ];
+
+            let tax = 0;
+            let tempIncome = chargeableIncome - 20000;
+
+            for (let i = 1; i < brackets.length; i++) {
+                const b = brackets[i];
+                if (tempIncome <= 0) break;
+                const taxableAmount = Math.min(tempIncome, b.limit);
+                tax += taxableAmount * b.rate;
+                tempIncome -= taxableAmount;
+            }
+            return tax;
+        }
+
+        // --- Optimizer Form Listener ---
+        if (calcTaxOptBtn) {
+            // Remove any old event listeners to avoid duplicates
+            const newBtn = calcTaxOptBtn.cloneNode(true);
+            calcTaxOptBtn.parentNode.replaceChild(newBtn, calcTaxOptBtn);
+            
+            newBtn.addEventListener("click", () => {
+                const income = parseFloat(taxAssessableIncome.value) || 0;
+                const budget = parseFloat(taxTopupBudget.value) || 0;
+                const isForeigner = taxResidencyStatus.value === "foreigner";
+
+                if (income <= 0 || budget <= 0) {
+                    alert("Please enter a valid positive Assessable Income and Top-up Budget.");
+                    return;
+                }
+
+                // Singapore tax limits
+                const maxCPFReliefSelf = 8000;
+                const maxSRSRelief = isForeigner ? 35700 : 15300;
+
+                // Optimal split algorithm:
+                // 1. Allocate to CPF SA/MA (RSTU) first up to $8,000 (highest risk-free interest 4.08%)
+                // 2. Allocate the remaining budget to SRS up to limit ($15.3k Citizen/PR or $35.7k Foreigner)
+                // 3. Excess goes to "unused"
+                let cpfAlloc = Math.min(budget, maxCPFReliefSelf);
+                let remainingBudget = budget - cpfAlloc;
+                let srsAlloc = Math.min(remainingBudget, maxSRSRelief);
+                
+                let totalDeductible = cpfAlloc + srsAlloc;
+                let unusedBudget = budget - totalDeductible;
+
+                // Calculate taxes
+                let originalTax = calculateSingaporeTax(income);
+                let optimizedChargeableIncome = Math.max(0, income - totalDeductible);
+                let optimizedTax = calculateSingaporeTax(optimizedChargeableIncome);
+                let totalSaved = originalTax - optimizedTax;
+
+                // --- Progressive Bracket Targeter ---
+                const thresholds = [
+                    { value: 1000000, rate: 0.24, nextRate: 0.23 },
+                    { value: 500000, rate: 0.23, nextRate: 0.22 },
+                    { value: 320000, rate: 0.22, nextRate: 0.20 },
+                    { value: 280000, rate: 0.20, nextRate: 0.195 },
+                    { value: 240000, rate: 0.195, nextRate: 0.19 },
+                    { value: 200000, rate: 0.19, nextRate: 0.18 },
+                    { value: 160000, rate: 0.18, nextRate: 0.15 },
+                    { value: 120000, rate: 0.15, nextRate: 0.115 },
+                    { value: 80000, rate: 0.115, nextRate: 0.07 },
+                    { value: 40000, rate: 0.07, nextRate: 0.035 },
+                    { value: 30000, rate: 0.035, nextRate: 0.02 },
+                    { value: 20000, rate: 0.02, nextRate: 0.00 }
+                ];
+
+                let currentThreshold = null;
+                for (let t of thresholds) {
+                    if (income > t.value) {
+                        currentThreshold = t;
+                        break;
+                    }
+                }
+
+                let bracketAdvisoryHtml = "";
+                if (currentThreshold) {
+                    const amountToDrop = income - currentThreshold.value;
+                    const marginalRatePct = (currentThreshold.rate * 100).toFixed(1);
+                    const lowerRatePct = (currentThreshold.nextRate * 100).toFixed(1);
+
+                    if (totalDeductible >= amountToDrop) {
+                        const taxSavedOnThisBracket = amountToDrop * currentThreshold.rate;
+                        bracketAdvisoryHtml = `
+                            <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:14px; border-radius:8px; margin-bottom:20px; border-left:4px solid #16a34a;">
+                                <span style="font-weight:700; color:#15803d; font-size:12.5px; display:block; margin-bottom:4px;">
+                                    <i class="fa-solid fa-circle-check"></i> Marginal Tax Tier Drop Successful!
+                                </span>
+                                <span style="font-size:12px; color:#166534; line-height:1.45; display:block;">
+                                    By topping up S$${totalDeductible.toLocaleString()}, you successfully reduced your chargeable income below the **S$${currentThreshold.value.toLocaleString()}** threshold. This drops you from the **${marginalRatePct}%** tax tier into the **${lowerRatePct}%** tier, saving you **S$${taxSavedOnThisBracket.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}** on this bracket portion alone!
+                                </span>
+                            </div>
+                        `;
+                    } else {
+                        const shortfall = amountToDrop - totalDeductible;
+                        const potentialExtraSaving = shortfall * currentThreshold.rate;
+                        const maxPossibleTopup = maxCPFReliefSelf + maxSRSRelief;
+                        
+                        let tipMessage = "";
+                        if (amountToDrop <= maxPossibleTopup) {
+                            tipMessage = `Topping up an additional **S$${shortfall.toLocaleString()}** (total S$${amountToDrop.toLocaleString()}) will drop your chargeable income below **S$${currentThreshold.value.toLocaleString()}**, escaping the **${marginalRatePct}%** tax rate on those dollars and saving you an additional **S$${potentialExtraSaving.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}**!`;
+                        } else {
+                            tipMessage = `To drop below the **S$${currentThreshold.value.toLocaleString()}** threshold requires a top-up of **S$${amountToDrop.toLocaleString()}**, which exceeds the annual CPF + SRS tax relief ceiling of **S$${maxPossibleTopup.toLocaleString()}** for this year.`;
+                        }
+
+                        bracketAdvisoryHtml = `
+                            <div style="background:#fffbeb; border:1px solid #fef3c7; padding:14px; border-radius:8px; margin-bottom:20px; border-left:4px solid #d97706;">
+                                <span style="font-weight:700; color:#b45309; font-size:12.5px; display:block; margin-bottom:4px;">
+                                    <i class="fa-solid fa-lightbulb"></i> Next Tax Tier Target: S$${currentThreshold.value.toLocaleString()}
+                                </span>
+                                <span style="font-size:12px; color:#92400e; line-height:1.45; display:block;">
+                                    You are in the progressive **${marginalRatePct}%** tax tier. ${tipMessage}
+                                </span>
+                            </div>
+                        `;
+                    }
+                }
+
+                // Build results HTML
+                let resultsHtml = `
+                    ${bracketAdvisoryHtml}
+                    <div style="background:#eafaf1; border: 1px solid #a3d9b1; padding:16px; border-radius:10px; margin-bottom:20px; text-align:center;">
+                        <span style="font-size:12px; font-weight:700; color:#1a7f3c; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px;">Estimated Tax Savings</span>
+                        <span style="font-size:32px; font-weight:900; color:#1a7f3c; display:block; margin-bottom:6px;">S$${totalSaved.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        <p style="margin:0; font-size:12.5px; color:#1b5e20; font-weight:600;">You reduced your taxable income by S$${totalDeductible.toLocaleString()}!</p>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
+                        <div style="background:var(--bg-muted); border:1px solid var(--border); padding:12px; border-radius:8px; text-align:center;">
+                            <span style="font-size:11px; color:var(--text-muted); display:block; margin-bottom:4px;">Original Tax Payable</span>
+                            <span style="font-size:16px; font-weight:700; color:var(--text-main);">S$${originalTax.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        </div>
+                        <div style="background:var(--bg-muted); border:1px solid var(--border); padding:12px; border-radius:8px; text-align:center;">
+                            <span style="font-size:11px; color:var(--text-muted); display:block; margin-bottom:4px;">Optimized Tax Payable</span>
+                            <span style="font-size:16px; font-weight:700; color:var(--text-main);">S$${optimizedTax.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        </div>
+                    </div>
+
+                    <h4 style="font-size:13px; font-weight:700; margin-bottom:10px; color:var(--text-main); text-transform:uppercase; letter-spacing:0.5px;"><i class="fa-solid fa-list-check"></i> Recommended Allocation Split</h4>
+                    <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">
+                        
+                        <!-- CPF SA RSTU Topup Card -->
+                        <div style="background:#f0f7ff; border:1px solid #b3d7ff; border-left:4px solid #005EC4; padding:12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <span style="font-weight:700; font-size:13px; color:#004085; display:block;">CPF Special Account (RSTU) Top-up</span>
+                                <span style="font-size:11px; color:#004085; line-height:1.3;">Retirement Account compound growth (4.08% guaranteed yield)</span>
+                            </div>
+                            <span style="font-weight:800; font-size:16px; color:#004085;">S$${cpfAlloc.toLocaleString()}</span>
+                        </div>
+
+                        <!-- SRS Contribution Card -->
+                        <div style="background:#fbf2ff; border:1px solid #e1bbfd; border-left:4px solid #a855f7; padding:12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <span style="font-weight:700; font-size:13px; color:#6b21a8; display:block;">Supplementary Retirement Scheme (SRS)</span>
+                                <span style="font-size:11px; color:#6b21a8; line-height:1.3;">Investable cash account (flexible shares/bonds/annuity purchase)</span>
+                            </div>
+                            <span style="font-weight:800; font-size:16px; color:#6b21a8;">S$${srsAlloc.toLocaleString()}</span>
+                        </div>
+
+                        ${unusedBudget > 0 ? `
+                        <!-- Unused Excess Card -->
+                        <div style="background:#fffbeb; border:1px solid #fef3c7; border-left:4px solid #d97706; padding:12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <span style="font-weight:700; font-size:13px; color:#92400e; display:block;">Unused Excess Budget</span>
+                                <span style="font-size:11px; color:#92400e; line-height:1.3;">This S$${unusedBudget.toLocaleString()} exceeds the relief limits for YA 2026. Keep in savings.</span>
+                            </div>
+                            <span style="font-weight:800; font-size:16px; color:#92400e;">S$${unusedBudget.toLocaleString()}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+
+                    <!-- Trade-off Advisory Box -->
+                    <div style="background:#f8fafc; border:1px solid var(--border); border-radius:8px; padding:14px; font-size:12px; line-height:1.5; color:var(--text-main);">
+                        <strong style="display:block; margin-bottom:6px; color:var(--text-main); font-size:12.5px;"><i class="fa-solid fa-circle-info" style="color:var(--primary);"></i> Important Liquidity &amp; Asset Advisory:</strong>
+                        <ul style="margin:0; padding-left:16px; display:flex; flex-direction:column; gap:6px;">
+                            <li><strong>CPF SA Top-ups (RSTU)</strong> are <strong>irreversible</strong>. The cash is permanently transferred and locked until age 55, earning a guaranteed base rate of 4.08% per annum.</li>
+                            <li><strong>SRS Contributions</strong> are flexible. You can invest these in Singapore bonds, blue-chip shares, or annuity plans. However, early cash withdrawals before statutory retirement age trigger a <strong>5% penalty</strong> and are taxed 100%. Post-retirement withdrawals are <strong>50% tax-free</strong>.</li>
+                        </ul>
+                    </div>
+                `;
+
+                taxOptimizerResults.innerHTML = resultsHtml;
+                taxOptimizerResults.classList.remove("hidden");
+            });
+        }
     }
 
     function renderWeatherPane(data) {

@@ -1225,6 +1225,9 @@
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-env-pane">
                         <i class="fa-solid fa-cloud-sun"></i> Weather &amp; PSI
                     </button>
+                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-tax-pane">
+                        <i class="fa-solid fa-scale-balanced"></i> IRAS Tax &amp; Wealth
+                    </button>
                 </div>
 
                 <!-- Sub-panes -->
@@ -1328,6 +1331,32 @@
                         </div>
                     </div>
 
+                    <!-- CPF HDB Accrued Interest Calculator Card -->
+                    <div class="hub-card" style="margin-top: 20px;">
+                        <h3>
+                            <i class="fa-solid fa-scale-balanced"></i> CPF HDB Accrued Interest Calculator
+                        </h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Calculate the estimated Ordinary Account (OA) accrued interest (compounded at 2.5% annually) that must be refunded back to your CPF account upon selling your flat.</p>
+                        <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 18px; display: flex; flex-direction: column; gap: 12px;">
+                            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
+                                <div style="display:flex; flex-direction:column; gap:6px;">
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-muted);">Principal CPF Used (S$):</label>
+                                    <input type="number" id="cpf-interest-principal" value="100000" min="0" step="5000" style="background:var(--bg-panel); border:1px solid var(--border); border-radius:6px; padding:8px 12px; font-size:14px; font-family:var(--font-mono); color:var(--text-main); font-weight:600;">
+                                </div>
+                                <div style="display:flex; flex-direction:column; gap:6px;">
+                                    <label style="font-size:12px; font-weight:700; color:var(--text-muted);">Holding Period (Years):</label>
+                                    <input type="number" id="cpf-interest-duration" value="5" min="1" max="50" step="1" style="background:var(--bg-panel); border:1px solid var(--border); border-radius:6px; padding:8px 12px; font-size:14px; font-family:var(--font-mono); color:var(--text-main); font-weight:600;">
+                                </div>
+                            </div>
+                            <button type="button" id="calc-cpf-interest-btn" style="background:var(--primary); color:#ffffff; font-weight:700; font-size:13px; padding:10px; border-radius:6px; border:none; cursor:pointer; transition:background 0.15s ease;">
+                                Calculate Refund Amount
+                            </button>
+                            <div id="cpf-interest-result" style="border-top:1px solid var(--border); padding-top:12px; margin-top:4px;">
+                                <span style="font-size:12.5px; color:var(--text-muted);">Enter principal and duration to compute accrued interest.</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- HDB News Card -->
                     <div class="hub-card" style="margin-top: 20px;">
                         <h3>
@@ -1420,6 +1449,59 @@
                         </h3>
                         <div id="hub-weather-content">
                             <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading environment advisories...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tax & Wealth Pane -->
+                <div class="hub-sub-pane hidden" id="hub-tax-pane">
+                    <!-- IRAS Due Dates Card -->
+                    <div class="hub-card" style="margin-bottom: 20px;">
+                        <h3>
+                            <i class="fa-solid fa-calendar-check"></i> IRAS Tax Due Dates (YA 2026)
+                        </h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Official filing deadlines for individual income tax, corporate tax, and GST from IRAS.</p>
+                        <div id="hub-tax-deadlines">
+                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading tax calendar...</p>
+                        </div>
+                    </div>
+
+                    <!-- Income Tax Relief Optimizer Card -->
+                    <div class="hub-card">
+                        <h3>
+                            <i class="fa-solid fa-scale-unbalanced-flip"></i> CPF / SRS Tax Relief Optimizer
+                        </h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Maximize your tax savings. Input your annual income and total budget to compute the optimal split between CPF SA (RSTU) and SRS.</p>
+                        
+                        <!-- Form Inputs -->
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:20px; background:var(--bg-muted); border:1px solid var(--border); padding:16px; border-radius:10px;">
+                            <div>
+                                <label for="tax-assessable-income" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-main);">Annual Assessable Income (S$)</label>
+                                <input type="number" id="tax-assessable-income" value="85000" min="0" step="1000" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">Annual salary before deductions and reliefs</span>
+                            </div>
+                            <div>
+                                <label for="tax-topup-budget" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-main);">Top-up Budget (S$)</label>
+                                <input type="number" id="tax-topup-budget" value="10000" min="0" step="500" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">Amount you wish to allocate for CPF/SRS top-ups</span>
+                            </div>
+                            <div>
+                                <label for="tax-residency-status" style="display:block; font-weight:700; font-size:12px; margin-bottom:6px; color:var(--text-main);">Residency Status</label>
+                                <select id="tax-residency-status" style="width:100%; padding:10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text-main); font-weight:600;">
+                                    <option value="citizen_pr">Singapore Citizen / PR</option>
+                                    <option value="foreigner">Foreigner (Pass Holder)</option>
+                                </select>
+                                <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:4px;">Affects SRS yearly contribution limits</span>
+                            </div>
+                        </div>
+
+                        <button id="calc-tax-opt-btn" class="main-tab-btn" style="background:var(--primary); color:#fff; font-weight:700; font-size:13px; padding:12px 24px; border-radius:8px; border:none; cursor:pointer; width:100%; margin-bottom:20px; transition: opacity 0.15s ease;">
+                            Optimize My Top-ups <i class="fa-solid fa-arrows-spin"></i>
+                        </button>
+
+                        <!-- Results Container -->
+                        <div id="tax-optimizer-results" class="hidden" style="border-top:1px dashed var(--border); padding-top:20px;">
+                            <!-- Injected by JavaScript -->
                         </div>
                     </div>
                 </div>
