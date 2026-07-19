@@ -363,7 +363,13 @@ async def get_proxied_logo(agency: str):
     return Response(content=content, media_type=content_type)
 
 
-GOV_CHANNELS = ["HealthHubSG", "scamshieldalert", "govsg", "LTAsg", "NEAsg", "MOEsg", "GovTechSG"]
+GOV_CHANNELS = [
+    "HealthHubSG", "scamshieldalert", "govsg", "LTAsg", "NEAsg", "MOEsg", "GovTechSG",
+    # High Priority additions
+    "MOHSingapore", "SPFsg", "SCDFsg", "momsg",
+    # Medium Priority (selected)
+    "ReachSingapore",
+]
 COMMUNITY_CHANNELS = [
     "dailyvanity", "goodlobang", "triptalksSG", "dateideas", 
     "kiasufoodies", "klooktravelsg", "youtripsg", "sgweekend", 
@@ -734,6 +740,9 @@ def scrape_one_telegram_channel_24h(channel: str) -> list:
 
 _weather_cache = {"data": None, "fetched_at": 0}
 _WEATHER_CACHE_TTL_SECONDS = 3 * 60  # NEA's unauthenticated real-time APIs have a tight burst rate limit
+
+_flood_alerts_cache = {"data": None, "fetched_at": 0}
+_FLOOD_ALERTS_CACHE_TTL_SECONDS = 3 * 60  # Flood alerts are real-time — 3 min is safe for burst protection
                                        # (~6 calls before a 429) and this endpoint fires 9 of them per
                                        # load — caching here means only the first visitor in a 3-minute
                                        # window actually pays that cost.
@@ -846,6 +855,7 @@ def _fetch_weather_data() -> dict:
         air_temp = avg_station_reading("air-temperature")
         humidity = avg_station_reading("relative-humidity")
         wind_speed = avg_station_reading("wind-speed")
+        uv_index = avg_station_reading("uv-index")
 
         # Wind direction: circular mean (via sin/cos components — averaging raw degrees breaks
         # down near the 0/360 boundary, e.g. 350° and 10° should average to ~0°, not 180°).
@@ -921,6 +931,7 @@ def _fetch_weather_data() -> dict:
                 "rainfall_max": rainfall_max,
                 "rainfall_stations_wet": rainfall_stations_wet,
                 "rainfall_stations_total": rainfall_stations_total,
+                "uv_index": uv_index,
             },
             "outlook_24hr": outlook_24hr
         }
@@ -928,6 +939,66 @@ def _fetch_weather_data() -> dict:
     except Exception as e:
         logger.exception("Error fetching weather data")
         raise
+
+
+def fetch_pub_flood_alerts() -> dict:
+    """
+    Calls the PUB Flood Alerts real-time API on data.gov.sg.
+    Returns a structured dict with active/cancelled alerts.
+    Cached for 3 minutes to stay within burst rate limits.
+    """
+    now = time.time()
+    if (
+        _flood_alerts_cache["data"] is not None
+        and (now - _flood_alerts_cache["fetched_at"]) < _FLOOD_ALERTS_CACHE_TTL_SECONDS
+    ):
+        return _flood_alerts_cache["data"]
+
+    headers = {"User-Agent": "Mozilla/5.0"}
+    data_gov_sg_api_key = os.environ.get("DATA_GOV_SG_API_KEY", "").strip()
+    if data_gov_sg_api_key:
+        headers["x-api-key"] = data_gov_sg_api_key
+
+    url = "https://api-open.data.gov.sg/v2/real-time/api/weather/flood-alerts"
+    print(f"  \033[90m[PUB Flood Alerts] HTTP GET {url}\033[0m")
+    try:
+        r = requests.get(url, headers=headers, timeout=6)
+        print(f"  \033[90m[PUB Flood Alerts] HTTP RESPONSE: {r.status_code}\033[0m")
+        r.raise_for_status()
+        data = r.json()
+
+        from datetime import datetime, timezone, timedelta
+        sgt_now = datetime.now(timezone(timedelta(hours=8)))
+        retrieved_at = sgt_now.strftime("%d %b %Y, %I:%M %p")
+
+        # API returns data.items[].floodAlerts[]
+        items = data.get("data", {}).get("items", [])
+        alerts = []
+        for item in items:
+            for alert in item.get("floodAlerts", []):
+                message = alert.get("message", "").strip()
+                status = alert.get("status", "").strip()
+                if not message:
+                    continue
+                alerts.append({
+                    "message": message,
+                    "status": status,
+                    "is_active": status.lower() not in ("cancel", "cancelled", "cleared", "all clear"),
+                })
+
+        active_count = sum(1 for a in alerts if a["is_active"])
+        print(f"  \033[32m✔\033[0m [PUB Flood Alerts] {len(alerts)} alert(s) retrieved ({active_count} active).")
+
+        result = {"alerts": alerts, "active_count": active_count, "retrieved_at": retrieved_at}
+        _flood_alerts_cache["data"] = result
+        _flood_alerts_cache["fetched_at"] = now
+        return result
+    except Exception as e:
+        logger.warning(f"[PUB Flood Alerts] Fetch failed: {e}")
+        result = {"alerts": [], "active_count": 0, "retrieved_at": None}
+        _flood_alerts_cache["data"] = result
+        _flood_alerts_cache["fetched_at"] = now
+        return result
 
 
 @app.get("/api/sg-hub/weather")
@@ -1168,6 +1239,7 @@ async def get_sg_hub_gov_transit(lat: float | None = None, lon: float | None = N
         train_alerts = None
         taxi_availability = None
         coe_raw = None
+        flood_alerts = None
 
         async def fetch_gov_channel(channel_name):
             ch_events = await anyio.to_thread.run_sync(scrape_one_telegram_channel, channel_name)
@@ -1187,13 +1259,19 @@ async def get_sg_hub_gov_transit(lat: float | None = None, lon: float | None = N
             print("  \033[90m[data.gov.sg] Fetching latest COE bidding results...\033[0m")
             coe_raw = await anyio.to_thread.run_sync(query_coe_bidding_results)
 
-        # Run Telegram scrapers + DataMall APIs + COE fetch in parallel
+        async def fetch_flood_data():
+            nonlocal flood_alerts
+            print("  \033[90m[PUB] Fetching flood alerts in parallel...\033[0m")
+            flood_alerts = await anyio.to_thread.run_sync(fetch_pub_flood_alerts)
+
+        # Run Telegram scrapers + DataMall APIs + COE + Flood alerts fetch in parallel
         async with anyio.create_task_group() as tg:
             for ch in GOV_CHANNELS:
                 tg.start_soon(fetch_gov_channel, ch)
             tg.start_soon(fetch_datamall_alerts)
             tg.start_soon(fetch_datamall_taxis)
             tg.start_soon(fetch_coe)
+            tg.start_soon(fetch_flood_data)
 
         # Fallback for Official Gov Alerts
         if not gov_events:
@@ -1278,7 +1356,8 @@ async def get_sg_hub_gov_transit(lat: float | None = None, lon: float | None = N
             "gov_events": gov_events,
             "train_alerts": train_alerts,
             "taxi_availability": taxi_availability,
-            "coe": coe
+            "coe": coe,
+            "flood_alerts": flood_alerts,
         }
     except Exception as e:
         logger.exception("Error loading Gov updates data")

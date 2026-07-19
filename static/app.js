@@ -850,12 +850,34 @@ function initSgHub() {
             ? `${cc.rainfall_max ?? 0} mm max (${cc.rainfall_stations_wet}/${cc.rainfall_stations_total} areas)`
             : 'N/A';
 
+        // UV Index: NEA 5-tier scale
+        const uvVal = cc.uv_index != null ? cc.uv_index : null;
+        const uvLabel = uvVal == null ? 'N/A'
+            : uvVal <= 2 ? `${uvVal} Low`
+            : uvVal <= 5 ? `${uvVal} Moderate`
+            : uvVal <= 7 ? `${uvVal} High`
+            : uvVal <= 10 ? `${uvVal} Very High`
+            : `${uvVal} Extreme`;
+        const uvColor = uvVal == null ? 'var(--text-muted)'
+            : uvVal <= 2 ? '#10b981'
+            : uvVal <= 5 ? '#f59e0b'
+            : uvVal <= 7 ? '#f97316'
+            : uvVal <= 10 ? '#ef4444'
+            : '#991b1b';
+        const uvTile = `
+            <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 10px; padding: 12px 10px; text-align:center; min-width:100px; flex: 1;">
+                <div style="font-size: 22px; margin-bottom: 4px;">☀️</div>
+                <div style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">UV Index</div>
+                <div style="font-size: 14px; font-weight: 700; color: ${uvColor};">${uvLabel}</div>
+            </div>`;
+
         const currentConditionsTiles = [
             statTile('🌡️', 'Air Temp', cc.air_temperature != null ? `${cc.air_temperature}°C` : 'N/A'),
             statTile('💧', 'Humidity', cc.humidity != null ? `${cc.humidity}%` : 'N/A'),
             statTile('💨', 'Wind', (cc.wind_speed != null && cc.wind_direction) ? `${cc.wind_speed} km/h ${cc.wind_direction}` : 'N/A'),
             statTile('🌧️', 'Rainfall', rainfallLabel),
-            statTile('🍃', 'PM2.5', data.pm25 != null ? `${data.pm25} µg/m³` : 'N/A')
+            statTile('🍃', 'PM2.5', data.pm25 != null ? `${data.pm25} µg/m³` : 'N/A'),
+            uvTile
         ].join('');
 
         // 24-Hour General Outlook
@@ -1064,7 +1086,40 @@ function initSgHub() {
                 <div style="color: var(--text-main); line-height:1.45; white-space: pre-wrap;">${escapeHTML(evt.content)}</div>
             </div>`;
         });
-        govEventsContent.innerHTML = banner + (govHtml || "<p style='color: var(--text-subtle); margin:0;'>No official alerts.</p>");
+
+        // --- Flood Alerts Banner (PUB real-time API) ---
+        let floodBannerHtml = '';
+        if (data.flood_alerts && data.flood_alerts.alerts && data.flood_alerts.alerts.length > 0) {
+            const fa = data.flood_alerts;
+            const activeAlerts = fa.alerts.filter(a => a.is_active);
+            const cancelledAlerts = fa.alerts.filter(a => !a.is_active);
+
+            if (activeAlerts.length > 0) {
+                const alertItems = activeAlerts.map(a =>
+                    `<div style="display:flex; align-items:flex-start; gap:8px; margin-bottom:6px;">
+                        <i class="fa-solid fa-triangle-exclamation" style="color:#dc2626; margin-top:2px; flex-shrink:0;"></i>
+                        <span>${escapeHTML(a.message)}</span>
+                    </div>`
+                ).join('');
+                floodBannerHtml = `
+                    <div style="background:#fef2f2; border:1px solid #fca5a5; border-left:4px solid #dc2626; border-radius:10px; padding:14px 16px; margin-bottom:12px;">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; font-weight:700; font-size:13px; color:#dc2626;">
+                            <i class="fa-solid fa-droplet" style="font-size:16px;"></i>
+                            ⚠️ PUB Flood Alert${activeAlerts.length > 1 ? 's' : ''} Active (${activeAlerts.length})
+                            ${fa.retrieved_at ? `<span style="font-size:10px; font-weight:normal; color:#b91c1c; background:#fee2e2; padding:2px 7px; border-radius:4px; margin-left:4px;">Retrieved: ${escapeHTML(fa.retrieved_at)}</span>` : ''}
+                        </div>
+                        <div style="font-size:13px; color:#7f1d1d; line-height:1.5;">${alertItems}</div>
+                    </div>`;
+            } else if (cancelledAlerts.length > 0) {
+                floodBannerHtml = `
+                    <div style="background:var(--bg-muted); border:1px solid var(--border); border-left:4px solid #10b981; border-radius:10px; padding:12px 16px; margin-bottom:12px; font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:8px;">
+                        <i class="fa-solid fa-circle-check" style="color:#10b981;"></i>
+                        <span>All earlier PUB flood alerts have been cleared.</span>
+                    </div>`;
+            }
+        }
+
+        govEventsContent.innerHTML = banner + floodBannerHtml + (govHtml || "<p style='color: var(--text-subtle); margin:0;'>No official alerts.</p>");
 
         // ── Transit section: DataMall structured view OR Telegram keyword-filter fallback ──
         let mrtHtml = "";
