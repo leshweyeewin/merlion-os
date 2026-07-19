@@ -85,7 +85,7 @@ MerlionOS features a drag-and-drop reorderable grid representing all **39 statut
 38. **NHB** (National Heritage Board) — Museum bookings & heritage trail guides
 39. **MinLaw** (Ministry of Law) — e-Litigation filings & Family Justice Courts services
 
-*Layout orders are automatically persisted across sessions in browser `localStorage`. Since the directory includes 39 portals, you can hide cards you do not need by hovering over a card and clicking the eye icon. Restoring hidden portals is easy via the **Manage Portals** dropdown at the top of the grid.*
+*Layout orders are automatically persisted across sessions in browser `localStorage`. Since the directory includes 39 portals, you can hide cards you do not need by hovering over a card and clicking the eye icon. Restoring hidden portals is easy via the **Hidden Portals** dropdown at the top of the grid.*
 
 ---
 
@@ -188,7 +188,7 @@ Current release cycle building on the baseline. What's new or changed:
 
 **🏛️ Statutory Portals Directory**
 * Grown from **19 → 39** portals (+20 agencies: HPB, MSF, PUB, NLB, URA, NParks, MAS, IMDA, OneNS, SPF, SCDF, ACRA, EnterpriseSG, IPOS, SLA, CEA, PA, STB, NHB, MinLaw), with a dedicated portal index page.
-* **Custom Visibility & Filtering**: Hovering any portal card lets you hide it using the eye icon. Hidden portals can be added back at any time via the new **Manage Portals** dropdown at the top of the grid.
+* **Custom Visibility & Filtering**: Hovering any portal card lets you hide it using the eye icon. Hidden portals can be added back at any time via the new **Hidden Portals** dropdown at the top of the grid.
 
 **🧹 Code Cleanup & Refactoring**
 * **Monolith Refactoring**: Split the monolithic `tools.py` into a modular package under `tools/` (core, civic, search, environment, jobs, housing, transport, wages) with clean, backwards-compatible exports.
