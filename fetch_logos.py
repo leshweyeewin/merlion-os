@@ -125,15 +125,15 @@ def main():
             if ok:
                 stats["downloaded"] += 1
                 print(f"  OK   {agency:14s} {fname} ({msg})")
+                # Rewrite src to local path ONLY on success; on failure we keep the
+                # original https:// URL so the live hotlink is still attempted.
+                new_src = f'src="logos/{fname}"'
+                new_tag = re.sub(r'src="[^"]+"', new_src, img_tag)
+                if not args.dry_run:
+                    new_html = new_html[:m.start(2)] + new_tag + new_html[m.end(2):]
             else:
                 stats["fail"] += 1
-                print(f"  FAIL {agency:14s} {url} -> {msg}")
-
-        # Rewrite src to local path (keep everything else incl. onerror).
-        new_src = f'src="logos/{fname}"'
-        new_tag = re.sub(r'src="[^"]+"', new_src, img_tag)
-        if not args.dry_run:
-            new_html = new_html[:m.start(2)] + new_tag + new_html[m.end(2):]
+                print(f"  FAIL {agency:14s} {url} -> {msg} (kept original src)")
 
     if not args.dry_run:
         with open(HTML, "w", encoding="utf-8") as f:
