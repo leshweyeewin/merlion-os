@@ -305,5 +305,155 @@ GOV_DIRECTORY = [
         "title": "Ministry of Digital Development and Information (MDDI) - Smart Nation, Cybersecurity, MCI",
         "url": "https://www.mddi.gov.sg/",
         "keywords": ["mddi", "mci", "digital development", "information", "smart nation", "cybersecurity", "telecom"]
+    },
+    {
+        "title": "Ministry of Foreign Affairs (MFA) - Consular Assistance, eRegister, Travel Advisories, Passport Loss",
+        "url": "https://www.mfa.gov.sg/",
+        "keywords": ["mfa", "ministry of foreign affairs", "consular assistance", "eregister", "travel advisory", "lost passport"]
+    },
+    {
+        "title": "Ministry of Defence (MINDEF) - National Security, Singapore Armed Forces, Defence Policy",
+        "url": "https://www.mindef.gov.sg/",
+        "keywords": ["mindef", "ministry of defence", "saf", "national security", "armed forces", "military"]
+    },
+    {
+        "title": "Ministry of National Development (MND) - Infrastructure Planning, Housing Policy, Municipal Services",
+        "url": "https://www.mnd.gov.sg/",
+        "keywords": ["mnd", "ministry of national development", "housing policy", "infrastructure", "municipal"]
+    },
+    {
+        "title": "Ministry of Culture, Community and Youth (MCCY) - Social Cohesion, Sports Policy, Charity Regulator",
+        "url": "https://www.mccy.gov.sg/",
+        "keywords": ["mccy", "ministry of culture", "sports", "arts", "charity", "youth", "cohesion"]
+    },
+    {
+        "title": "Ministry of Transport (MOT) - Civil Aviation, Maritime, Public Transit Coordination",
+        "url": "https://www.mot.gov.sg/",
+        "keywords": ["mot", "ministry of transport", "transit", "aviation", "maritime", "shipping"]
+    },
+    {
+        "title": "Ministry of Trade and Industry (MTI) - Economic Policies, Trade Agreements, Business Enterprise",
+        "url": "https://www.mti.gov.sg/",
+        "keywords": ["mti", "ministry of trade and industry", "economic", "enterprise", "trade agreements"]
+    },
+    {
+        "title": "Ministry of Sustainability and the Environment (MSE) - Climate Action, Food Security, Zero Waste",
+        "url": "https://www.mse.gov.sg/",
+        "keywords": ["mse", "ministry of sustainability", "environment", "climate action", "food security", "recycling"]
+    },
+    {
+        "title": "Energy Market Authority (EMA) - Power Grid Regulation, Gas Safety, Electricity Licenses",
+        "url": "https://www.ema.gov.sg/",
+        "keywords": ["ema", "energy market authority", "electricity", "gas safety", "power grid", "energy market"]
+    },
+    {
+        "title": "Agency for Science, Technology and Research (A*STAR) - R&D Funding, Science Research, Scholarships",
+        "url": "https://www.a-star.edu.sg/",
+        "keywords": ["a*star", "astar", "science research", "r&d", "research", "technology", "scholarships"]
+    },
+    {
+        "title": "Building and Construction Authority (BCA) - Building Safety, Contractor Registry, Built Environment",
+        "url": "https://www.bca.gov.sg/",
+        "keywords": ["bca", "building and construction authority", "construction", "contractor registry", "safety", "green building"]
+    },
+    {
+        "title": "Civil Aviation Authority of Singapore (CAAS) - Air Safety, Drone Permits, Pilot Licensing, Aviation",
+        "url": "https://www.caas.gov.sg/",
+        "keywords": ["caas", "civil aviation", "drone permit", "pilot license", "changi", "aviation", "flight safety"]
+    },
+    {
+        "title": "Civil Service College (CSC) - Public Sector Training, Leadership Workshops, Civil Service",
+        "url": "https://www.cscollege.gov.sg/",
+        "keywords": ["csc", "civil service college", "training", "leadership", "public service"]
+    },
+    {
+        "title": "Communicable Diseases Agency (CDA) - Disease Surveillance, Outbreak Response, Epidemiology",
+        "url": "https://www.cda.gov.sg/",
+        "keywords": ["cda", "communicable diseases agency", "disease surveillance", "outbreak", "epidemiology"]
+    },
+    {
+        "title": "Competition and Consumer Commission of Singapore (CCCS) - Fair Trading, Anti-Competition, Consumer Rights",
+        "url": "https://www.cccs.gov.sg/",
+        "keywords": ["cccs", "competition", "fair trading", "consumer rights", "merger review"]
+    },
+    {
+        "title": "Defence Science and Technology Agency (DSTA) - Military Engineering, Defence Acquisitions, Weapon Systems",
+        "url": "https://www.dsta.gov.sg/",
+        "keywords": ["dsta", "defence science", "military engineering", "acquisitions", "weapon systems"]
+    },
+    {
+        "title": "Gambling Regulatory Authority (GRA) - Casino Regulation, Gambling Permits, Operator Licensing",
+        "url": "https://www.gra.gov.sg/",
+        "keywords": ["gra", "gambling regulatory authority", "casino", "gambling permit", "licensing"]
+    },
+    {
+        "title": "Home Team Science and Technology Agency (HTX) - Biometrics, Forensics, Border Security Technology",
+        "url": "https://www.htx.gov.sg/",
+        "keywords": ["htx", "home team", "biometrics", "forensics", "border security", "emergency response"]
+    },
+    {
+        "title": "ISEAS - Yusof Ishak Institute - Socio-Political Research, Southeast Asian Studies, Publications",
+        "url": "https://www.iseas.edu.sg/",
+        "keywords": ["iseas", "yusof ishak", "southeast asian studies", "socio-political", "research"]
+    },
+    {
+        "title": "JTC Corporation (JTC) - Industrial Estates, Business Parks, Factory Allocation, Jurong Island",
+        "url": "https://www.jtc.gov.sg/",
+        "keywords": ["jtc", "jtc corporation", "industrial estate", "business park", "factory", "jurong island"]
+    },
+    {
+        "title": "Maritime and Port Authority of Singapore (MPA) - Bunkering, Ship Registry, Seaport Operations, Pilotage",
+        "url": "https://www.mpa.gov.sg/",
+        "keywords": ["mpa", "maritime", "port authority", "bunkering", "ship registry", "seaport"]
+    },
+    {
+        "title": "National Arts Council (NAC) - Arts Development Grants, Cultural Festivals, Busking Cards",
+        "url": "https://www.nac.gov.sg/",
+        "keywords": ["nac", "national arts council", "arts", "grants", "busking", "festivals"]
+    },
+    {
+        "title": "National Council of Social Service (NCSS) - Social Service Coordinating Body, Community Chest",
+        "url": "https://www.ncss.gov.sg/",
+        "keywords": ["ncss", "social service", "community chest", "fundraising", "social agencies"]
+    },
+    {
+        "title": "Public Transport Council (PTC) - Fare Adjustment Exercises, Passenger Surveys, Transport Policies",
+        "url": "https://www.ptc.gov.sg/",
+        "keywords": ["ptc", "public transport council", "fares", "fare adjustment", "passenger survey"]
+    },
+    {
+        "title": "Sentosa Development Corporation (SDC) - Sentosa Attractions Development, Island Zoning, Resorts",
+        "url": "https://www.sentosa.gov.sg/",
+        "keywords": ["sdc", "sentosa", "island", "resorts", "beach", "attraction"]
+    },
+    {
+        "title": "Singapore Examinations and Assessment Board (SEAB) - National Exams, PSLE, O-Levels, A-Levels",
+        "url": "https://www.seab.gov.sg/",
+        "keywords": ["seab", "national exams", "psle", "o-levels", "a-levels", "examination"]
+    },
+    {
+        "title": "Auditor-General's Office (AGO) - Government Account Audits, Fiscal Oversight, Public Funds",
+        "url": "https://www.ago.gov.sg/",
+        "keywords": ["ago", "auditor-general", "audit", "fiscal", "public funds", "governance"]
+    },
+    {
+        "title": "Corrupt Practices Investigation Bureau (CPIB) - Corruption Investigation, Public Integrity",
+        "url": "https://www.cpib.gov.sg/",
+        "keywords": ["cpib", "corruption", "integrity", "public officer", "investigation"]
+    },
+    {
+        "title": "Public Service Commission (PSC) - Scholarship Selection, Public Officer Promotions, Discipline",
+        "url": "https://www.psc.gov.sg/",
+        "keywords": ["psc", "public service commission", "scholarships", "promotions", "discipline"]
+    },
+    {
+        "title": "Istana Office of the President - Presidential Projects, Istana Visits, Credentials",
+        "url": "https://www.istana.gov.sg/",
+        "keywords": ["istana", "president", "head of state", "credentials", "visits"]
+    },
+    {
+        "title": "Attorney-General's Chambers (AGC) - Prosecution Registry, Government Legal Advice, Law Drafting",
+        "url": "https://www.agc.gov.sg/",
+        "keywords": ["agc", "attorney-general", "prosecution", "legal advice", "drafting law"]
     }
 ]

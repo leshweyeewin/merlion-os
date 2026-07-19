@@ -18,7 +18,7 @@ Furthermore, as a working professional in Singapore, staying updated on **transp
 ---
 
 ## 🏛️ Statutory Portals Directory
-MerlionOS features a drag-and-drop reorderable grid representing all **51 statutory board & national service portals** required for citizen life:
+MerlionOS features a drag-and-drop reorderable grid representing all **81 statutory board & national service portals** required for citizen life:
 1. **ICA** (Immigration & Checkpoints Authority) — Passport, NRIC, Re-entry permits
 2. **ELD** (Elections Department) — Voter registration & compulsory voting registers
 3. **IRAS** (Inland Revenue Authority of Singapore) — Income tax & property tax filings
@@ -70,8 +70,38 @@ MerlionOS features a drag-and-drop reorderable grid representing all **51 statut
 49. **PMO** (Prime Minister's Office) — Cabinet operations, PSD guidelines, and national policy reports
 50. **MHA** (Ministry of Home Affairs) — Border controls, police forces & civil defence coordinating directives
 51. **MDDI** (Ministry of Digital Development and Information) — National cybersecurity standards, public communications & digital infrastructure planning
+52. **MFA** (Ministry of Foreign Affairs) — Consular assistance for citizens overseas, travel eRegister portal, and travel advisories
+53. **MINDEF** (Ministry of Defence) — National security policies, military announcements, and SAF updates
+54. **MND** (Ministry of National Development) — Urban planning policies, greening plans, and municipal services regulation
+55. **MCCY** (Ministry of Culture, Community and Youth) — Social cohesion initiatives, sports policies, and youth programs
+56. **MOT** (Ministry of Transport) — Aviation coordination, maritime port development, and public transport policies
+57. **MTI** (Ministry of Trade & Industry) — Economic planning, international trade agreements, and business regulation
+58. **MSE** (Ministry of Sustainability & Environment) — National sustainability policies, climate action, and food security
+59. **EMA** (Energy Market Authority) — Electricity grid regulations, gas utility safety checks, and power licensing
+60. **A*STAR** (Agency for Science, Technology and Research) — Scientific research funding & international scholarship logs
+61. **BCA** (Building & Construction Authority) — Building structural safety approvals & contractor directories
+62. **CAAS** (Civil Aviation Authority of Singapore) — Aviation protocols, air safety, and drone flying permits
+63. **CSC** (Civil Service College) — Public service training modules & leadership development programs
+64. **CDA** (Communicable Diseases Agency) — Outbreak tracking, epidemic surveillance, and epidemiological investigations
+65. **CCCS** (Competition & Consumer Commission of Singapore) — Anti-competition policies, fair trading guidelines, and merger review registers
+66. **DSTA** (Defence Science & Technology Agency) — Defence acquisition tenders & military engineering
+67. **GRA** (Gambling Regulatory Authority) — Casino regulation, operator licensing, and slot machine permits
+68. **HTX** (Home Team Science & Technology Agency) — Biometrics registry, homeland technology development & forensics database
+69. **ISEAS** (ISEAS – Yusof Ishak Institute) — Southeast Asian geopolitics studies & socio-political research
+70. **JTC** (JTC Corporation) — Industrial estate leasing & Jurong Island business park allocations
+71. **MPA** (Maritime & Port Authority of Singapore) — Shipping registrations, seaport operations, and bunkering regulation
+72. **NAC** (National Arts Council) — Arts development grants, busking license registration, and cultural events
+73. **NCSS** (National Council of Social Service) — Social agency registry & Community Chest fundraising
+74. **PTC** (Public Transport Council) — Public bus & MRT fare adjustment exercises and commuter surveys
+75. **SDC** (Sentosa Development Corporation) — Sentosa Island attraction zoning and beach booking services
+76. **SEAB** (Singapore Examinations and Assessment Board) — National examinations logistics including PSLE, O-Levels, and A-Levels
+77. **AGO** (Auditor-General's Office) — Public sector audits & government fiscal oversight
+78. **CPIB** (Corrupt Practices Investigation Bureau) — Corruption investigation & public integrity enforcement
+79. **PSC** (Public Service Commission) — Civil service scholarship selection & officer disciplinary boards
+80. **Istana** (President's Office) — Presidential community projects & Istana Open House visitor info
+81. **AGC** (Attorney-General's Chambers) — Legal advice to the Government & public prosecution registries
 
-*Since the directory includes 51 portals, you can hide cards you do not need by hovering over a card and clicking the eye icon. Restoring hidden portals is easy via the **Hidden Portals** dropdown at the top of the grid. Layout orders are automatically persisted across sessions in browser `localStorage`.*
+*Since the directory includes 81 portals, you can hide cards you do not need by hovering over a card and clicking the eye icon. Restoring hidden portals is easy via the **Hidden Portals** dropdown at the top of the grid. Layout orders are automatically persisted across sessions in browser `localStorage`.*
 
 ---
 
@@ -205,7 +235,7 @@ Current release cycle building on the baseline. What's new or changed:
 * 📢 **Gov Updates** Telegram list expanded from 7 to 12 channels (added `@MOHSingapore`, `@SPFsg`, `@SCDFsg`, `@momsg`, `@ReachSingapore`).
 
 **🏛️ Statutory Portals Directory**
-* Grown from **19 → 51** portals (+32 agencies: HPB, MSF, PUB, NLB, URA, NParks, MAS, IMDA, OneNS, SPF, SCDF, ACRA, EnterpriseSG, IPOS, SLA, CEA, PA, STB, NHB, MinLaw, CDC, SFA, Judiciary, Parliament, MOF, GovTech, HSA, SG Enable, EDB, PMO, MHA, MDDI), with a dedicated portal index page.
+* Grown from **19 → 81** portals (+62 agencies: HPB, MSF, PUB, NLB, URA, NParks, MAS, IMDA, OneNS, SPF, SCDF, ACRA, EnterpriseSG, IPOS, SLA, CEA, PA, STB, NHB, MinLaw, CDC, SFA, Judiciary, Parliament, MOF, GovTech, HSA, SG Enable, EDB, PMO, MHA, MDDI, MFA, MINDEF, MND, MCCY, MOT, MTI, MSE, EMA, A*STAR, BCA, CAAS, CSC, CDA, CCCS, DSTA, GRA, HTX, ISEAS, JTC, MPA, NAC, NCSS, PTC, SDC, SEAB, AGO, CPIB, PSC, Istana, AGC), with a dedicated portal index page.
 * **Custom Visibility & Filtering**: Hovering any portal card lets you hide it using the eye icon. Hidden portals can be added back at any time via the new **Hidden Portals** dropdown at the top of the grid.
 
 **🧹 Code Cleanup & Refactoring**
