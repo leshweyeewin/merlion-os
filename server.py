@@ -68,8 +68,10 @@ from tools import (
     compute_job_market_history,
     query_coe_bidding_results,
     get_coe_synced_at,
+    compute_coe_premium_history,
     query_hdb_resale_price_trends,
     compute_hdb_resale_stats,
+    compute_hdb_resale_history,
     query_occupational_wage_insights,
     compute_occupational_wage_insights
 )
@@ -1287,7 +1289,14 @@ async def get_sg_hub_hdb():
         resale = await anyio.to_thread.run_sync(compute_hdb_resale_stats)
         print("\033[93m[data.gov.sg] HDB resale price fetch complete.\033[0m")
 
-        return {"hdb": hdb_text, "hdb_news": hdb_news, "resale": resale}
+        # Derived from the rows the stats call just cached — degrades to None, never the pane.
+        resale_history = None
+        try:
+            resale_history = await anyio.to_thread.run_sync(compute_hdb_resale_history)
+        except Exception as e:
+            logger.warning(f"HDB resale history skipped: {type(e).__name__}: {e}")
+
+        return {"hdb": hdb_text, "hdb_news": hdb_news, "resale": resale, "resale_history": resale_history}
     except Exception as e:
         logger.exception("Error loading HDB data")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1530,11 +1539,19 @@ async def get_sg_hub_gov_transit(lat: float | None = None, lon: float | None = N
                     coe["source"] = line.split("Source:")[1].strip()
             coe["synced_at"] = get_coe_synced_at()
 
+        # Derived from the rows the COE fetch above just cached — degrades to None, never the pane.
+        coe_history = None
+        try:
+            coe_history = await anyio.to_thread.run_sync(compute_coe_premium_history)
+        except Exception as e:
+            logger.warning(f"COE premium history skipped: {type(e).__name__}: {e}")
+
         return {
             "gov_events": gov_events,
             "train_alerts": train_alerts,
             "taxi_availability": taxi_availability,
             "coe": coe,
+            "coe_history": coe_history,
             "flood_alerts": flood_alerts,
             "ica_news": ica_news,
         }

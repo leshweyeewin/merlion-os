@@ -50,12 +50,14 @@ from tools.jobs import (
 # ── Housing: BTO & resale ─────────────────────────────────────────────────────
 from tools.housing import (
     compute_hdb_resale_stats,
+    compute_hdb_resale_history,
     query_hdb_bto_launches_and_grants,
     query_hdb_resale_price_trends,
 )
 
 # ── Transport: COE ────────────────────────────────────────────────────────────
 from tools.transport import (
+    compute_coe_premium_history,
     get_coe_synced_at,
     query_coe_bidding_results,
 )
@@ -84,10 +86,10 @@ __all__ = [
     "compute_job_market_history", "get_retrenchment_synced_at",
     "query_singapore_job_statistics_via_bigquery", "query_singapore_retrenchment_advisory",
     # housing
-    "compute_hdb_resale_stats", "query_hdb_bto_launches_and_grants",
-    "query_hdb_resale_price_trends",
+    "compute_hdb_resale_stats", "compute_hdb_resale_history",
+    "query_hdb_bto_launches_and_grants", "query_hdb_resale_price_trends",
     # transport
-    "get_coe_synced_at", "query_coe_bidding_results",
+    "compute_coe_premium_history", "get_coe_synced_at", "query_coe_bidding_results",
     # wages
     "compute_occupational_wage_insights",
     "get_occ_wage_synced_at",

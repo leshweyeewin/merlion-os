@@ -8,6 +8,8 @@ CPF Enhanced Housing Grant (EHG) calculation, and HDB resale price stats.
 from tools.core import (
     _data_gov_sg_headers,
     _cache_synced_at,
+    _disk_cache_load,
+    _disk_cache_save,
 )
 
 _HDB_NEWS_URL = "https://www.hdb.gov.sg/hdb-pulse/news"
@@ -268,18 +270,38 @@ def _fetch_hdb_resale_rows() -> list:
     if _hdb_resale_cache["rows"] is not None and (now - _hdb_resale_cache["fetched_at"]) < _HDB_RESALE_CACHE_TTL_SECONDS:
         return _hdb_resale_cache["rows"]
 
-    poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{_HDB_RESALE_DATASET_ID}/poll-download"
-    print(f"  [data.gov.sg] HTTP GET {poll_url}")
-    r = requests.get(poll_url, headers=_data_gov_sg_headers(), timeout=10)
-    r.raise_for_status()
-    download_url = r.json()["data"]["url"]
+    disk_rows, disk_ts = _disk_cache_load("hdb_resale_rows", _HDB_RESALE_CACHE_TTL_SECONDS)
+    if disk_rows is not None:
+        _hdb_resale_cache["rows"] = disk_rows
+        _hdb_resale_cache["fetched_at"] = disk_ts
+        return disk_rows
 
-    r_csv = requests.get(download_url, timeout=20)
-    r_csv.raise_for_status()
-    rows = list(csv.DictReader(io.StringIO(r_csv.text)))
+    try:
+        poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{_HDB_RESALE_DATASET_ID}/poll-download"
+        print(f"  [data.gov.sg] HTTP GET {poll_url}")
+        r = requests.get(poll_url, headers=_data_gov_sg_headers(), timeout=10)
+        r.raise_for_status()
+        download_url = r.json()["data"]["url"]
+
+        # The largest dataset the app downloads (~20MB of transactions since 2017) — give the
+        # S3 transfer a generous per-read timeout so slow connections stream it successfully.
+        r_csv = requests.get(download_url, timeout=60)
+        r_csv.raise_for_status()
+        rows = list(csv.DictReader(io.StringIO(r_csv.text)))
+    except Exception as e:
+        # Monthly data: an expired-but-present disk snapshot beats failing (e.g. an S3
+        # timeout or a 429 from data.gov.sg) — serve it and let a later request refresh.
+        stale_rows, stale_ts = _disk_cache_load("hdb_resale_rows", float("inf"))
+        if stale_rows is not None:
+            print(f"  [data.gov.sg] HDB resale fetch failed ({type(e).__name__}) — serving expired disk snapshot")
+            _hdb_resale_cache["rows"] = stale_rows
+            _hdb_resale_cache["fetched_at"] = stale_ts
+            return stale_rows
+        raise
 
     _hdb_resale_cache["rows"] = rows
     _hdb_resale_cache["fetched_at"] = now
+    _disk_cache_save("hdb_resale_rows", rows, now)
     return rows
 
 
@@ -329,6 +351,33 @@ def compute_hdb_resale_stats() -> dict:
         "towns": towns,
         "synced_at": _cache_synced_at(_hdb_resale_cache),
         "source": f"Resale Flat Prices based on registration date from Jan-2017 onwards, {latest_month} (data.gov.sg, dataset `{_HDB_RESALE_DATASET_ID}`)."
+    }
+
+
+def compute_hdb_resale_history() -> dict:
+    """Monthly islandwide median resale price + transaction count across the dataset's full
+    range (Jan-2017 onwards), for the trend chart and CSV export. Derived from the same cached
+    rows compute_hdb_resale_stats already downloads — no extra network fetch. The in-progress
+    final month is dropped (partial transaction counts skew its median low)."""
+    import statistics
+    from collections import defaultdict
+
+    rows = _fetch_hdb_resale_rows()
+    by_month = defaultdict(list)
+    for r in rows:
+        try:
+            by_month[r["month"]].append(float(r["resale_price"]))
+        except (KeyError, TypeError, ValueError):
+            continue
+    months = sorted(by_month)
+    if len(months) > 1:
+        months = months[:-1]
+    return {
+        "months": months,
+        "medians": [round(statistics.median(by_month[m])) for m in months],
+        "transactions": [len(by_month[m]) for m in months],
+        "synced_at": _cache_synced_at(_hdb_resale_cache),
+        "source": f"Resale Flat Prices based on registration date from Jan-2017 onwards (data.gov.sg, dataset `{_HDB_RESALE_DATASET_ID}`).",
     }
 
 

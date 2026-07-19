@@ -49,6 +49,35 @@ def _fetch_coe_rows() -> list:
     return rows
 
 
+def compute_coe_premium_history(max_exercises: int | None = 48) -> dict:
+    """Per-exercise COE premiums for every vehicle category, oldest→newest, derived from the
+    same cached dataset the headline cards use. `max_exercises=48` covers ~2 years (two
+    bidding rounds/month); pass None for the full history back to the dataset's start."""
+    rows = _fetch_coe_rows()
+    per_exercise: dict = {}
+    for r in rows:
+        cat = (r.get("vehicle_class") or "").strip()
+        if not cat.startswith("Category "):
+            continue
+        try:
+            premium = int(str(r["premium"]).replace(",", ""))
+            key = (r["month"], int(r["bidding_no"]))
+        except (KeyError, TypeError, ValueError):
+            continue
+        per_exercise.setdefault(key, {})[cat[-1]] = premium
+
+    keys = sorted(per_exercise)
+    if max_exercises:
+        keys = keys[-max_exercises:]
+    return {
+        "exercises": [f"{month} R{bidding_no}" for month, bidding_no in keys],
+        "categories": {c: [per_exercise[k].get(c) for k in keys] for c in "ABCDE"},
+        "category_labels": _COE_CATEGORY_LABELS,
+        "synced_at": _cache_synced_at(_coe_cache),
+        "source": f"COE Bidding Results / Prices (data.gov.sg, dataset `{_COE_DATASET_ID}`).",
+    }
+
+
 def query_coe_bidding_results(context_query: str = "general") -> str:
     """Tool: Retrieves Singapore's latest COE (Certificate of Entitlement) bidding results and premiums by vehicle category.
 

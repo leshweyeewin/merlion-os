@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Style Sheet -->
     <link rel="icon" type="image/png" href="merlion-icon.png">
-    <link rel="stylesheet" href="style.css?v=jobins12">
+    <link rel="stylesheet" href="style.css?v=insight1">
 </head>
 <body>
     <div class="app-container">
@@ -53,6 +53,18 @@
 
             <!-- Portal Pane -->
             <div id="portals-pane" class="main-pane">
+                <!-- Intent-based search: everyday phrases route to the right agency, no gov jargon needed -->
+                <div class="portal-search-wrap">
+                    <div class="portal-search-box">
+                        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                        <input type="text" id="portal-search-input" placeholder='What do you need? Try "renew passport", "pay road tax", "change company address"...' autocomplete="off" aria-label="Search all portals by everyday task">
+                        <button type="button" class="portal-search-clear hidden" id="portal-search-clear" aria-label="Clear search"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="quick-task-chips" id="quick-task-chips" aria-label="Common tasks"></div>
+                    <div class="hub-suggestion hidden" id="portal-search-hub-suggestion" role="button" tabindex="0"></div>
+                    <div class="portal-search-status hidden" id="portal-search-status"></div>
+                </div>
+
                 <div class="directory-toolbar" style="margin-bottom: 16px;">
                     <span class="reorder-hint"><i class="fa-solid fa-arrows-up-down-left-right"></i> Drag any card to rearrange your portal — hover a card and click the eye icon to hide it.</span>
                     <div class="toolbar-btn-group">
@@ -71,7 +83,7 @@
                 <div class="service-card" draggable="true" data-agency="ica">
                     <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" draggable="false" src="https://www.ica.gov.sg/Cwp/assets/ica/images/logo/ica_logo_new.svg" alt="Immigration & Checkpoints Authority logo">
+                        <img class="agency-logo" draggable="false" src="https://www.ica.gov.sg/Cwp/assets/ica/images/logo/ica_logo_new.svg" alt="Immigration & Checkpoints Authority logo" onerror="logoFallback(this,'ICA')">
                     </div>
                     <h3>ICA</h3>
                     <p>Immigration & Checkpoints Authority</p>
@@ -127,7 +139,7 @@
                 <div class="service-card" draggable="true" data-agency="redeemsg">
                     <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" draggable="false" src="https://isomer-user-content.by.gov.sg/330/b2fd3325-57fd-4574-902a-e5e101dab591/logo.png" alt="CDC Vouchers logo">
+                        <img class="agency-logo" draggable="false" src="https://isomer-user-content.by.gov.sg/330/b2fd3325-57fd-4574-902a-e5e101dab591/logo.png" alt="CDC Vouchers logo" onerror="logoFallback(this,'CDC')">
                     </div>
                     <h3>RedeemSG</h3>
                     <p>CDC & Climate Vouchers</p>
@@ -141,7 +153,7 @@
                 <div class="service-card" draggable="true" data-agency="spgroup">
                     <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" draggable="false" src="https://www.spgroup.com.sg/dam/spgroup/slices/SP_Group_Logo-01.svg" alt="SP Group logo">
+                        <img class="agency-logo" draggable="false" src="https://www.spgroup.com.sg/dam/spgroup/slices/SP_Group_Logo-01.svg" alt="SP Group logo" onerror="logoFallback(this,'SP')">
                     </div>
                     <h3>SP Group</h3>
                     <p>Utilities & Home Energy</p>
@@ -183,7 +195,7 @@
                 <div class="service-card" draggable="true" data-agency="mom">
                     <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" draggable="false" src="https://www.mom.gov.sg/html/mom/images/branding/mom-logo-print.png" alt="Ministry of Manpower logo">
+                        <img class="agency-logo" draggable="false" src="https://www.mom.gov.sg/html/mom/images/branding/mom-logo-print.png" alt="Ministry of Manpower logo" onerror="logoFallback(this,'MOM')">
                     </div>
                     <h3>MOM</h3>
                     <p>Ministry of Manpower</p>
@@ -197,7 +209,7 @@
                 <div class="service-card" draggable="true" data-agency="moh">
                     <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" draggable="false" src="https://isomer-user-content.by.gov.sg/3/550779dd-661b-41af-b976-7e18be61338c/MOH-Logo-Cropped.png" alt="Ministry of Health logo">
+                        <img class="agency-logo" draggable="false" src="https://isomer-user-content.by.gov.sg/3/550779dd-661b-41af-b976-7e18be61338c/MOH-Logo-Cropped.png" alt="Ministry of Health logo" onerror="logoFallback(this,'MOH')">
                     </div>
                     <h3>MOH</h3>
                     <p>Ministry of Health</p>
@@ -211,7 +223,7 @@
                 <div class="service-card" draggable="true" data-agency="hdb">
                     <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" draggable="false" src="https://www.hdb.gov.sg/-/media/hdbinfoweb/data/media/img/site-logo-small.png" alt="Housing & Development Board logo">
+                        <img class="agency-logo" draggable="false" src="https://www.hdb.gov.sg/-/media/hdbinfoweb/data/media/img/site-logo-small.png" alt="Housing & Development Board logo" onerror="logoFallback(this,'HDB')">
                     </div>
                     <h3>HDB</h3>
                     <p>Housing & Development Board</p>
@@ -225,7 +237,7 @@
                 <div class="service-card" draggable="true" data-agency="moe">
                     <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" draggable="false" src="https://www.moe.gov.sg/media/images/microsite/moe-logo.svg" alt="Ministry of Education logo">
+                        <img class="agency-logo" draggable="false" src="https://www.moe.gov.sg/media/images/microsite/moe-logo.svg" alt="Ministry of Education logo" onerror="logoFallback(this,'MOE')">
                     </div>
                     <h3>MOE</h3>
                     <p>Ministry of Education</p>
@@ -239,7 +251,7 @@
                 <div class="service-card" draggable="true" data-agency="lta">
                     <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" draggable="false" src="https://www.lta.gov.sg/content/dam/ltagov/img/general/logo.png" alt="Land Transport Authority logo">
+                        <img class="agency-logo" draggable="false" src="https://www.lta.gov.sg/content/dam/ltagov/img/general/logo.png" alt="Land Transport Authority logo" onerror="logoFallback(this,'LTA')">
                     </div>
                     <h3>LTA</h3>
                     <p>Land Transport Authority</p>
@@ -253,7 +265,7 @@
                 <div class="service-card" draggable="true" data-agency="nea">
                     <span class="drag-handle" aria-hidden="true" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
                     <div class="agency-logo-wrap">
-                        <img class="agency-logo" draggable="false" src="https://www.nea.gov.sg/assets/images/design/logo.png" alt="National Environment Agency logo">
+                        <img class="agency-logo" draggable="false" src="https://www.nea.gov.sg/assets/images/design/logo.png" alt="National Environment Agency logo" onerror="logoFallback(this,'NEA')">
                     </div>
                     <h3>NEA</h3>
                     <p>National Environment Agency</p>
@@ -1689,13 +1701,28 @@
         function logoFallback(img, text, small) {
             var wrap = img.parentElement;
             wrap.innerHTML = '';
-            wrap.classList.remove('agency-logo-cpf');
-            wrap.classList.add('agency-logo-text');
+            wrap.classList.remove('agency-logo-cpf', 'agency-logo-text');
+            wrap.classList.add('agency-logo-badge');
             if (small) wrap.classList.add('agency-logo-text-small');
-            wrap.textContent = text;
+            // Derive up to 3 initials from the label (handles "ActiveSG", "CDC", "MOH", etc.)
+            var clean = String(text).replace(/[^A-Za-z0-9 ]/g, ' ').trim();
+            var parts = clean.split(/\s+/).filter(Boolean);
+            var initials;
+            if (parts.length >= 2) {
+                initials = parts.slice(0, 3).map(function (p) { return p[0]; }).join('').toUpperCase();
+            } else {
+                // Single token (e.g. "ActiveSG", "CDC"): take first 2-3 letters, capitals preferred
+                var up = clean.replace(/[^A-Z]/g, '');
+                initials = (up.length >= 2 ? up : clean).slice(0, 3).toUpperCase();
+            }
+            // Deterministic hue from the label so each agency keeps a stable color
+            var h = 0;
+            for (var i = 0; i < clean.length; i++) { h = (h * 31 + clean.charCodeAt(i)) % 360; }
+            wrap.style.setProperty('--badge-h', h + 'deg');
+            wrap.textContent = initials;
         }
     </script>
     <!-- Script File -->
-    <script src="app.js?v=jobins12"></script>
+    <script src="app.js?v=insight1"></script>
 </body>
 </html>

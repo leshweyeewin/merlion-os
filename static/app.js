@@ -22,6 +22,7 @@ function safeURL(url) {
 document.addEventListener("DOMContentLoaded", () => {
     initPortalReordering();
     initPortalVisibility();
+    initPortalSearch();
 
     const chatForm = document.getElementById("chat-form");
     const userInput = document.getElementById("user-input");
@@ -338,6 +339,192 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // Drag-and-drop reordering of the portal directory grid, persisted in localStorage
+function initPortalSearch() {
+    const input = document.getElementById("portal-search-input");
+    const clearBtn = document.getElementById("portal-search-clear");
+    const statusEl = document.getElementById("portal-search-status");
+    const chipsEl = document.getElementById("quick-task-chips");
+    const hubSuggestEl = document.getElementById("portal-search-hub-suggestion");
+    const grid = document.querySelector(".grid-container");
+    if (!input || !grid) return;
+
+    // Everyday-language synonyms per agency, so nobody needs to know the official
+    // government term to find the right portal ("change shop address" → ACRA, not
+    // "Change in Registered Office Address"). Agencies not listed still match on
+    // their card name/description.
+    const PORTAL_INTENTS = {
+        ica: "renew passport apply passport nric identity card citizenship pr permanent resident immigration checkpoint travel entry visa long term pass",
+        eld: "vote voting election voter register ballot",
+        iras: "income tax file taxes pay tax property tax stamp duty refund tax relief notice of assessment noa tax bill season",
+        cpf: "retirement savings top up medisave ordinary account special account housing withdrawal repayment loan repay nomination contribution",
+        redeemsg: "cdc voucher climate voucher redeem vouchers claim free",
+        spgroup: "electricity water gas utilities bill open account meter power",
+        skillsfuture: "course subsidy credits learn upskill training claim skillsfuture find courses",
+        wsg: "job search find job career change switch unemployed career coach mid career conversion",
+        mom: "work pass employment pass work permit s pass foreign worker levy maid helper employment law salary dispute overtime retrenchment fired dismissal notice",
+        moh: "hospital polyclinic subsidy healthcare medical fees ward",
+        hdb: "buy flat apply bto flat resale hdb grant housing loan hle season parking rent room sell flat upgrading",
+        moe: "primary school registration secondary school scholarship school fees financial assistance",
+        lta: "road tax coe vehicle car driving licence registration erp season parking onemotoring motorcycle vep",
+        nea: "dengue haze psi air quality mosquito hawker licence funeral cremation weather forecast",
+        govsg: "budget announcement national policy news",
+        sgjourney: "new citizen citizenship journey onboarding",
+        onemap: "map address school distance boundary grc smc find nearest",
+        healthhub: "health records appointment medication refill clinic booking screening results healthier sg",
+        activesg: "gym pool swimming badminton court sports facility booking free credits",
+        hpb: "healthy 365 challenge steps rewards health screening vaccination",
+        msf: "comcare financial help assistance baby bonus childcare leave family violence support",
+        pub: "water bill flood drain used water conservation rebate",
+        nlb: "library borrow books ebooks study room",
+        ura: "zoning master plan land use development shophouse conservation car park grant",
+        nparks: "bbq pit campsite camping permit park booking garden tree",
+        mas: "savings bonds ssb tbill treasury invest bank complaint moneysense financial institution",
+        imda: "sms scam spam call telco complaint sender id blocking",
+        ns: "ns national service ord ict enlistment reservist deferment mr exit permit",
+        spf: "police report traffic fine certificate of clearance coc stolen lost scam report crime",
+        scdf: "fire safety certificate ambulance shelter cpr aed myresponder",
+        acra: "register company business registration bizfile annual return change company address registered office close company strike off director",
+        enterprisesg: "sme grant business grant psg edg trade export startup",
+        ipos: "trademark patent brand copyright design protect idea",
+        sla: "land title deed property ownership inlis state land lease",
+        cea: "property agent check agent licence complaint commission",
+        pa: "community club cc courses interest group facility booking passion card",
+        mindef: "army saf defence military",
+        seab: "psle o level a level exam results private candidate",
+        judiciary: "court case hearing small claims tribunal",
+        mlaw: "divorce probate will deed poll legal aid bankruptcy moneylender",
+        sgenable: "disability support grants assistive technology special needs",
+        mfa: "overseas travel advisory embassy consulate register trip eregister",
+        sfa: "food safety recall import licence home based food",
+        gra: "casino entry levy exclusion gambling",
+        nac: "busking licence arts grant",
+        mccy: "charity donation volunteer youth",
+    };
+
+    // Live-data panels & calculators inside SG Hub that answer the same intents —
+    // surfaced as a clickable suggestion so users learn the data is one tab away.
+    const HUB_SUGGESTIONS = [
+        { terms: "coe car vehicle premium bidding taxi price", label: "🚗 Live COE premiums & taxi availability", pane: "hub-transport-pane" },
+        { terms: "mrt train delay disruption breakdown transit alert checkpoint woodlands tuas flood", label: "🚇 Live MRT status, checkpoint & flood alerts", pane: "hub-gov-transit-pane" },
+        { terms: "bto flat resale price housing grant ehg launch accrued interest", label: "🏠 BTO launches, resale price trends & grant calculators", pane: "hub-hdb-pane" },
+        { terms: "job vacancy salary wage pay retrenchment career hiring increment", label: "📊 Live job market, wages & retrenchment data", pane: "hub-jobs-pane" },
+        { terms: "tax deadline relief srs cpf top up optimizer bracket filing due", label: "⚖️ Tax deadlines & relief optimizer", pane: "hub-tax-pane" },
+        { terms: "deal promo discount lobang food event", label: "🎟️ Community deals & meetups", pane: "hub-community-pane" },
+        { terms: "weather rain forecast psi haze air uv temperature humidity", label: "🌤️ Live weather, PSI & UV index", pane: "hub-env-pane" },
+    ];
+
+    const QUICK_TASKS = [
+        "Renew passport", "File income tax", "Top up CPF", "CDC vouchers",
+        "Apply for BTO", "Road tax & COE", "Register a company", "Find courses", "Check NS status",
+    ];
+
+    const searchIndex = Array.from(grid.querySelectorAll(".service-card")).map(card => ({
+        card,
+        text: [
+            card.querySelector("h3")?.textContent || "",
+            card.querySelector("p")?.textContent || "",
+            card.querySelector(".card-desc")?.textContent || "",
+            PORTAL_INTENTS[card.dataset.agency] || "",
+        ].join(" ").toLowerCase(),
+    }));
+
+    // Filler words carry no routing signal and, via substring matching, light up half the
+    // grid ("to" is inside "electoral") — strip them before scoring.
+    const SEARCH_STOPWORDS = new Set([
+        "how", "to", "do", "i", "my", "the", "a", "an", "of", "in", "on", "for", "and",
+        "or", "is", "it", "me", "can", "what", "where", "when", "back", "get", "with",
+    ]);
+    const tokenize = q => {
+        const all = q.toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length >= 2);
+        const kept = all.filter(t => !SEARCH_STOPWORDS.has(t));
+        return kept.length ? kept : all; // an all-stopword query still searches literally
+    };
+
+    function applySearch(query) {
+        const toks = tokenize(query);
+        clearBtn.classList.toggle("hidden", !query);
+        if (!toks.length) {
+            searchIndex.forEach(e => e.card.classList.remove("search-dim"));
+            statusEl.classList.add("hidden");
+            hubSuggestEl.classList.add("hidden");
+            return;
+        }
+
+        // Strict pass first (every word must match); if nothing survives, relax — but still
+        // demand at least two matching words when the query has several, so one incidental
+        // substring hit doesn't surface a card.
+        let matches = searchIndex.filter(e => toks.every(t => e.text.includes(t)));
+        if (!matches.length) {
+            const need = Math.min(2, toks.length);
+            matches = searchIndex.filter(e => toks.filter(t => e.text.includes(t)).length >= need);
+        }
+        const matchSet = new Set(matches.map(m => m.card));
+
+        let shown = 0, hiddenHits = 0;
+        searchIndex.forEach(e => {
+            const hit = matchSet.has(e.card);
+            e.card.classList.toggle("search-dim", !hit);
+            if (hit && e.card.classList.contains("portal-hidden")) hiddenHits++;
+            else if (hit) shown++;
+        });
+
+        statusEl.classList.remove("hidden");
+        statusEl.textContent = shown
+            ? `Showing ${shown} matching portal${shown === 1 ? "" : "s"}`
+              + (hiddenHits ? ` (+${hiddenHits} in your hidden list — see Manage Portals)` : "")
+            : (hiddenHits
+                ? `All ${hiddenHits} matching portal${hiddenHits === 1 ? " is" : "s are"} in your hidden list — see Manage Portals`
+                : "No portals match — try different words, or ask the Co-Pilot below");
+
+        // Best-scoring SG Hub panel suggestion, if any term overlaps
+        let best = null, bestScore = 0;
+        HUB_SUGGESTIONS.forEach(s => {
+            const score = toks.filter(t => s.terms.includes(t)).length;
+            if (score > bestScore) { bestScore = score; best = s; }
+        });
+        if (best) {
+            hubSuggestEl.classList.remove("hidden");
+            hubSuggestEl.innerHTML = `${escapeHTML(best.label)} <span style="margin-left:auto; color: var(--primary); white-space:nowrap;">Open in SG Hub <i class="fa-solid fa-arrow-right"></i></span>`;
+            hubSuggestEl.onclick = () => {
+                document.getElementById("main-tab-hub-btn")?.click();
+                document.querySelector(`.hub-sub-tab-btn[data-hub-sub-tab="${best.pane}"]`)?.click();
+                window.scrollTo({ top: 0, behavior: "smooth" });
+            };
+        } else {
+            hubSuggestEl.classList.add("hidden");
+        }
+    }
+
+    QUICK_TASKS.forEach(task => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "quick-task-chip";
+        chip.textContent = task;
+        chip.addEventListener("click", () => {
+            const active = chip.classList.contains("active-chip");
+            chipsEl.querySelectorAll(".quick-task-chip").forEach(c => c.classList.remove("active-chip"));
+            input.value = active ? "" : task;
+            if (!active) chip.classList.add("active-chip");
+            applySearch(input.value);
+        });
+        chipsEl.appendChild(chip);
+    });
+
+    let searchTimer = null;
+    input.addEventListener("input", () => {
+        chipsEl.querySelectorAll(".quick-task-chip").forEach(c => c.classList.remove("active-chip"));
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => applySearch(input.value), 150);
+    });
+    input.addEventListener("keydown", e => { if (e.key === "Escape") { input.value = ""; applySearch(""); } });
+    clearBtn.addEventListener("click", () => {
+        input.value = "";
+        chipsEl.querySelectorAll(".quick-task-chip").forEach(c => c.classList.remove("active-chip"));
+        applySearch("");
+        input.focus();
+    });
+}
+
 function initPortalReordering() {
     const STORAGE_KEY = "merlionos-portal-order";
     const grid = document.querySelector(".grid-container");
@@ -1498,7 +1685,7 @@ function initSgHub() {
         `;
     }
 
-    function renderTransportPane(taxiAvailability, coe) {
+    function renderTransportPane(taxiAvailability, coe, coeHistory) {
         if (!transportContent) return;
 
         const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
@@ -1523,6 +1710,13 @@ function initSgHub() {
                 </div>`).join('')
             : `<p style="color: var(--text-subtle); margin:0; font-size: 13px;">COE data unavailable.</p>`;
 
+        const hasCoeHistory = coeHistory && coeHistory.exercises && coeHistory.exercises.length > 1;
+        const coeHistoryHtml = hasCoeHistory ? `
+            <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 2px 0 8px;">📈 COE Premium Trend — Last ${coeHistory.exercises.length} Exercises</div>
+            <div id="coe-trend-chart" style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 4px;"></div>
+            <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;">💡 Two bidding rounds per month — hover for every category's exact premium.</div>
+        ` : '';
+
         transportContent.innerHTML = banner + `
             <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;">
                 ${taxiHtml}
@@ -1533,7 +1727,20 @@ function initSgHub() {
                     </div>
                 </div>
             </div>
+            ${coeHistoryHtml}
         `;
+
+        if (hasCoeHistory) {
+            renderLineChart(document.getElementById("coe-trend-chart"), {
+                xLabels: coeHistory.exercises,
+                series: ["A", "B", "C", "D", "E"].map(c => ({
+                    name: `Cat ${c}`,
+                    color: coeCategoryColors[c],
+                    values: coeHistory.categories[c],
+                })),
+                xTickEvery: 8,
+            });
+        }
 
         bindTaxiButtons(taxiAvailability);
     }
@@ -1624,7 +1831,7 @@ function initSgHub() {
     }
 
     function renderGovTransit(data) {
-        renderTransportPane(data.taxi_availability, data.coe);
+        renderTransportPane(data.taxi_availability, data.coe, data.coe_history);
 
         const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
             <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${getRetrievalTimestamp()}
@@ -1868,10 +2075,10 @@ function initSgHub() {
         });
         hdbNewsContent.innerHTML = banner + (hdbNewsHtml || "<p style='color: var(--text-subtle); margin:0;'>No active news releases.</p>");
 
-        renderHdbResalePane(data.resale);
+        renderHdbResalePane(data.resale, data.resale_history);
     }
 
-    function renderHdbResalePane(resale) {
+    function renderHdbResalePane(resale, history) {
         if (!resale || !hdbResaleContent) return;
 
         const yoyColor = resale.yoy_pct == null ? 'var(--text-muted)' : (resale.yoy_pct >= 0 ? '#c0392b' : '#1a7f3c');
@@ -1915,8 +2122,22 @@ function initSgHub() {
             <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; max-height: 340px; overflow-y: auto;">
                 ${townRows || '<p style="color: var(--text-subtle); margin:0;">No town-level data available.</p>'}
             </div>
+            ${history && history.months && history.months.length > 1 ? `
+            <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 8px;">📈 Islandwide Median Trend (${escapeHTML(history.months[0])} → ${escapeHTML(history.months[history.months.length - 1])})</div>
+            <div id="hdb-resale-trend-chart" style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 4px;"></div>
+            <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;">💡 Every month's islandwide median since ${escapeHTML(history.months[0])} — hover for the exact median.</div>
+            ` : ''}
             <div style="font-size: 10px; color: var(--text-muted); margin-top: 10px;">💡 Source: ${escapeHTML(resale.source)}</div>
         `;
+
+        if (history && history.months && history.months.length > 1) {
+            renderLineChart(document.getElementById("hdb-resale-trend-chart"), {
+                xLabels: history.months,
+                series: [{ name: "Median", color: CHART_SERIES[0], values: history.medians }],
+                xTickEvery: 12,
+                endLabels: false,
+            });
+        }
     }
 
     // ==== SG Hub chart layer ====================================================
@@ -2723,11 +2944,117 @@ function initSgHub() {
                 b.classList.remove("active-sector");
             });
             btn.classList.add("active-sector");
-            
+
             const sector = btn.getAttribute("data-sector");
             loadJobSectorData(sector);
         });
     });
+
+    // ==== Plain-English glossary =================================================
+    // Forum complaint: gov dashboards are "peppered with acronyms" that force users to
+    // open a separate Google tab to decode their own statements. Any known term rendered
+    // inside SG Hub gets a dashed underline with a one-sentence explanation on hover/tap.
+    const SG_GLOSSARY = {
+        "CPF": "Central Provident Fund — Singapore's mandatory savings scheme for retirement, housing and healthcare.",
+        "OA": "Ordinary Account — the CPF account usable for housing, insurance, investment and education.",
+        "SA": "Special Account — the CPF account reserved for retirement, earning higher interest (~4% p.a.).",
+        "MediSave": "The CPF account for hospital bills, approved outpatient treatments and medical insurance premiums.",
+        "RSTU": "Retirement Sum Topping-Up scheme — cash top-ups to CPF retirement savings, with tax relief of up to S$8,000/yr (self) + S$8,000/yr (family).",
+        "SRS": "Supplementary Retirement Scheme — a voluntary account giving dollar-for-dollar tax relief; only 50% of withdrawals are taxable after retirement age.",
+        "COE": "Certificate of Entitlement — the quota licence won at auction that lets you register and use a vehicle in Singapore for 10 years.",
+        "PSI": "Pollutant Standards Index — Singapore's air-quality measure: 0–50 good, 51–100 moderate, above 100 unhealthy.",
+        "PM2.5": "Fine airborne particles under 2.5 microns — the main pollutant during haze episodes.",
+        "BTO": "Build-To-Order — new HDB flats balloted and sold before construction, typically completed in 3–5 years.",
+        "EHG": "Enhanced CPF Housing Grant — an income-tiered grant of up to S$120,000 for eligible first-time flat buyers.",
+        "HDB": "Housing & Development Board — Singapore's public housing authority.",
+        "IRAS": "Inland Revenue Authority of Singapore — the national tax collector.",
+        "YA": "Year of Assessment — the tax year; YA 2026 assesses income earned during 2025.",
+        "GST": "Goods and Services Tax — Singapore's 9% consumption tax.",
+        "ECI": "Estimated Chargeable Income — a company's estimate of taxable profit, filed within 3 months of its financial year end.",
+        "CRS": "Common Reporting Standard — the international framework for exchanging financial account data between tax authorities.",
+        "SSOC": "Singapore Standard Occupational Classification — the official taxonomy of job titles used in national wage statistics.",
+        "MOM": "Ministry of Manpower — regulates employment, work passes and workplace safety.",
+        "LTA": "Land Transport Authority — plans and regulates Singapore's roads, rail and vehicle ownership.",
+        "NEA": "National Environment Agency — manages environmental health, weather and pollution monitoring.",
+        "SSB": "Singapore Savings Bonds — low-risk government bonds redeemable in any month without penalty.",
+        "CDC": "Community Development Council — district-level bodies that distribute local assistance like CDC vouchers.",
+        "ICA": "Immigration & Checkpoints Authority — handles passports, NRICs, PRs and border checkpoints.",
+        "IR8A": "The employer-issued form reporting your yearly employment income for tax filing.",
+        "UV Index": "Measure of sunburn-causing ultraviolet radiation: 0–2 low, 6–7 high, 11+ extreme (NEA scale).",
+        "accrued interest": "The CPF interest you must refund (on top of the principal) to your own CPF account when you sell a property bought with CPF savings.",
+    };
+    const GLOSS_RE = new RegExp(
+        "(?<![\\w-])("
+        + Object.keys(SG_GLOSSARY).sort((a, b) => b.length - a.length)
+            .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")
+        + ")(?![\\w-])"
+    );
+
+    let glossAnnotating = false;
+    function annotateGlossary(root) {
+        if (!root || glossAnnotating) return;
+        glossAnnotating = true;
+        try {
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+                acceptNode(n) {
+                    if (!n.nodeValue || !GLOSS_RE.test(n.nodeValue)) return NodeFilter.FILTER_REJECT;
+                    const p = n.parentElement;
+                    if (!p || p.closest("script,style,svg,a,button,input,textarea,select,option,.gloss")) return NodeFilter.FILTER_REJECT;
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+            });
+            const nodes = [];
+            while (walker.nextNode()) nodes.push(walker.currentNode);
+            nodes.forEach(node => {
+                const parts = node.nodeValue.split(new RegExp(GLOSS_RE.source, "g"));
+                if (parts.length < 2) return;
+                const frag = document.createDocumentFragment();
+                parts.forEach((part, i) => {
+                    if (i % 2 === 1 && SG_GLOSSARY[part]) {
+                        const s = document.createElement("span");
+                        s.className = "gloss";
+                        s.dataset.term = part;
+                        s.textContent = part;
+                        frag.appendChild(s);
+                    } else if (part) {
+                        frag.appendChild(document.createTextNode(part));
+                    }
+                });
+                node.parentNode.replaceChild(frag, node);
+            });
+        } finally {
+            glossAnnotating = false;
+        }
+    }
+
+    const hubPaneEl = document.getElementById("hub-pane");
+    if (hubPaneEl) {
+        let glossTimer = null;
+        new MutationObserver(() => {
+            if (glossAnnotating) return;
+            clearTimeout(glossTimer);
+            glossTimer = setTimeout(() => annotateGlossary(hubPaneEl), 250);
+        }).observe(hubPaneEl, { childList: true, subtree: true });
+        annotateGlossary(hubPaneEl);
+
+        const glossTipHtml = g =>
+            `<div style="font-weight:700; margin-bottom:2px;">${escapeHTML(g.dataset.term)}</div>`
+            + `<div>${escapeHTML(SG_GLOSSARY[g.dataset.term] || "")}</div>`;
+        hubPaneEl.addEventListener("mouseover", e => {
+            const g = e.target.closest(".gloss");
+            if (g) showChartTooltip(glossTipHtml(g), e.clientX, e.clientY);
+        });
+        hubPaneEl.addEventListener("mouseout", e => {
+            if (e.target.closest(".gloss")) hideChartTooltip();
+        });
+        // Mobile: tap shows the explanation (no hover available); tapping elsewhere dismisses it
+        hubPaneEl.addEventListener("click", e => {
+            const g = e.target.closest(".gloss");
+            if (g) showChartTooltip(glossTipHtml(g), e.clientX, e.clientY);
+            else hideChartTooltip();
+        });
+    }
+    // ==== end glossary ===========================================================
 }
 
 // Initialize SG Hub features on load
