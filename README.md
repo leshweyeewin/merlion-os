@@ -101,7 +101,7 @@ MerlionOS features a drag-and-drop reorderable grid representing all **81 statut
 80. **Istana** (President's Office) — Presidential community projects & Istana Open House visitor info
 81. **AGC** (Attorney-General's Chambers) — Legal advice to the Government & public prosecution registries
 
-*Since the directory includes 81 portals, you can hide cards you do not need by hovering over a card and clicking the eye icon. Restoring hidden portals is easy via the **Hidden Portals** dropdown at the top of the grid. Layout orders are automatically persisted across sessions in browser `localStorage`.*
+*Since the directory includes 81 portals, you can hide cards you do not need by hovering over a card and clicking the eye icon. The **Manage Portals** panel at the top of the grid lets you search by name or description, switch between Hidden/Visible sets, multi-select portals, and bulk add-back or hide them. Layout orders are automatically persisted across sessions in browser `localStorage`.*
 
 ---
 
@@ -235,11 +235,11 @@ Current release cycle building on the baseline. What's new or changed:
 
 **🔧 Expanded existing panels**
 * 🌤️ **Weather & Air Quality** widened from PSI + 2-hour forecast to also include PM2.5, a 24-hour outlook, NEA live "Current Conditions" tiles (temperature, humidity, wind speed/direction via circular mean, rainfall), and a live **UV Index** tile using NEA's 5-tier color scale.
-* 📢 **Gov Updates** Telegram list expanded from 7 to 12 channels (added `@MOHSingapore`, `@SPFsg`, `@SCDFsg`, `@momsg`, `@ReachSingapore`).
+* ⚖️ **IRAS Optimizer** — now ingests **itemised pre-existing reliefs** (auto-summed, capped at the **S$80k** total relief limit) and a **Life Insurance Relief** top-up (≤S$5,000, applied after CPF/SRS within the cap); the form is reordered (Residency → Income → Top-up Budget → Life Insurance) with Max CPF/SRS caps in their own section and a live progressive tax-tier table.
 
 **🏛️ Statutory Portals Directory**
 * Grown from **19 → 81** portals (+62 agencies: HPB, MSF, PUB, NLB, URA, NParks, MAS, IMDA, OneNS, SPF, SCDF, ACRA, EnterpriseSG, IPOS, SLA, CEA, PA, STB, NHB, MinLaw, CDC, SFA, Judiciary, Parliament, MOF, GovTech, HSA, SG Enable, EDB, PMO, MHA, MDDI, MFA, MINDEF, MND, MCCY, MOT, MTI, MSE, EMA, A*STAR, BCA, CAAS, CSC, CDA, CCCS, DSTA, GRA, HTX, ISEAS, JTC, MPA, NAC, NCSS, PTC, SDC, SEAB, AGO, CPIB, PSC, Istana, AGC), with a dedicated portal index page.
-* **Custom Visibility & Filtering**: Hovering any portal card lets you hide it using the eye icon. Hidden portals can be added back at any time via the new **Hidden Portals** dropdown at the top of the grid.
+* **Custom Visibility & Filtering**: Hovering any portal card lets you hide it using the eye icon. The **Manage Portals** panel (top of the grid) supports searching by name/description, a Hidden/Visible mode toggle, multi-select checkboxes with select-all, and bulk add-back / hide actions for selected portals or the entire filtered list — all persisted in `localStorage`.
 
 **🧹 Code Cleanup & Refactoring**
 * **Monolith Refactoring**: Split the monolithic `tools.py` into a modular package under `tools/` (core, civic, search, environment, jobs, housing, transport, wages) with clean, backwards-compatible exports.
