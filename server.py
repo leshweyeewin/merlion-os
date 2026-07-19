@@ -83,6 +83,20 @@ async def lifespan(app: FastAPI):
     visitor's click on the Job Market tab is served from cache (~0.2s) instead of paying the
     multi-download Excel fetch. Failures are non-fatal — the endpoint just fetches lazily."""
     import threading
+    import logging
+
+    class LogFilter(logging.Filter):
+        def filter(self, record):
+            if record.args and len(record.args) >= 3:
+                path = str(record.args[2])
+                if path.startswith("/logos/") or path == "/favicon.ico" or "/logos/" in path:
+                    return False
+            msg = record.getMessage()
+            if "/logos/" in msg or "/favicon.ico" in msg:
+                return False
+            return True
+
+    logging.getLogger("uvicorn.access").addFilter(LogFilter())
 
     def _warm():
         try:

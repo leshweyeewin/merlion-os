@@ -53,7 +53,7 @@ graph TD
 
 ---
 
-## 🚀 Key Technical Highlights (What Impresses the Judges)
+## 🚀 Key Technical Highlights
 
 1. **Dual-Engine High-Availability AI**: 
    - **Primary Engine**: Google Gemini 2.5 Flash with parallel tool routing coordinates complex statutory queries.
