@@ -1097,7 +1097,8 @@ function initSgHub() {
     }
 
     const loadedSgHubPanes = {
-        "gov-transit-group": false,
+        "hub-transport-pane": false,
+        "hub-gov-transit-pane": false,
         "hub-hdb-pane": false,
         "hub-jobs-pane": false,
         "hub-community-pane": false,
@@ -1158,18 +1159,17 @@ function initSgHub() {
         });
     }
 
-    // "Transit & Transport" and "Gov Updates" are two separate tabs but share one backend call
-    // (train alerts, taxi availability, and COE are fetched in parallel with the Telegram gov
-    // channels server-side) — cache and load them together under one key so switching between
-    // the two tabs never triggers a redundant re-scrape.
-    const GOV_TRANSIT_GROUP = ["hub-transport-pane", "hub-gov-transit-pane"];
+    // "Transit & Transport" and "Gov Updates" are two separate tabs with their own backend
+    // endpoints — the transport tab fetches LTA/COE/ICA only (/api/sg-hub/transit); the Gov
+    // Updates tab fetches Telegram broadcasts + PUB flood alerts only (/api/sg-hub/gov-updates).
+    // Each tab loads its own data so neither waits on the other's (slower) sources.
 
     async function loadSgHubPaneData(paneId) {
-        const cacheKey = GOV_TRANSIT_GROUP.includes(paneId) ? "gov-transit-group" : paneId;
-        if (loadedSgHubPanes[cacheKey]) return;
+        if (loadedSgHubPanes[paneId]) return;
 
         let endpoint = "";
-        if (GOV_TRANSIT_GROUP.includes(paneId)) endpoint = "/api/sg-hub/gov-transit";
+        if (paneId === "hub-transport-pane") endpoint = "/api/sg-hub/transit";
+        else if (paneId === "hub-gov-transit-pane") endpoint = "/api/sg-hub/gov-updates";
         else if (paneId === "hub-hdb-pane") endpoint = "/api/sg-hub/hdb";
         else if (paneId === "hub-jobs-pane") endpoint = "/api/sg-hub/jobs?sector=tech";
         else if (paneId === "hub-community-pane") endpoint = "/api/sg-hub/community";
@@ -1189,8 +1189,10 @@ function initSgHub() {
             if (!res.ok) throw new Error("API error fetching pane " + paneId);
             const data = await res.json();
 
-            if (GOV_TRANSIT_GROUP.includes(paneId)) {
-                renderGovTransit(data);
+            if (paneId === "hub-transport-pane") {
+                renderTransitPane(data);
+            } else if (paneId === "hub-gov-transit-pane") {
+                renderGovUpdatesPane(data);
             } else if (paneId === "hub-hdb-pane") {
                 renderHdbPane(data);
             } else if (paneId === "hub-jobs-pane") {
@@ -1203,7 +1205,7 @@ function initSgHub() {
                 renderTaxPane(data);
             }
 
-            loadedSgHubPanes[cacheKey] = true;
+            loadedSgHubPanes[paneId] = true;
         } catch (err) {
             console.error("Failed to load pane " + paneId, err);
             showPaneError(paneId);
@@ -1932,14 +1934,14 @@ function initSgHub() {
         });
     }
 
-    function renderGovTransit(data) {
+    function renderTransitPane(data) {
         renderTransportPane(data.taxi_availability, data.coe, data.coe_history);
 
         const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
             <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${getRetrievalTimestamp()}
         </div>`;
 
-        // --- ICA Newsroom Advisories ---
+        // --- ICA Newsroom Advisories (fetched for this tab's ICA card) ---
         if (icaEventsContent) {
             let icaHtml = "";
             if (data.ica_news && data.ica_news.length > 0) {
@@ -1950,7 +1952,7 @@ function initSgHub() {
                     const bg = isAdvisory ? "#fffbeb" : "var(--bg-muted)";
                     const labelColor = isAdvisory ? "#b45309" : "var(--text-muted)";
                     const labelBg = isAdvisory ? "#fef3c7" : "var(--border)";
-                    
+
                     icaHtml += `<div style="background: ${bg}; border: 1px solid var(--border); border-left: ${borderLeft}; border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 8px; display: flex; gap: 12px; align-items: flex-start;">
                         ${news.image ? `<img src="${safeURL(news.image)}" alt="ICA image" style="width: 64px; height: 64px; object-fit: cover; border-radius: 6px; flex-shrink:0; border: 1px solid var(--border);" onerror="this.style.display='none'">` : ''}
                         <div style="flex-grow:1;">
@@ -1971,64 +1973,7 @@ function initSgHub() {
             icaEventsContent.innerHTML = banner + icaHtml;
         }
 
-        let govHtml = "";
-        data.gov_events.forEach(evt => {
-            govHtml += `<div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 8px;">
-                <div style="display:flex; justify-content:space-between; margin-bottom: 6px; font-weight:600; flex-wrap:wrap; gap:8px;">
-                    <span style="color: var(--primary); display:inline-flex; align-items:center; gap:6px;">
-                        <i class="fa-solid fa-bullhorn"></i> ${escapeHTML(evt.source)}
-                        ${evt.date ? `<span style="font-size:10px; font-weight:normal; color:var(--text-muted); background:var(--border); padding:2px 6px; border-radius:4px;">${escapeHTML(evt.date)}</span>` : ''}
-                    </span>
-                    <a href="${safeURL(evt.link)}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Alert</a>
-                </div>
-                <div style="color: var(--text-main); line-height:1.45; white-space: pre-wrap;">${escapeHTML(evt.content)}</div>
-            </div>`;
-        });
-
-        // --- Flood Alerts Banner (PUB real-time API) ---
-        let floodBannerHtml = '';
-        if (data.flood_alerts && data.flood_alerts.alerts) {
-            const fa = data.flood_alerts;
-            const activeAlerts = fa.alerts.filter(a => a.is_active);
-            const cancelledAlerts = fa.alerts.filter(a => !a.is_active);
-
-            if (activeAlerts.length > 0) {
-                const alertItems = activeAlerts.map(a =>
-                    `<div style="display:flex; align-items:flex-start; gap:8px; margin-bottom:6px;">
-                        <i class="fa-solid fa-triangle-exclamation" style="color:#dc2626; margin-top:2px; flex-shrink:0;"></i>
-                        <span>${escapeHTML(a.message)}</span>
-                    </div>`
-                ).join('');
-                floodBannerHtml = `
-                    <div style="background:#fef2f2; border:1px solid #fca5a5; border-left:4px solid #dc2626; border-radius:10px; padding:14px 16px; margin-bottom:12px;">
-                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; font-weight:700; font-size:13px; color:#dc2626;">
-                            <i class="fa-solid fa-droplet" style="font-size:16px;"></i>
-                            ⚠️ PUB Flood Alert${activeAlerts.length > 1 ? 's' : ''} Active (${activeAlerts.length})
-                            ${fa.retrieved_at ? `<span style="font-size:10px; font-weight:normal; color:#b91c1c; background:#fee2e2; padding:2px 7px; border-radius:4px; margin-left:4px;">Retrieved: ${escapeHTML(fa.retrieved_at)}</span>` : ''}
-                        </div>
-                        <div style="font-size:13px; color:#7f1d1d; line-height:1.5;">${alertItems}</div>
-                    </div>`;
-            } else if (cancelledAlerts.length > 0) {
-                floodBannerHtml = `
-                    <div style="background:var(--bg-muted); border:1px solid var(--border); border-left:4px solid #10b981; border-radius:10px; padding:12px 16px; margin-bottom:12px; font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:8px;">
-                        <i class="fa-solid fa-circle-check" style="color:#10b981;"></i>
-                        <span>All earlier PUB flood alerts have been cleared.</span>
-                    </div>`;
-            } else {
-                floodBannerHtml = `
-                    <div style="background:var(--bg-muted); border:1px solid var(--border); border-left:4px solid #3b82f6; border-radius:10px; padding:10px 14px; margin-bottom:12px; font-size:11.5px; color:var(--text-muted); display:flex; align-items:center; justify-content:space-between; gap:8px;">
-                        <div style="display:flex; align-items:center; gap:6px;">
-                            <i class="fa-solid fa-circle-info" style="color:#3b82f6;"></i>
-                            <span>No active flood alerts islandwide (PUB).</span>
-                        </div>
-                        ${fa.retrieved_at ? `<span style="font-size:9.5px; color:var(--text-muted);">Checked: ${escapeHTML(fa.retrieved_at)}</span>` : ''}
-                    </div>`;
-            }
-        }
-
-        govEventsContent.innerHTML = banner + floodBannerHtml + (govHtml || "<p style='color: var(--text-subtle); margin:0;'>No official alerts.</p>");
-
-        // ── Transit section: DataMall structured view OR Telegram keyword-filter fallback ──
+        // ── Transit section: LTA DataMall structured view OR key-not-configured notice ──
         let mrtHtml = "";
 
         if (data.train_alerts) {
@@ -2098,7 +2043,7 @@ function initSgHub() {
                                 ${seg.direction ? `<span style="font-size:11px; color:var(--text-muted);">• Direction: ${escapeHTML(seg.direction)}</span>` : ''}
                             </div>
                             ${seg.stations ? `<div style="font-size:12px; color:var(--text-main); margin-bottom:6px; font-weight:600;"><i class="fa-solid fa-location-dot" style="color:var(--text-muted);"></i> Affected Stations: <span style="color:#c0392b;">${escapeHTML(seg.stations)}</span></div>` : ''}
-                            
+
                             ${seg.free_public_bus ? `<div style="font-size:12px; color:#1a7f3c; margin-bottom:4px; font-weight:600;"><i class="fa-solid fa-bus"></i> Free Public Bus Boarding: <span>${escapeHTML(seg.free_public_bus)}</span></div>` : ''}
                             ${seg.free_mrt_shuttle ? `<div style="font-size:12px; color:#005EC4; margin-bottom:4px; font-weight:600;"><i class="fa-solid fa-bus-simple"></i> Free MRT Shuttle: <span>${escapeHTML(seg.free_mrt_shuttle)}</span> (${escapeHTML(seg.mrt_shuttle_direction)})</div>` : ''}
                         </div>`;
@@ -2109,34 +2054,78 @@ function initSgHub() {
             mrtEventsContent.innerHTML = apiTimestamp + mrtHtml;
 
         } else {
-            // ── Fallback: keyword-filter Telegram posts (no DataMall key) ──
-            const transitKeywords = ["mrt", "lrt", "train", "track fault", "service delay", "smrt", "sbs transit", "lta", "road closure", "traffic accident", "delay", "disruption", "service recovery"];
-            let transitEvents = [];
-            data.gov_events.forEach(evt => {
-                const textLower = evt.content.toLowerCase();
-                const matched = transitKeywords.some(kw => textLower.includes(kw));
-                if (matched && !transitEvents.some(te => te.content === evt.content)) {
-                    transitEvents.push(evt);
-                }
-            });
-            transitEvents.forEach(evt => {
-                mrtHtml += `<div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 8px;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom: 6px; font-weight:600; flex-wrap:wrap; gap:8px;">
-                        <span style="color: var(--primary); display:inline-flex; align-items:center; gap:6px;">
-                            <i class="fa-solid fa-train-subway"></i> ${escapeHTML(evt.source)}
-                            ${evt.date ? `<span style="font-size:10px; font-weight:normal; color:var(--text-muted); background:var(--border); padding:2px 6px; border-radius:4px;">${escapeHTML(evt.date)}</span>` : ''}
-                        </span>
-                        <a href="${safeURL(evt.link)}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Alert</a>
-                    </div>
-                    <div style="color: var(--text-main); line-height:1.45;">${escapeHTML(evt.content)}</div>
+            // ── No LTA DataMall key configured: show a clear scope-bounded notice ──
+            // Live MRT disruption posts (when any) are surfaced in the Gov Updates tab's
+            // official broadcasts feed, which scrapes the LTA/SMRT Telegram channels.
+            mrtEventsContent.innerHTML = banner + `
+                <div style="display:flex; align-items:center; gap:8px; color: var(--text-muted); background: var(--bg-muted); border: 1px solid var(--border); padding:16px; border-radius:8px; font-size:13px; font-weight:500; line-height:1.5;">
+                    <i class="fa-solid fa-circle-info" style="color:var(--primary); font-size:18px;"></i>
+                    Live MRT/LRT status requires the <strong>LTA DataMall</strong> API key. Any active train disruptions are posted to the official LTA &amp; SMRT Telegram channels — see the <strong>Gov Updates</strong> tab for those broadcasts.
                 </div>`;
-            });
-            mrtEventsContent.innerHTML = banner + (mrtHtml || `
-                <div style="display:flex; align-items:center; gap:8px; color: var(--text-success); background: var(--bg-muted); border: 1px solid var(--border); padding:16px; border-radius:8px; font-size:14px; font-weight:600;">
-                    <i class="fa-solid fa-circle-check" style="font-size:18px;"></i>
-                    🟢 All train services are operating normally. No active disruptions reported.
-                </div>`);
         }
+    }
+
+    function renderGovUpdatesPane(data) {
+        const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
+            <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${getRetrievalTimestamp()}
+        </div>`;
+
+        let govHtml = "";
+        (data.gov_events || []).forEach(evt => {
+            govHtml += `<div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 8px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom: 6px; font-weight:600; flex-wrap:wrap; gap:8px;">
+                    <span style="color: var(--primary); display:inline-flex; align-items:center; gap:6px;">
+                        <i class="fa-solid fa-bullhorn"></i> ${escapeHTML(evt.source)}
+                        ${evt.date ? `<span style="font-size:10px; font-weight:normal; color:var(--text-muted); background:var(--border); padding:2px 6px; border-radius:4px;">${escapeHTML(evt.date)}</span>` : ''}
+                    </span>
+                    <a href="${safeURL(evt.link)}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Alert</a>
+                </div>
+                <div style="color: var(--text-main); line-height:1.45; white-space: pre-wrap;">${escapeHTML(evt.content)}</div>
+            </div>`;
+        });
+
+        // --- Flood Alerts Banner (PUB real-time API) ---
+        let floodBannerHtml = '';
+        if (data.flood_alerts && data.flood_alerts.alerts) {
+            const fa = data.flood_alerts;
+            const activeAlerts = fa.alerts.filter(a => a.is_active);
+            const cancelledAlerts = fa.alerts.filter(a => !a.is_active);
+
+            if (activeAlerts.length > 0) {
+                const alertItems = activeAlerts.map(a =>
+                    `<div style="display:flex; align-items:flex-start; gap:8px; margin-bottom:6px;">
+                        <i class="fa-solid fa-triangle-exclamation" style="color:#dc2626; margin-top:2px; flex-shrink:0;"></i>
+                        <span>${escapeHTML(a.message)}</span>
+                    </div>`
+                ).join('');
+                floodBannerHtml = `
+                    <div style="background:#fef2f2; border:1px solid #fca5a5; border-left:4px solid #dc2626; border-radius:10px; padding:14px 16px; margin-bottom:12px;">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; font-weight:700; font-size:13px; color:#dc2626;">
+                            <i class="fa-solid fa-droplet" style="font-size:16px;"></i>
+                            ⚠️ PUB Flood Alert${activeAlerts.length > 1 ? 's' : ''} Active (${activeAlerts.length})
+                            ${fa.retrieved_at ? `<span style="font-size:10px; font-weight:normal; color:#b91c1c; background:#fee2e2; padding:2px 7px; border-radius:4px; margin-left:4px;">Retrieved: ${escapeHTML(fa.retrieved_at)}</span>` : ''}
+                        </div>
+                        <div style="font-size:13px; color:#7f1d1d; line-height:1.5;">${alertItems}</div>
+                    </div>`;
+            } else if (cancelledAlerts.length > 0) {
+                floodBannerHtml = `
+                    <div style="background:var(--bg-muted); border:1px solid var(--border); border-left:4px solid #10b981; border-radius:10px; padding:12px 16px; margin-bottom:12px; font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:8px;">
+                        <i class="fa-solid fa-circle-check" style="color:#10b981;"></i>
+                        <span>All earlier PUB flood alerts have been cleared.</span>
+                    </div>`;
+            } else {
+                floodBannerHtml = `
+                    <div style="background:var(--bg-muted); border:1px solid var(--border); border-left:4px solid #3b82f6; border-radius:10px; padding:10px 14px; margin-bottom:12px; font-size:11.5px; color:var(--text-muted); display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <i class="fa-solid fa-circle-info" style="color:#3b82f6;"></i>
+                            <span>No active flood alerts islandwide (PUB).</span>
+                        </div>
+                        ${fa.retrieved_at ? `<span style="font-size:9.5px; color:var(--text-muted);">Checked: ${escapeHTML(fa.retrieved_at)}</span>` : ''}
+                    </div>`;
+            }
+        }
+
+        govEventsContent.innerHTML = banner + floodBannerHtml + (govHtml || "<p style='color: var(--text-subtle); margin:0;'>No official alerts.</p>");
     }
 
     function renderCommunityPane(data) {

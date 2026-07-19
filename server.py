@@ -301,9 +301,9 @@ async def get_sg_hub_wages():
 @app.get("/api/sg-hub/taxi-nearby")
 async def get_sg_hub_taxi_nearby(lat: float, lon: float):
     """
-    Lightweight companion to /api/sg-hub/gov-transit for the "Around You" button — recomputes just
-    the taxi nearby-count against the caller's coordinates without re-triggering the full Telegram
-    scrape + COE fetch that the combined endpoint does.
+    Lightweight companion to /api/sg-hub/transit for the "Around You" button — recomputes just
+    the taxi nearby-count against the caller's coordinates without re-triggering the full LTA
+    train/COE/ICA fetch that the transport endpoint does.
     """
     try:
         result = await anyio.to_thread.run_sync(fetch_lta_taxi_availability, lat, lon)
@@ -316,27 +316,23 @@ async def get_sg_hub_taxi_nearby(lat: float, lon: float):
         logger.exception("Error loading nearby taxi data")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/sg-hub/gov-transit")
-async def get_sg_hub_gov_transit(lat: float | None = None, lon: float | None = None):
+@app.get("/api/sg-hub/transit")
+async def get_sg_hub_transit(lat: float | None = None, lon: float | None = None):
+    """Transit & Transport tab — LTA DataMall train alerts, islandwide taxi availability, the
+    latest COE bidding premiums + trend, and ICA checkpoint/media advisories (rendered in this
+    tab's ICA card). Scoped to this tab only, so the panel never waits on the slower Telegram
+    gov-channel broadcast scrape — the Gov Updates tab fetches that separately."""
     try:
-        print("\n\033[94m[MerlionOS Orchestrator] --- Fetching Gov Updates & Transit Feeds Selected ---\033[0m")
-        print("\033[95m[Telegram Scraper Service] Spawning parallel crawler tasks in an anyio TaskGroup...\033[0m")
-        print(f"\033[95m[Telegram Scraper Service] Crawling {len(GOV_CHANNELS)} official streams...\033[0m")
+        print("\n\033[94m[MerlionOS · Transit & Transport] --- Fetching transport feeds ---\033[0m")
 
-        gov_events = []
         train_alerts = None
         taxi_availability = None
         coe_raw = None
-        flood_alerts = None
         ica_news = None
-
-        async def fetch_gov_channel(channel_name):
-            ch_events = await anyio.to_thread.run_sync(scrape_one_telegram_channel, channel_name)
-            gov_events.extend(ch_events)
 
         async def fetch_datamall_alerts():
             nonlocal train_alerts
-            print("  \033[90m[LTA DataMall] Running in parallel with Telegram scrapers...\033[0m")
+            print("  \033[90m[LTA DataMall] Fetching train service alerts...\033[0m")
             train_alerts = await anyio.to_thread.run_sync(fetch_lta_train_alerts)
 
         async def fetch_datamall_taxis():
@@ -348,42 +344,17 @@ async def get_sg_hub_gov_transit(lat: float | None = None, lon: float | None = N
             print("  \033[90m[data.gov.sg] Fetching latest COE bidding results...\033[0m")
             coe_raw = await anyio.to_thread.run_sync(query_coe_bidding_results)
 
-        async def fetch_flood_data():
-            nonlocal flood_alerts
-            print("  \033[90m[PUB] Fetching flood alerts in parallel...\033[0m")
-            flood_alerts = await anyio.to_thread.run_sync(fetch_pub_flood_alerts)
-
         async def fetch_ica_news():
             nonlocal ica_news
-            print("  \033[90m[ICA] Fetching checkpoint & media advisories in parallel...\033[0m")
+            print("  \033[90m[ICA] Fetching checkpoint & media advisories...\033[0m")
             ica_news = await anyio.to_thread.run_sync(fetch_ica_media_releases)
 
-        # Run Telegram scrapers + DataMall APIs + COE + Flood alerts fetch + ICA news in parallel
         async with anyio.create_task_group() as tg:
-            for ch in GOV_CHANNELS:
-                tg.start_soon(fetch_gov_channel, ch)
             tg.start_soon(fetch_datamall_alerts)
             tg.start_soon(fetch_datamall_taxis)
             tg.start_soon(fetch_coe)
-            tg.start_soon(fetch_flood_data)
             tg.start_soon(fetch_ica_news)
 
-        # Fallback for Official Gov Alerts
-        if not gov_events:
-            print("\033[31m[Telegram Scraper Service] No recent gov alerts in 24h, triggering fallback alerts...\033[0m")
-            gov_fallbacks = ["HealthHubSG", "scamshieldalert", "govsg"]
-            
-            async def fetch_gov_fallback(channel):
-                ch_events = await anyio.to_thread.run_sync(scrape_one_telegram_channel, channel)
-                for ev in ch_events:
-                    ev["source"] = f"@{channel} (Latest)"
-                gov_events.extend(ch_events)
-            
-            async with anyio.create_task_group() as tg:
-                for channel in gov_fallbacks:
-                    tg.start_soon(fetch_gov_fallback, channel)
-                    
-        gov_events.sort(key=lambda x: x.get("iso_date", ""), reverse=True)
         coe = {"exercise": "N/A", "categories": [], "source": ""}
         if coe_raw:
             coe_lines = coe_raw.split("\n")
@@ -408,13 +379,64 @@ async def get_sg_hub_gov_transit(lat: float | None = None, lon: float | None = N
             logger.warning(f"COE premium history skipped: {type(e).__name__}: {e}")
 
         return {
-            "gov_events": gov_events,
             "train_alerts": train_alerts,
             "taxi_availability": taxi_availability,
             "coe": coe,
             "coe_history": coe_history,
-            "flood_alerts": flood_alerts,
             "ica_news": ica_news,
+        }
+    except Exception as e:
+        logger.exception("Error loading transit data")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/sg-hub/gov-updates")
+async def get_sg_hub_gov_updates():
+    """Gov Updates tab — official Telegram gov-channel broadcasts + PUB flood alerts (the flood
+    banner renders in this tab). Scoped to this tab only; the Transit & Transport tab fetches its
+    own LTA/COE/ICA feeds separately, so each panel loads from its own endpoint."""
+    try:
+        print("\n\033[94m[MerlionOS · Gov Updates] --- Fetching gov broadcasts ---\033[0m")
+        print("\033[95m[Telegram Scraper Service] Spawning parallel crawler tasks in an anyio TaskGroup...\033[0m")
+        print(f"\033[95m[Telegram Scraper Service] Crawling {len(GOV_CHANNELS)} official streams...\033[0m")
+
+        gov_events = []
+        flood_alerts = None
+
+        async def fetch_gov_channel(channel_name):
+            ch_events = await anyio.to_thread.run_sync(scrape_one_telegram_channel, channel_name)
+            gov_events.extend(ch_events)
+
+        async def fetch_flood_data():
+            nonlocal flood_alerts
+            print("  \033[90m[PUB] Fetching flood alerts in parallel...\033[0m")
+            flood_alerts = await anyio.to_thread.run_sync(fetch_pub_flood_alerts)
+
+        async with anyio.create_task_group() as tg:
+            for ch in GOV_CHANNELS:
+                tg.start_soon(fetch_gov_channel, ch)
+            tg.start_soon(fetch_flood_data)
+
+        # Fallback for Official Gov Alerts
+        if not gov_events:
+            print("\033[31m[Telegram Scraper Service] No recent gov alerts in 24h, triggering fallback alerts...\033[0m")
+            gov_fallbacks = ["HealthHubSG", "scamshieldalert", "govsg"]
+
+            async def fetch_gov_fallback(channel):
+                ch_events = await anyio.to_thread.run_sync(scrape_one_telegram_channel, channel)
+                for ev in ch_events:
+                    ev["source"] = f"@{channel} (Latest)"
+                gov_events.extend(ch_events)
+
+            async with anyio.create_task_group() as tg:
+                for channel in gov_fallbacks:
+                    tg.start_soon(fetch_gov_fallback, channel)
+
+        gov_events.sort(key=lambda x: x.get("iso_date", ""), reverse=True)
+
+        return {
+            "gov_events": gov_events,
+            "flood_alerts": flood_alerts,
         }
     except Exception as e:
         logger.exception("Error loading Gov updates data")
