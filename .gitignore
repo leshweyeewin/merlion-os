@@ -5,3 +5,4 @@ __pycache__/
 walkthrough.md
 submission_kit.md
 .data_cache/
+.claude/
