@@ -30,6 +30,31 @@ def _sgt_now():
     from datetime import datetime, timezone, timedelta
     return datetime.now(timezone(timedelta(hours=8)))
 
+def _forecast_next_linear(values: list):
+    """6-point ordinary least-squares forecast of the next value in a series — shared by the
+    COE premium (tools/transport.py) and HDB resale price (tools/housing.py) trend charts, which
+    both fit a line through the last 6 data points and project one step ahead. Falls back to the
+    last observed value when fewer than 6 points are available (not enough signal for a stable
+    slope), and to None for an empty series. Forecasts are floored at 0 since premiums/prices
+    can't go negative."""
+    if len(values) >= 6:
+        y_last = values[-6:]
+        n = 6
+        x = list(range(n))
+        sum_x = sum(x)
+        sum_y = sum(y_last)
+        sum_xx = sum(xi * xi for xi in x)
+        sum_xy = sum(xi * yi for xi, yi in zip(x, y_last))
+        denom = n * sum_xx - sum_x * sum_x
+        if denom != 0:
+            slope = (n * sum_xy - sum_x * sum_y) / denom
+            intercept = (sum_y - slope * sum_x) / n
+            forecast_val = int(round(slope * n + intercept))
+        else:
+            forecast_val = int(round(sum_y / n))
+        return max(0, forecast_val)
+    return values[-1] if values else None
+
 def _annual_dataset_is_stale(latest_ref_year) -> bool:
     """Data-freshness policy for the SG Hub dashboards: an annual dataset is screened out once
     its reference year falls behind the previous calendar year (i.e. more than ~1 year old and a

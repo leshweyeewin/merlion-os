@@ -1,8 +1,10 @@
 # 🇸🇬 MerlionOS: Unified Singapore Public Sector AI Coordination Brain
 *APAC GenAI Academy (APAC Edition) — Cohort 2 Hackathon Project*
 
-**🔗 Live Demo:** [merlion-os.onrender.com](https://merlion-os.onrender.com)  
-*(Hosted on Render's free tier — if the instance has spun down from inactivity, please allow ~30-60 seconds for the instance to wake up.)*
+[![CI](https://github.com/leshweyeewin/merlion-os/actions/workflows/ci.yml/badge.svg)](https://github.com/leshweyeewin/merlion-os/actions/workflows/ci.yml)
+
+**🔗 Live Demo:** [merlion-os-648096114696.asia-southeast1.run.app](https://merlion-os-648096114696.asia-southeast1.run.app)  
+*(Hosted on Google Cloud Run, region `asia-southeast1`, with a warm minimum instance — no cold-start wait.)*
 
 ---
 
@@ -122,3 +124,12 @@ Launch the FastAPI production-ready server:
 python server.py
 ```
 Open **`http://127.0.0.1:8080/`** in your browser. For advanced features (BigQuery, FastMCP), check out [docs/quickstart.md](docs/quickstart.md).
+
+### 4. Run Tests
+Unit tests cover the security-critical scraper domain validator, the COE/HDB forecast math, and the tax bracket calculator — the same suite CI runs on every push:
+```bash
+pip install -r requirements-dev.txt
+pytest tests/ -v          # Python: domain validation + forecast regression
+node --check static/app.js  # JS syntax check
+node --test tests/*.js      # JS: tax calculator
+```

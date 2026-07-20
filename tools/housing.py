@@ -15,6 +15,7 @@ from tools.core import (
     _cache_synced_at,
     _disk_cache_load,
     _disk_cache_save,
+    _forecast_next_linear,
 )
 
 logger = logging.getLogger("merlion-os-housing")
@@ -377,24 +378,7 @@ def compute_hdb_resale_history() -> dict:
     medians = [round(statistics.median(by_month[m])) for m in months]
     transactions = [len(by_month[m]) for m in months]
 
-    if len(medians) >= 6:
-        y_last = medians[-6:]
-        x = list(range(6))
-        n = 6
-        sum_x = sum(x)
-        sum_y = sum(y_last)
-        sum_xx = sum(xi * xi for xi in x)
-        sum_xy = sum(xi * yi for xi, yi in zip(x, y_last))
-        denom = n * sum_xx - sum_x * sum_x
-        if denom != 0:
-            slope = (n * sum_xy - sum_x * sum_y) / denom
-            intercept = (sum_y - slope * sum_x) / n
-            forecast_val = int(round(slope * 6 + intercept))
-        else:
-            forecast_val = int(round(sum_y / n))
-        forecast_val = max(0, forecast_val)
-    else:
-        forecast_val = medians[-1] if medians else None
+    forecast_val = _forecast_next_linear(medians)
 
     months.append("Next Month (Forecast)")
     medians.append(forecast_val)

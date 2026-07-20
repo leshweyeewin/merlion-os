@@ -8,7 +8,7 @@ import os
 import math
 import logging
 import requests
-from tools.core import _data_gov_sg_headers, _cache_synced_at
+from tools.core import _data_gov_sg_headers, _cache_synced_at, _forecast_next_linear
 
 logger = logging.getLogger("merlion-os-transport")
 
@@ -102,25 +102,7 @@ def compute_coe_premium_history(max_exercises: int | None = 48) -> dict:
     forecasts = {}
     for c in "ABCDE":
         y = [per_exercise[k].get(c) for k in keys if per_exercise[k].get(c) is not None]
-        if len(y) >= 6:
-            y_last = y[-6:]
-            x = list(range(6))
-            n = 6
-            sum_x = sum(x)
-            sum_y = sum(y_last)
-            sum_xx = sum(xi * xi for xi in x)
-            sum_xy = sum(xi * yi for xi, yi in zip(x, y_last))
-            denom = n * sum_xx - sum_x * sum_x
-            if denom != 0:
-                slope = (n * sum_xy - sum_x * sum_y) / denom
-                intercept = (sum_y - slope * sum_x) / n
-                forecast_val = int(round(slope * 6 + intercept))
-            else:
-                forecast_val = int(round(sum_y / n))
-            forecast_val = max(0, forecast_val)
-            forecasts[c] = forecast_val
-        else:
-            forecasts[c] = y[-1] if y else None
+        forecasts[c] = _forecast_next_linear(y)
 
     exercises = [f"{month} R{bidding_no}" for month, bidding_no in keys]
     categories = {c: [per_exercise[k].get(c) for k in keys] for c in "ABCDE"}

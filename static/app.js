@@ -1406,6 +1406,9 @@ function initSgHub() {
                 // 2. SRS up to its cap and within the remaining S$80k total relief cap headroom.
                 // 3. Shifting any budget portion that exceeds the S$80k relief cap (which would yield 0% tax savings if topped up into CPF/SRS) into IPC-approved donations, which yield a 2.5x tax deduction outside the S$80k cap.
                 // 4. Any remaining budget (if CPF and SRS are fully capped and no more tax is payable) is marked as unused or extra donation.
+                const RELIEF_CAP = 80000;
+                const preExisting = Math.max(0, computePreExistingReliefs());
+                const headroom = Math.max(0, RELIEF_CAP - preExisting);
                 const profileDonations = Math.max(0, parseFloat(taxDonations.value) || 0);
 
                 let cpfAlloc = Math.min(budget, maxCPFReliefSelf, headroom);
@@ -2393,8 +2396,19 @@ function initSgHub() {
             g += `<line x1="${padL}" y1="${y(t)}" x2="${padL + iw}" y2="${y(t)}" stroke="${CHART_INK.grid}" stroke-width="1"/>`
                 + `<text x="${padL - 6}" y="${y(t) + 3.5}" text-anchor="end" font-size="10" fill="${CHART_INK.label}">${fmtK(t)}</text>`;
         });
+        // The last label always renders (it's often a "Next X (Forecast)" point worth calling
+        // out) — but a regular xTickEvery label landing right next to it would just overlap the
+        // text, since neither one knows about the other's width. Rough-measure both and skip the
+        // regular tick if there isn't room, rather than hardcoding a fixed label count/spacing.
+        const approxLabelHalfWidth = s => (String(s).length * 5.6 + 6) / 2;
+        const lastIdx = xLabels.length - 1;
+        const lastLabelHalfWidth = approxLabelHalfWidth(xLabels[lastIdx]);
         xLabels.forEach((lab, i) => {
-            if (i % xTickEvery !== 0 && i !== xLabels.length - 1) return;
+            const isLast = i === lastIdx;
+            if (!isLast) {
+                if (i % xTickEvery !== 0) return;
+                if (x(lastIdx) - x(i) < lastLabelHalfWidth + approxLabelHalfWidth(lab) + 4) return;
+            }
             g += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="${CHART_INK.label}">${escapeHTML(lab)}</text>`;
         });
         g += `<line x1="${padL}" y1="${y(0)}" x2="${padL + iw}" y2="${y(0)}" stroke="${CHART_INK.axis}" stroke-width="1"/>`;

@@ -50,6 +50,34 @@ def search_singapore_government(query: str) -> str:
         output_lines.append(f"- **{item['title']}**: {item['url']}")
     return "\n".join(output_lines)
 
+# Non-.gov.sg domains scraping is allowed to touch — kept to a short, deliberate allowlist
+# (not "anything .sg") since these carry citizen-facing utility/healthcare/CDC data referenced
+# from official gov.sg pages.
+TRUSTED_SG_DOMAINS = {
+    "healthhub.sg",
+    "wsg.sg",
+    "cdc.gov.sg"
+}
+
+# Auth-keyword blocklist checked against the raw URL before any request is made — stops the
+# scraper from ever hitting a login/credentials page, regardless of domain trust.
+AUTH_URL_KEYWORDS = ["login", "signin", "auth", "singpass", "corppass"]
+
+def is_trusted_sg_domain(domain_str: str) -> bool:
+    """True if `domain_str` is `.gov.sg` (or `gov.sg` itself) or one of TRUSTED_SG_DOMAINS
+    (exact match or subdomain). Used both pre-fetch (on the requested URL) and post-fetch (on
+    the final URL after redirects) to stop a scrape from being hijacked to an untrusted domain."""
+    d = domain_str.lower().strip()
+    # Remove port if present
+    if ":" in d:
+        d = d.split(":")[0]
+    if d.endswith(".gov.sg") or d == "gov.sg":
+        return True
+    for trusted in TRUSTED_SG_DOMAINS:
+        if d == trusted or d.endswith("." + trusted):
+            return True
+    return False
+
 def scrape_government_page(url: str) -> str:
     """Tool: Scrapes text content from an official Singapore government website (.gov.sg) to retrieve up-to-date information.
 
@@ -62,26 +90,8 @@ def scrape_government_page(url: str) -> str:
 
     # Safety check: prevent scraping authentication or credentials entry portals
     url_lower = url.lower()
-    if any(kw in url_lower for kw in ["login", "signin", "auth", "singpass", "corppass"]):
+    if any(kw in url_lower for kw in AUTH_URL_KEYWORDS):
         return "Error: Scraping authentication or login portals is disabled for security reasons."
-
-    TRUSTED_SG_DOMAINS = {
-        "healthhub.sg",
-        "wsg.sg",
-        "cdc.gov.sg"
-    }
-
-    def is_trusted_sg_domain(domain_str: str) -> bool:
-        d = domain_str.lower().strip()
-        # Remove port if present
-        if ":" in d:
-            d = d.split(":")[0]
-        if d.endswith(".gov.sg") or d == "gov.sg":
-            return True
-        for trusted in TRUSTED_SG_DOMAINS:
-            if d == trusted or d.endswith("." + trusted):
-                return True
-        return False
 
     if not url.startswith(("http://", "https://")):
         url = "https://" + url

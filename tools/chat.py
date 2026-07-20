@@ -160,7 +160,11 @@ async def run_chat_loop(user_prompt: str, history: list) -> tuple[str, list]:
             final_response = await client.aio.models.generate_content(
                 model='gemini-2.5-flash',
                 contents=contents_sync,
-                config=types.GenerateContentConfig(system_instruction=system_instruction)
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                    tools=available_tools,
+                    temperature=0.1
+                )
             )
             return final_response.text or "Could not compile response.", logs
         return response.text or "Could not generate text.", []
