@@ -318,13 +318,13 @@ body {
     left: 0;
     z-index: 50;
     width: 300px;
-    max-height: 340px;
-    overflow-y: auto;
     background: var(--bg-panel);
     border: 1px solid var(--border);
     border-radius: 8px;
     box-shadow: var(--shadow-md);
     padding: 10px;
+    display: flex;
+    flex-direction: column;
 }
 
 .hidden-portals-dropdown.hidden {
