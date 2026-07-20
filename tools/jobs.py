@@ -38,8 +38,9 @@ _BQ_PROJECT_ID = None  # set lazily from env at call time so a missing var doesn
 _BQ_DATASET = "sg_employment"
 _BQ_TABLE = "job_vacancy_by_industry"
 
-def _fetch_latest_two_year_totals_from_bigquery(industries: list) -> dict:
-    """Queries the real BigQuery table for the two most recent years' summed vacancies."""
+def _fetch_latest_years_totals_from_bigquery(industries: list, n_years: int = 6) -> dict:
+    """Queries the real BigQuery table for the N most recent years' summed vacancies — the
+    latest two drive the YoY trend, the full window drives the multi-year CAGR trend-break check."""
     import os
     from google.cloud import bigquery
 
@@ -52,7 +53,7 @@ def _fetch_latest_two_year_totals_from_bigquery(industries: list) -> dict:
         WHERE industry IN UNNEST(@industries)
         GROUP BY year
         ORDER BY year DESC
-        LIMIT 2
+        LIMIT {n_years}
     """
     job_config = bigquery.QueryJobConfig(
         query_parameters=[bigquery.ArrayQueryParameter("industries", "STRING", industries)]
@@ -61,11 +62,12 @@ def _fetch_latest_two_year_totals_from_bigquery(industries: list) -> dict:
     if len(rows) < 2:
         raise ValueError("BigQuery returned fewer than 2 years of data")
 
-    latest_year, prior_year = str(rows[0].year), str(rows[1].year)
+    years_desc = [str(r.year) for r in rows]
     return {
-        "latest_year": latest_year,
-        "prior_year": prior_year,
-        "totals": {latest_year: rows[0].total or 0, prior_year: rows[1].total or 0},
+        "years_desc": years_desc,
+        "latest_year": years_desc[0],
+        "prior_year": years_desc[1],
+        "totals": {str(r.year): (r.total or 0) for r in rows},
         "table_ref": f"{client.project}.{_BQ_DATASET}.{_BQ_TABLE}",
     }
 
@@ -171,8 +173,35 @@ def _build_hiring_pressure_line(vacancies: int, industries: list, year: str) -> 
         verdict = "weak — retrenchments matching or exceeding vacancies, sector may be contracting net of hiring"
     return f"⚖️ Hiring Pressure Index: {ratio:.1f}x ({vacancies:,} vacancies vs {retrenched:,} retrenched in {year}) — {verdict}.\n"
 
+_CAGR_DIVERGENCE_THRESHOLD_PTS = 3.0  # pp gap between this year's YoY and the multi-year CAGR before flagging accel/decel
+
+def _build_cagr_trend_line(multi_year_totals: dict, years_asc: list, trend_pct: float) -> str:
+    """Compares this year's YoY % against the CAGR across the full fetched window — a single
+    YoY delta can look strong (or weak) off one noisy year, when the multi-year baseline tells
+    a different story (e.g. "+9.6% YoY" sitting on top of a 15%/yr multi-year trend is actually
+    a deceleration, not the isolated number suggests)."""
+    if len(years_asc) < 3:
+        return ""  # too little history to distinguish a multi-year baseline from the YoY figure itself
+    oldest_year, newest_year = years_asc[0], years_asc[-1]
+    oldest_total, newest_total = multi_year_totals.get(oldest_year), multi_year_totals.get(newest_year)
+    n_periods = int(newest_year) - int(oldest_year)
+    if not oldest_total or n_periods <= 0:
+        return ""
+    cagr_pct = ((newest_total / oldest_total) ** (1 / n_periods) - 1) * 100
+    diff = trend_pct - cagr_pct
+    if diff <= -_CAGR_DIVERGENCE_THRESHOLD_PTS:
+        verdict = "decelerating vs. its own multi-year trend"
+    elif diff >= _CAGR_DIVERGENCE_THRESHOLD_PTS:
+        verdict = "accelerating vs. its own multi-year trend"
+    else:
+        verdict = "tracking its own multi-year trend"
+    return (
+        f"🧭 Multi-Year Trend: {cagr_pct:+.1f}%/yr CAGR ({oldest_year}→{newest_year}) vs. "
+        f"{trend_pct:+.1f}% this year — {verdict}.\n"
+    )
+
 def query_singapore_job_statistics_via_bigquery(context_query: str = "general") -> str:
-    """Tool: Queries Singapore's real public job vacancy statistics (MOM, via data.gov.sg) with a YoY trend, next-year forecast, and a Hiring Pressure Index (vacancies vs. same-year retrenchments in the same industries).
+    """Tool: Queries Singapore's real public job vacancy statistics (MOM, via data.gov.sg) with a YoY trend, next-year forecast, a Hiring Pressure Index (vacancies vs. same-year retrenchments in the same industries), and a multi-year CAGR trend-break check (flags whether this year's YoY change is accelerating or decelerating vs. the sector's own multi-year growth rate).
 
     Args:
         context_query: The target job sector, industry, or role to query (e.g., 'tech', 'finance', 'healthcare'). Defaults to 'general'.
@@ -205,29 +234,40 @@ def query_singapore_job_statistics_via_bigquery(context_query: str = "general") 
         forecast_next_year = round(vacancies * (1 + trend_pct / 100))
         next_year_label = str(int(latest_year) + 1)
         arrow = "▲" if trend_pct >= 0 else "▼"
-        return (
+        line = (
             f"{arrow} {trend_pct:+.1f}% YoY ({prior_year}→{latest_year}). "
             f"Naive next-year forecast: ~{forecast_next_year:,} vacancies in {next_year_label}."
         )
+        return line, trend_pct
 
     cacheable = True
-    latest_year = None  # only set on Tiers 1-2 (real data) — gates the hiring pressure lookup below
+    latest_year = None  # only set on Tiers 1-2 (real data) — gates the hiring pressure / CAGR lookups below
+    multi_year_totals, multi_year_years_asc = {}, []
     try:
         # Tier 1: real BigQuery table (loaded via scripts/load_job_vacancy_to_bigquery.py)
-        bq = _fetch_latest_two_year_totals_from_bigquery(meta["industries"])
+        bq = _fetch_latest_years_totals_from_bigquery(meta["industries"])
         latest_year, prior_year, totals = bq["latest_year"], bq["prior_year"], bq["totals"]
         vacancies = totals[latest_year]
-        trend_line = _build_trend(vacancies, totals, prior_year, latest_year)
+        trend_line, trend_pct = _build_trend(vacancies, totals, prior_year, latest_year)
+        multi_year_totals, multi_year_years_asc = totals, sorted(bq["years_desc"])
         source_line = f"💡 Source: MOM Job Vacancy by Industry & Occupation, {latest_year} data — queried live from Google BigQuery (`{bq['table_ref']}`)."
     except Exception:
         try:
             # Tier 2: direct data.gov.sg fetch (BigQuery not configured, or the query failed)
             rows = _fetch_job_vacancy_rows()
-            latest_year = max(r["year"] for r in rows if r["year"].isdigit())
+            years_present = sorted({
+                r["year"] for r in rows
+                if r.get("industry") in meta["industries"] and (r.get("year") or "").isdigit()
+            })
+            if not years_present:
+                raise ValueError("no vacancy rows for this sector")
+            years_window = years_present[-6:]
+            latest_year = years_window[-1]
             prior_year = str(int(latest_year) - 1)
-            totals = _sector_vacancy_totals(rows, meta["industries"], [prior_year, latest_year])
+            totals = _sector_vacancy_totals(rows, meta["industries"], sorted(set(years_window) | {prior_year}))
             vacancies = totals[latest_year]
-            trend_line = _build_trend(vacancies, totals, prior_year, latest_year)
+            trend_line, trend_pct = _build_trend(vacancies, totals, prior_year, latest_year)
+            multi_year_totals, multi_year_years_asc = totals, years_window
             source_line = f"💡 Source: MOM Job Vacancy by Industry & Occupation, {latest_year} data (data.gov.sg, dataset `{_JOB_VACANCY_DATASET_ID}`)."
         except Exception as e:
             # Tier 3: live fetch failed entirely — fall back to the last real snapshot on record.
@@ -239,12 +279,14 @@ def query_singapore_job_statistics_via_bigquery(context_query: str = "general") 
             source_line = "💡 Source: MOM Job Vacancy by Industry & Occupation (data.gov.sg) — cached snapshot."
 
     pressure_line = _build_hiring_pressure_line(vacancies, meta["industries"], latest_year) if latest_year else ""
+    cagr_line = _build_cagr_trend_line(multi_year_totals, multi_year_years_asc, trend_pct) if latest_year else ""
 
     result = (
         f"--- [SG EMPLOYMENT & VACANCIES ANALYTICS] ---\n"
         f"📂 Matched Sector: {matched_sector} ({', '.join(meta['industries'])})\n"
         f"📊 Active Vacancies: {vacancies:,} open roles\n"
         f"📈 Market Trend: {trend_line}\n"
+        f"{cagr_line}"
         f"{pressure_line}"
         f"{source_line}"
     )

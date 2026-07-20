@@ -240,6 +240,7 @@ async def get_sg_hub_jobs(sector: str = "all"):
             vacancies = "N/A"
             trend = "N/A"
             pressure = "N/A"
+            cagr_trend = "N/A"
             source = "N/A"
             for line in lines:
                 if "Active Vacancies:" in line:
@@ -248,6 +249,8 @@ async def get_sg_hub_jobs(sector: str = "all"):
                     trend = line.split("Market Trend:")[1].strip()
                 elif "Hiring Pressure Index:" in line:
                     pressure = line.split("Hiring Pressure Index:")[1].strip()
+                elif "Multi-Year Trend:" in line:
+                    cagr_trend = line.split("Multi-Year Trend:")[1].strip()
                 elif "Source:" in line:
                     source = line.split("Source:")[1].strip()
 
@@ -267,6 +270,7 @@ async def get_sg_hub_jobs(sector: str = "all"):
                 "trend": trend,
                 "trend_pct": trend_pct,
                 "pressure": pressure,
+                "cagr_trend": cagr_trend,
                 "source": source
             }
         print("\033[33m[Job Market] Fetch complete.\033[0m")

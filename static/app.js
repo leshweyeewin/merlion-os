@@ -1874,7 +1874,13 @@ function initSgHub() {
         try {
             const taxiMapEl = document.getElementById("taxi-map");
             const positions = taxiAvailability && taxiAvailability.sample_positions;
-            if (taxiMapEl && positions && positions.length > 0 && typeof L !== "undefined") {
+            if (taxiMapEl && typeof L === "undefined") {
+                // Leaflet failed to load from its CDN (e.g. blocked/stalled network) — the div
+                // would otherwise stay blank forever with no indication anything went wrong.
+                taxiMapEl.innerHTML = "<div style='display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:12px;text-align:center;padding:0 16px;'>⚠️ Map library failed to load (check your network connection), positions unavailable.</div>";
+            } else if (taxiMapEl && (!positions || positions.length === 0)) {
+                taxiMapEl.innerHTML = "<div style='display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:12px;'>No taxi position data available right now.</div>";
+            } else if (taxiMapEl) {
                 const tmap = L.map(taxiMapEl, { zoomControl: true, scrollWheelZoom: false })
                     .setView([1.3521, 103.8198], 11);
                 window.taxiMap = tmap;
@@ -1892,7 +1898,11 @@ function initSgHub() {
                     }).addTo(tmap);
                 });
             }
-        } catch(e) { console.error("Failed to render taxi map:", e); }
+        } catch(e) {
+            console.error("Failed to render taxi map:", e);
+            const taxiMapEl = document.getElementById("taxi-map");
+            if (taxiMapEl) taxiMapEl.innerHTML = "<div style='display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:12px;'>⚠️ Couldn't render the map.</div>";
+        }
 
         bindTaxiButtons(taxiAvailability);
     }
@@ -3010,6 +3020,7 @@ function initSgHub() {
 
             <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; font-size:12px; color: var(--text-muted); line-height:1.5;">
                 <strong>📈 Industry Outlook:</strong> ${escapeHTML(details.trend)}
+                ${details.cagr_trend && details.cagr_trend !== "N/A" ? `<br><strong>🧭 Multi-Year Trend:</strong> ${escapeHTML(details.cagr_trend)}` : ""}
                 ${details.pressure && details.pressure !== "N/A" ? `<br><strong>⚖️ Hiring Pressure:</strong> ${escapeHTML(details.pressure)}` : ""}
             </div>
             <div style="font-size:10px; color: var(--text-muted); margin-top:10px;">ℹ️ All figures are live MOM Job Vacancy data (BigQuery / data.gov.sg); the forecast is a naive YoY extrapolation. For wages per job title, see the Occupational Wage Explorer below.</div>

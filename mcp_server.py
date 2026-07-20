@@ -66,7 +66,7 @@ def mcp_get_singapore_live_environment_advisory(context_query: str = "general") 
 
 @mcp.tool(name="query_singapore_job_statistics_via_bigquery")
 def mcp_query_singapore_job_statistics_via_bigquery(context_query: str = "general") -> str:
-    """Queries Singapore's real public job vacancy statistics (MOM, via data.gov.sg) with a YoY trend, next-year forecast, and a Hiring Pressure Index (vacancies vs. same-year retrenchments in the same industries)."""
+    """Queries Singapore's real public job vacancy statistics (MOM, via data.gov.sg) with a YoY trend, next-year forecast, a Hiring Pressure Index (vacancies vs. same-year retrenchments in the same industries), and a multi-year CAGR trend-break check (accelerating/decelerating vs. the sector's own growth rate)."""
     return query_singapore_job_statistics_via_bigquery(context_query)
 
 @mcp.tool(name="query_hdb_bto_launches_and_grants")
