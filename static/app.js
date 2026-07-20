@@ -962,8 +962,54 @@ function initSgHub() {
         if (taxExistingReliefs) taxExistingReliefs.textContent = "S$" + sum.toLocaleString();
         return sum;
     }
-    relItems.forEach(inp => inp.addEventListener("input", computePreExistingReliefs));
-    computePreExistingReliefs();
+
+    // Always-visible card shows ONLY the effective tier (single highlighted band row),
+    // so it doesn't duplicate the full progressive schedule rendered inside the Optimize results.
+    const taxTierEffectiveRow = document.getElementById("tax-tier-effective-row");
+    const taxTierEffectiveRate = document.getElementById("tax-tier-effective-rate");
+    function renderEffectiveTier() {
+        if (!taxTierEffectiveRow) return;
+        const income = Math.max(0, parseFloat(taxAssessableIncome.value) || 0);
+        const preExisting = Math.max(0, computePreExistingReliefs());
+        const donations = Math.max(0, parseFloat(taxDonations.value) || 0);
+        // Match the optimizer: donations reduce chargeable income at face value (the 2.5x
+        // multiplier only governs the separate donation tax-saving figure, not the band).
+        const chargeable = Math.max(0, income - preExisting - donations);
+
+        if (chargeable <= 0) {
+            taxTierEffectiveRow.innerHTML = `<tr><td colspan="2" style="padding:8px; font-size:11.5px; color:var(--text-subtle); text-align:center;">Enter your income &amp; reliefs to see your tier…</td></tr>`;
+            if (taxTierEffectiveRate) taxTierEffectiveRate.textContent = "";
+            return;
+        }
+
+        let lower = 0, band = "", bandRate = 0, marginalRate = 0;
+        for (let i = 0; i < TAX_BRACKETS.length; i++) {
+            const b = TAX_BRACKETS[i];
+            const upper = b.limit === Infinity ? null : lower + b.limit;
+            if (chargeable > lower && (upper === null || chargeable <= upper)) {
+                band = i === 0 ? "First S$" + lower.toLocaleString() + (upper ? "–S$" + upper.toLocaleString() : "")
+                               : "S$" + (lower + 1).toLocaleString() + (upper ? " – S$" + upper.toLocaleString() : "+");
+                bandRate = b.rate * 100;
+                marginalRate = bandRate;
+                break;
+            }
+            if (upper === null) break;
+            lower = upper;
+        }
+
+        const tax = calculateSingaporeTax(chargeable);
+        const effRate = (tax / chargeable) * 100;
+        taxTierEffectiveRow.innerHTML = `
+            <tr style="background:#fff7ed; font-weight:700;">
+                <td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:12px; color:var(--text-main);">${band}</td>
+                <td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:12px; text-align:right; color:var(--text-main);">${bandRate.toFixed(1)}%</td>
+            </tr>`;
+        if (taxTierEffectiveRate) taxTierEffectiveRate.innerHTML = `Effective: <strong style="color:var(--text-main);">${effRate.toFixed(2)}%</strong> · Marginal: <strong style="color:var(--text-main);">${marginalRate.toFixed(1)}%</strong> · Chargeable: <strong style="color:var(--text-main);">S$${chargeable.toLocaleString(undefined,{maximumFractionDigits:0})}</strong>`;
+    }
+    relItems.forEach(inp => inp.addEventListener("input", renderEffectiveTier));
+    if (taxDonations) taxDonations.addEventListener("input", renderEffectiveTier);
+    if (taxAssessableIncome) taxAssessableIncome.addEventListener("input", renderEffectiveTier);
+    renderEffectiveTier();
     const hdbLaunchesContent = document.getElementById("hub-hdb-launches");
     const hdbNewsContent = document.getElementById("hub-hdb-news");
     const hdbResaleContent = document.getElementById("hub-hdb-resale");
