@@ -1149,6 +1149,18 @@ body {
     .hub-sub-pane {
         padding-right: 4px;
     }
+
+    /* Main tab buttons: share available width equally so neither
+       button overflows off-screen on narrow mobile viewports. */
+    .main-tabs {
+        gap: 8px;
+    }
+    .main-tab-btn {
+        flex: 1;
+        justify-content: center;
+        padding: 10px 12px;
+        font-size: 13px;
+    }
 }
 
 /* ── SG Hub & Main Tabs Light Theme Aesthetics ────────────────────────────── */

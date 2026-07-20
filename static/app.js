@@ -476,10 +476,12 @@ function initPortalSearch() {
                 ? `All ${hiddenHits} matching portal${hiddenHits === 1 ? " is" : "s are"} in your hidden list — see Manage Portals`
                 : "No portals match — try different words, or ask the Co-Pilot below");
 
-        // Best-scoring SG Hub panel suggestion, if any term overlaps
+        // Best-scoring SG Hub panel suggestion — use whole-word matching so
+        // "tax" doesn't fire on "taxi", "check" doesn't fire on "checkpoint", etc.
         let best = null, bestScore = 0;
         HUB_SUGGESTIONS.forEach(s => {
-            const score = toks.filter(t => s.terms.includes(t)).length;
+            const termWords = s._termWords || (s._termWords = new Set(s.terms.split(/\s+/)));
+            const score = toks.filter(t => termWords.has(t)).length;
             if (score > bestScore) { bestScore = score; best = s; }
         });
         if (best) {
