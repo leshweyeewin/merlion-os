@@ -785,8 +785,11 @@ function initPortalVisibility() {
             </label>
             <div class="mp-list">${rows}</div>
             <div class="mp-actions">
-                <button type="button" class="mp-bulk-btn mp-add" id="mp-bulk-add">${panelMode === 'hidden' ? 'Add back selected' : 'Show selected'}</button>
-                <button type="button" class="mp-bulk-btn mp-hide" id="mp-bulk-hide">${panelMode === 'hidden' ? 'Hide all listed' : 'Hide selected'}</button>
+                ${panelMode === 'hidden' ? `
+                    <button type="button" class="mp-bulk-btn mp-add" id="mp-bulk-add" style="width: 100%;">Add back selected</button>
+                ` : `
+                    <button type="button" class="mp-bulk-btn mp-hide" id="mp-bulk-hide" style="width: 100%;">Hide selected</button>
+                `}
             </div>`;
     }
 
@@ -874,6 +877,7 @@ function initPortalVisibility() {
             }
         });
         dropdown.addEventListener("click", (e) => {
+            e.stopPropagation();
             const modeBtn = e.target.closest(".mp-mode-btn");
             if (modeBtn) {
                 panelMode = modeBtn.dataset.mode;

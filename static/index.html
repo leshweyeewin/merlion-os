@@ -12,7 +12,7 @@
     <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Style Sheet -->
-    <link rel="stylesheet" href="style.css?v=insight3">
+    <link rel="stylesheet" href="style.css?v=insight4">
     <!-- Leaflet JS & CSS for Interactive Maps -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -70,10 +70,12 @@
                 <div class="directory-toolbar" style="margin-bottom: 16px;">
                     <span class="reorder-hint"><i class="fa-solid fa-arrows-up-down-left-right"></i> Drag any card to rearrange your portal — hover a card and click the eye icon to hide it.</span>
                     <div class="toolbar-btn-group">
-                        <button type="button" class="reset-layout-btn manage-portals-btn" id="manage-portals-btn">
-                            <i class="fa-solid fa-eye-slash"></i> Manage Portals<span class="hidden-count-badge" id="hidden-portals-count" style="display:none;">0</span>
-                        </button>
-                        <div class="hidden-portals-dropdown hidden" id="hidden-portals-dropdown"></div>
+                        <div class="manage-portals-wrap" style="position: relative; display: inline-block;">
+                            <button type="button" class="reset-layout-btn manage-portals-btn" id="manage-portals-btn">
+                                <i class="fa-solid fa-eye-slash"></i> Manage Portals<span class="hidden-count-badge" id="hidden-portals-count" style="display:none;">0</span>
+                            </button>
+                            <div class="hidden-portals-dropdown hidden" id="hidden-portals-dropdown"></div>
+                        </div>
                         <button type="button" class="reset-layout-btn" id="mp-show-all-global">
                             <i class="fa-solid fa-eye"></i> Show all
                         </button>
@@ -1747,6 +1749,6 @@
         }
     </script>
     <!-- Script File -->
-    <script src="app.js?v=insight7"></script>
+    <script src="app.js?v=insight8"></script>
 </body>
 </html>

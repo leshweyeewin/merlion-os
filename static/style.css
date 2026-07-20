@@ -315,7 +315,7 @@ body {
 .hidden-portals-dropdown {
     position: absolute;
     top: calc(100% + 8px);
-    right: 0;
+    left: 0;
     z-index: 50;
     width: 300px;
     max-height: 340px;

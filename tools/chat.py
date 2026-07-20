@@ -31,7 +31,17 @@ from tools import (
 )
 
 logger = logging.getLogger("merlion-os-chat")
-client = genai.Client()
+
+# Lazily constructed — importing this module (and therefore `tools`, which nearly everything
+# else in the codebase imports, including the test suite) must not require live Gemini
+# credentials just to define TOOL_MAP and the request/response models.
+_client = None
+
+def _get_client():
+    global _client
+    if _client is None:
+        _client = genai.Client()
+    return _client
 
 TOOL_MAP = {
     "query_immigration_and_identity": query_immigration_and_identity,
@@ -101,7 +111,7 @@ async def run_chat_loop(user_prompt: str, history: list) -> tuple[str, list]:
     )
     try:
         # Step 1: Initial Prompt Generation Loop (Asynchronous)
-        response = await client.aio.models.generate_content(
+        response = await _get_client().aio.models.generate_content(
             model='gemini-2.5-flash',
             contents=contents,
             config=types.GenerateContentConfig(
@@ -157,7 +167,7 @@ async def run_chat_loop(user_prompt: str, history: list) -> tuple[str, list]:
                 types.Content(role="model", parts=response.parts),
                 types.Content(role="tool", parts=tool_responses)
             ])
-            final_response = await client.aio.models.generate_content(
+            final_response = await _get_client().aio.models.generate_content(
                 model='gemini-2.5-flash',
                 contents=contents_sync,
                 config=types.GenerateContentConfig(
@@ -185,7 +195,7 @@ async def run_chat_loop(user_prompt: str, history: list) -> tuple[str, list]:
                     tools=[types.Tool(google_search=types.GoogleSearch())],
                     temperature=0.1,
                 )
-                fallback_response = await client.aio.models.generate_content(
+                fallback_response = await _get_client().aio.models.generate_content(
                     model="gemini-3.1-flash-lite",
                     contents=contents,
                     config=search_config,

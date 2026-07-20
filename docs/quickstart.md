@@ -51,16 +51,28 @@ python scripts/load_job_vacancy_to_bigquery.py --project YOUR_GCP_PROJECT_ID
 ```
 Then set `GCP_PROJECT_ID` alongside your other environment variables before starting the server. If this isn't configured, the app automatically falls back to the direct data.gov.sg fetch.
 
-## 4. Run FastMCP Tool Server
+## 4. Run Tests
+The unit test suite covers the security-critical scraper domain validator (`tools/search.py`), the shared COE/HDB forecast math (`tools/core.py`), and the client-side tax bracket calculator (`static/app.js`) — the same checks GitHub Actions runs on every push via [`.github/workflows/ci.yml`](../.github/workflows/ci.yml):
+```bash
+pip install -r requirements-dev.txt
+pytest tests/ -v            # Python: domain validation + forecast regression
+node --check static/app.js  # JS syntax check
+node --test tests/*.js      # JS: tax calculator
+```
+
+## 5. Run FastMCP Tool Server
 To load the statutory tools inside development agents (like Cursor or Claude Desktop):
 ```bash
 python mcp_server.py
 ```
 
-## 5. Repository Folder Structure
+## 6. Repository Folder Structure
 Below is the directory layout of the codebase:
 ```text
 merlion-os/
+├── .github/
+│   └── workflows/
+│       └── ci.yml        # GitHub Actions: node --check, JS tests, pytest on every push/PR
 ├── docs/                 # Detailed topic-specific documentation guides
 │   ├── changelog.md         # Release notes and version history
 │   ├── data_sources.md      # Data sources and APIs for SG Hub
@@ -73,11 +85,15 @@ merlion-os/
 │   ├── app.js            # Frontend logic and UI rendering (Leaflet integration)
 │   ├── index.html        # Main dashboard structure
 │   └── style.css         # Custom layout, animations, and dark mode rules
+├── tests/                # Unit tests run locally and in CI
+│   ├── test_forecast.py                 # COE/HDB shared forecast math
+│   ├── test_search_domain_validation.py # Scraper domain allowlist
+│   └── test_tax_calculator.js           # Client-side tax bracket calculator
 ├── tools/                # Modular statutory boards execution and chat modules
 │   ├── __init__.py       # Package exports and interfaces
 │   ├── chat.py           # Gemini parallel routing and fallback logic
 │   ├── civic.py          # ICA and IRAS scrapers
-│   ├── core.py           # Base caching and fetch utilities
+│   ├── core.py           # Base caching, fetch utilities, and shared forecast math
 │   ├── environment.py    # NEA weather and PUB flood alerts
 │   ├── fetch_logos.py    # Standard logo updater/fetcher script
 │   ├── housing.py        # HDB BTO and resale price forecaster
@@ -87,6 +103,7 @@ merlion-os/
 │   └── wages.py          # Occupational wages analytic helper
 ├── mcp_server.py         # FastMCP server for JSON-RPC agent tools export
 ├── requirements.txt      # Python dependencies manifest
+├── requirements-dev.txt  # requirements.txt + pytest, for local/CI test runs
 ├── server.py             # Uvicorn FastAPI routing entrypoint
 └── README.md             # Main repository index and hackathon brief
 ```

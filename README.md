@@ -112,8 +112,8 @@ DATA_GOV_SG_API_KEY="YOUR_DATA_GOV_SG_API_KEY"
 
 # Optional — enables BigQuery-backed job vacancy queries (faster, pre-loaded).
 # Without these, the server falls back to live data.gov.sg fetches automatically.
-GCP_PROJECT_ID="your-gcp-project-id"
-GOOGLE_APPLICATION_CREDENTIALS="D:\Learn\Google\merlion-os\service-account-key.json"
+GCP_PROJECT_ID="YOUR_GCP_PROJECT_ID"
+GOOGLE_APPLICATION_CREDENTIALS="./service-account-key.json"
 ```
 
 > **PowerShell users:** To set env vars temporarily in a session use `$env:KEY = "value"`, not `KEY="value"` (that's bash syntax).
@@ -123,13 +123,4 @@ Launch the FastAPI production-ready server:
 ```bash
 python server.py
 ```
-Open **`http://127.0.0.1:8080/`** in your browser. For advanced features (BigQuery, FastMCP), check out [docs/quickstart.md](docs/quickstart.md).
-
-### 4. Run Tests
-Unit tests cover the security-critical scraper domain validator, the COE/HDB forecast math, and the tax bracket calculator — the same suite CI runs on every push:
-```bash
-pip install -r requirements-dev.txt
-pytest tests/ -v          # Python: domain validation + forecast regression
-node --check static/app.js  # JS syntax check
-node --test tests/*.js      # JS: tax calculator
-```
+Open **`http://127.0.0.1:8080/`** in your browser. For advanced features (BigQuery, FastMCP) and running the test suite, check out [docs/quickstart.md](docs/quickstart.md).
