@@ -63,7 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const chatMessages = document.getElementById("chat-messages");
     const logsContainer = document.getElementById("logs-container");
     const suggestionChips = document.querySelectorAll(".suggestion-chip");
-    
+
     // Collapsible Chat Widget DOM elements
     const chatTrigger = document.getElementById("chat-trigger");
     const chatWidget = document.getElementById("chat-widget");
@@ -116,7 +116,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Custom lightweight markdown renderer to safely format agent outputs
     function renderMarkdown(text) {
         if (!text) return "";
-        
+
         // Escape HTML
         let html = text
             .replace(/&/g, "&amp;")
@@ -280,7 +280,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 data.logs.forEach(log => {
                     let logType = "system";
                     let tagLabel = "integration";
-                    
+
                     if (log.tool === "search_singapore_government") {
                         logType = "search";
                         tagLabel = "search";
@@ -321,11 +321,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
             `;
             chatMessages.appendChild(botMsg);
-            
+
             appendLog("system", "success", "Response compiled and formatted successfully.");
 
             // Update conversation history for multi-turn context
-            conversationHistory.push({ role: "user",  content: text });
+            conversationHistory.push({ role: "user", content: text });
             conversationHistory.push({ role: "model", content: data.response });
 
         } catch (error) {
@@ -505,7 +505,7 @@ function initPortalSearch() {
         statusEl.classList.remove("hidden");
         statusEl.textContent = shown
             ? `Showing ${shown} matching portal${shown === 1 ? "" : "s"}`
-              + (hiddenHits ? ` (+${hiddenHits} in your hidden list — see Manage Portals)` : "")
+            + (hiddenHits ? ` (+${hiddenHits} in your hidden list — see Manage Portals)` : "")
             : (hiddenHits
                 ? `All ${hiddenHits} matching portal${hiddenHits === 1 ? " is" : "s are"} in your hidden list — see Manage Portals`
                 : "No portals match — try different words, or ask the Co-Pilot below");
@@ -755,8 +755,8 @@ function initPortalVisibility() {
             dropdown.innerHTML = `
                 <div class="mp-search"><input type="text" id="mp-search-input" placeholder="Search name or description…" autocomplete="off" value="${escapeHTML(panelQuery)}"></div>
                 <div class="mp-modes">
-                    <button type="button" class="mp-mode-btn ${panelMode==='hidden'?'active':''}" data-mode="hidden">Hidden (${hiddenCount})</button>
-                    <button type="button" class="mp-mode-btn ${panelMode==='visible'?'active':''}" data-mode="visible">Visible (${visibleCount})</button>
+                    <button type="button" class="mp-mode-btn ${panelMode === 'hidden' ? 'active' : ''}" data-mode="hidden">Hidden (${hiddenCount})</button>
+                    <button type="button" class="mp-mode-btn ${panelMode === 'visible' ? 'active' : ''}" data-mode="visible">Visible (${visibleCount})</button>
                 </div>
                 <div class="hidden-portals-empty" style="margin: 12px 0;">No matching portals.</div>
                 <div class="mp-actions" style="margin-top: 6px; border-top: 1px dashed var(--border); padding-top: 6px;">
@@ -780,17 +780,17 @@ function initPortalVisibility() {
         dropdown.innerHTML = `
             <div class="mp-search"><input type="text" id="mp-search-input" placeholder="Search name or description…" autocomplete="off" value="${escapeHTML(panelQuery)}"></div>
             <div class="mp-modes">
-                <button type="button" class="mp-mode-btn ${panelMode==='hidden'?'active':''}" data-mode="hidden">Hidden (${hiddenCount})</button>
-                <button type="button" class="mp-mode-btn ${panelMode==='visible'?'active':''}" data-mode="visible">Visible (${visibleCount})</button>
+                <button type="button" class="mp-mode-btn ${panelMode === 'hidden' ? 'active' : ''}" data-mode="hidden">Hidden (${hiddenCount})</button>
+                <button type="button" class="mp-mode-btn ${panelMode === 'visible' ? 'active' : ''}" data-mode="visible">Visible (${visibleCount})</button>
             </div>
             <label class="mp-row mp-selectall">
-                <input type="checkbox" id="mp-selectall" ${allSelected?'checked':''}>
+                <input type="checkbox" id="mp-selectall" ${allSelected ? 'checked' : ''}>
                 <span class="mp-row-name"><strong>Select all (${inScope.length})</strong></span>
             </label>
             <div class="mp-list">${rows}</div>
             <div class="mp-actions">
-                <button type="button" class="mp-bulk-btn mp-add" id="mp-bulk-add">${panelMode==='hidden'?'Add back selected':'Show selected'}</button>
-                <button type="button" class="mp-bulk-btn mp-hide" id="mp-bulk-hide">${panelMode==='hidden'?'Hide all listed':'Hide selected'}</button>
+                <button type="button" class="mp-bulk-btn mp-add" id="mp-bulk-add">${panelMode === 'hidden' ? 'Add back selected' : 'Show selected'}</button>
+                <button type="button" class="mp-bulk-btn mp-hide" id="mp-bulk-hide">${panelMode === 'hidden' ? 'Hide all listed' : 'Hide selected'}</button>
             </div>
             <div class="mp-actions" style="margin-top: 6px; border-top: 1px dashed var(--border); padding-top: 6px;">
                 <button type="button" class="mp-bulk-btn mp-add" id="mp-show-all-global" style="background:#16a34a;">Show All Portals</button>
@@ -862,7 +862,7 @@ function initPortalVisibility() {
                 const inp = dropdown.querySelector("#mp-search-input");
                 if (inp) {
                     inp.focus();
-                    try { inp.setSelectionRange(start, end); } catch(err) {}
+                    try { inp.setSelectionRange(start, end); } catch (err) { }
                 }
             }
         });
@@ -980,7 +980,7 @@ function initSgHub() {
 
         // Life Insurance Relief Cap: Max is lower of actual premiums or (S$5,000 - CPF Employee contributions)
         const allowedLifeRelief = Math.min(rawLifeVal, Math.max(0, 5000 - cpfEmpVal));
-        
+
         // Let's dynamically update a visual label or style for life insurance to inform the user if it's capped
         const relLife = document.getElementById("rel-life");
         if (relLife) {
@@ -1024,7 +1024,7 @@ function initSgHub() {
             const upper = b.limit === Infinity ? null : lower + b.limit;
             if (chargeable > lower && (upper === null || chargeable <= upper)) {
                 band = i === 0 ? "First S$" + lower.toLocaleString() + (upper ? "–S$" + upper.toLocaleString() : "")
-                               : "S$" + (lower + 1).toLocaleString() + (upper ? " – S$" + upper.toLocaleString() : "+");
+                    : "S$" + (lower + 1).toLocaleString() + (upper ? " – S$" + upper.toLocaleString() : "+");
                 bandRate = b.rate * 100;
                 marginalRate = bandRate;
                 break;
@@ -1040,7 +1040,7 @@ function initSgHub() {
                 <td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:12px; color:var(--text-main);">${band}</td>
                 <td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:12px; text-align:right; color:var(--text-main);">${bandRate.toFixed(1)}%</td>
             </tr>`;
-        if (taxTierEffectiveRate) taxTierEffectiveRate.innerHTML = `Effective: <strong style="color:var(--text-main);">${effRate.toFixed(2)}%</strong> · Marginal: <strong style="color:var(--text-main);">${marginalRate.toFixed(1)}%</strong> · Chargeable: <strong style="color:var(--text-main);">S$${chargeable.toLocaleString(undefined,{maximumFractionDigits:0})}</strong>`;
+        if (taxTierEffectiveRate) taxTierEffectiveRate.innerHTML = `Effective: <strong style="color:var(--text-main);">${effRate.toFixed(2)}%</strong> · Marginal: <strong style="color:var(--text-main);">${marginalRate.toFixed(1)}%</strong> · Chargeable: <strong style="color:var(--text-main);">S$${chargeable.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>`;
     }
     relItems.forEach(inp => inp.addEventListener("input", renderEffectiveTier));
     if (taxDonations) taxDonations.addEventListener("input", renderEffectiveTier);
@@ -1113,7 +1113,7 @@ function initSgHub() {
                 calcResult.innerHTML = "⚠️ Please enter a valid household income.";
                 return;
             }
-            
+
             let grant = 0;
             if (income <= 1500) grant = 80000;
             else if (income <= 3000) grant = 65000;
@@ -1158,15 +1158,15 @@ function initSgHub() {
                 <div style="background:var(--bg-panel); border:1px solid var(--border); padding:14px; border-radius:8px; display:flex; flex-direction:column; gap:8px;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <span style="font-size:12px; font-weight:700; color:var(--text-muted);">Total CPF Refund Required:</span>
-                        <span style="font-size:16px; font-weight:800; color:var(--text-main);">S$${totalRefund.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        <span style="font-size:16px; font-weight:800; color:var(--text-main);">S$${totalRefund.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; border-top:1px dashed var(--border); padding-top:6px;">
                         <span style="color:var(--text-muted);">Principal Used:</span>
-                        <span style="font-weight:600; color:var(--text-main);">S$${principal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        <span style="font-weight:600; color:var(--text-main);">S$${principal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px;">
                         <span style="color:var(--text-muted);">Accrued Interest (2.5% Compounded):</span>
-                        <span style="font-weight:700; color:#ef4444;">S$${accruedInterest.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        <span style="font-weight:700; color:#ef4444;">S$${accruedInterest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                     <div style="font-size:11px; color:var(--text-muted); line-height:1.4; border-top:1px solid var(--border); padding-top:8px; margin-top:4px;">
                         <i class="fa-solid fa-circle-info" style="color:var(--primary);"></i> <strong>Note:</strong> When selling your HDB flat, this total refund amount is returned from sale proceeds directly back to your own CPF OA. It is **not a fee or penalty paid to the government**; it restores your own retirement balance. 
@@ -1296,13 +1296,13 @@ function initSgHub() {
 
     function getRetrievalTimestamp() {
         const now = new Date();
-        return now.toLocaleString("en-SG", { 
-            day: 'numeric', 
-            month: 'short', 
-            year: 'numeric', 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            hour12: true 
+        return now.toLocaleString("en-SG", {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
         }) + " (SGT)";
     }
 
@@ -1380,7 +1380,7 @@ function initSgHub() {
             // Remove any old event listeners to avoid duplicates
             const newBtn = calcTaxOptBtn.cloneNode(true);
             calcTaxOptBtn.parentNode.replaceChild(newBtn, calcTaxOptBtn);
-            
+
             newBtn.addEventListener("click", () => {
                 const income = parseFloat(taxAssessableIncome.value) || 0;
                 const budget = parseFloat(taxTopupBudget.value) || 0;
@@ -1524,7 +1524,7 @@ function initSgHub() {
                                     <i class="fa-solid fa-circle-check"></i> Marginal Tax Tier Drop Successful!
                                 </span>
                                 <span style="font-size:12px; color:#166534; line-height:1.45; display:block;">
-                                    By topping up S$${totalDeductible.toLocaleString()}, you successfully reduced your chargeable income below the **S$${currentThreshold.value.toLocaleString()}** threshold. This drops you from the **${marginalRatePct}%** tax tier into the **${lowerRatePct}%** tier, saving you **S$${taxSavedOnThisBracket.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}** on this bracket portion alone!
+                                    By topping up S$${totalDeductible.toLocaleString()}, you successfully reduced your chargeable income below the **S$${currentThreshold.value.toLocaleString()}** threshold. This drops you from the **${marginalRatePct}%** tax tier into the **${lowerRatePct}%** tier, saving you **S$${taxSavedOnThisBracket.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}** on this bracket portion alone!
                                 </span>
                             </div>
                         `;
@@ -1532,10 +1532,10 @@ function initSgHub() {
                         const shortfall = amountToDrop - totalDeductible;
                         const potentialExtraSaving = shortfall * currentThreshold.rate;
                         const maxPossibleTopup = maxCPFReliefSelf + maxSRSRelief;
-                        
+
                         let tipMessage = "";
                         if (amountToDrop <= maxPossibleTopup) {
-                            tipMessage = `Topping up an additional **S$${shortfall.toLocaleString()}** (total S$${amountToDrop.toLocaleString()}) will drop your chargeable income below **S$${currentThreshold.value.toLocaleString()}**, escaping the **${marginalRatePct}%** tax rate on those dollars and saving you an additional **S$${potentialExtraSaving.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}**!`;
+                            tipMessage = `Topping up an additional **S$${shortfall.toLocaleString()}** (total S$${amountToDrop.toLocaleString()}) will drop your chargeable income below **S$${currentThreshold.value.toLocaleString()}**, escaping the **${marginalRatePct}%** tax rate on those dollars and saving you an additional **S$${potentialExtraSaving.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}**!`;
                         } else {
                             tipMessage = `To drop below the **S$${currentThreshold.value.toLocaleString()}** threshold requires a top-up of **S$${amountToDrop.toLocaleString()}**, which exceeds the annual CPF + SRS tax relief ceiling of **S$${maxPossibleTopup.toLocaleString()}** for this year.`;
                         }
@@ -1562,14 +1562,14 @@ function initSgHub() {
                     savingsBoxHtml = `
                     <div style="background:#eafaf1; border: 1px solid #a3d9b1; padding:16px; border-radius:10px; margin-bottom:20px; text-align:center;">
                         <span style="font-size:12px; font-weight:700; color:#1a7f3c; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px;">Estimated Tax Savings</span>
-                        <span style="font-size:32px; font-weight:900; color:#1a7f3c; display:block; margin-bottom:6px;">S$${totalSaved.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        <span style="font-size:32px; font-weight:900; color:#1a7f3c; display:block; margin-bottom:6px;">S$${totalSaved.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         <p style="margin:0; font-size:12.5px; color:#1b5e20; font-weight:600;">Your chargeable income of S$${referenceIncome.toLocaleString()} (assessable S$${income.toLocaleString()} less S$${preExisting.toLocaleString()} existing reliefs${donations > 0 ? ` and S$${donations.toLocaleString()} donations` : ""}) is within the <strong>S$20,000 tax-free threshold</strong>, so you currently owe <strong>S$0</strong> income tax. The top-up still grows your retirement (CPF SA + SRS) even with no immediate tax saving.</p>
                     </div>`;
                 } else {
                     savingsBoxHtml = `
                     <div style="background:#eafaf1; border: 1px solid #a3d9b1; padding:16px; border-radius:10px; margin-bottom:20px; text-align:center;">
                         <span style="font-size:12px; font-weight:700; color:#1a7f3c; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px;">Estimated Tax Savings</span>
-                        <span style="font-size:32px; font-weight:900; color:#1a7f3c; display:block; margin-bottom:6px;">S$${totalSaved.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        <span style="font-size:32px; font-weight:900; color:#1a7f3c; display:block; margin-bottom:6px;">S$${totalSaved.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         <p style="margin:0; font-size:12.5px; color:#1b5e20; font-weight:600;">${reducedNote}</p>
                     </div>`;
                 }
@@ -1592,11 +1592,11 @@ function initSgHub() {
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
                         <div style="background:var(--bg-muted); border:1px solid var(--border); padding:12px; border-radius:8px; text-align:center;">
                             <span style="font-size:11px; color:var(--text-muted); display:block; margin-bottom:4px;">Original Tax Payable</span>
-                            <span style="font-size:16px; font-weight:700; color:var(--text-main);">S$${originalTax.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                            <span style="font-size:16px; font-weight:700; color:var(--text-main);">S$${originalTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
                         <div style="background:var(--bg-muted); border:1px solid var(--border); padding:12px; border-radius:8px; text-align:center;">
                             <span style="font-size:11px; color:var(--text-muted); display:block; margin-bottom:4px;">Optimized Tax Payable</span>
-                            <span style="font-size:16px; font-weight:700; color:var(--text-main);">S$${optimizedTax.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                            <span style="font-size:16px; font-weight:700; color:var(--text-main);">S$${optimizedTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
                     </div>
 
@@ -1627,10 +1627,10 @@ function initSgHub() {
                         <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-left:4px solid #16a34a; padding:12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                             <div>
                                 <span style="font-weight:700; font-size:13px; color:#15803d; display:block;"><i class="fa-solid fa-heart"></i> IPC-Approved Donations (2.5× Deduction)</span>
-                                <span style="font-size:11px; color:#166534; line-height:1.3;">S$${donations.toLocaleString()} donated → S$${donationDeduction.toLocaleString(undefined,{minimumFractionDigits:0})} deducted from chargeable income (outside S$80k cap)</span>
+                                <span style="font-size:11px; color:#166534; line-height:1.3;">S$${donations.toLocaleString()} donated → S$${donationDeduction.toLocaleString(undefined, { minimumFractionDigits: 0 })} deducted from chargeable income (outside S$80k cap)</span>
                             </div>
                             <div style="text-align:right; flex-shrink:0; margin-left:12px;">
-                                <span style="font-weight:800; font-size:16px; color:#15803d; display:block;">−S$${donationTaxSaving.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                                <span style="font-weight:800; font-size:16px; color:#15803d; display:block;">−S$${donationTaxSaving.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 <span style="font-size:10px; color:#166534;">tax saved</span>
                             </div>
                         </div>` : ''}
@@ -1715,16 +1715,16 @@ function initSgHub() {
         const uvVal = cc.uv_index != null ? cc.uv_index : null;
         const uvLabel = uvVal == null ? 'N/A'
             : uvVal <= 2 ? `${uvVal} Low`
-            : uvVal <= 5 ? `${uvVal} Moderate`
-            : uvVal <= 7 ? `${uvVal} High`
-            : uvVal <= 10 ? `${uvVal} Very High`
-            : `${uvVal} Extreme`;
+                : uvVal <= 5 ? `${uvVal} Moderate`
+                    : uvVal <= 7 ? `${uvVal} High`
+                        : uvVal <= 10 ? `${uvVal} Very High`
+                            : `${uvVal} Extreme`;
         const uvColor = uvVal == null ? 'var(--text-muted)'
             : uvVal <= 2 ? '#10b981'
-            : uvVal <= 5 ? '#f59e0b'
-            : uvVal <= 7 ? '#f97316'
-            : uvVal <= 10 ? '#ef4444'
-            : '#991b1b';
+                : uvVal <= 5 ? '#f59e0b'
+                    : uvVal <= 7 ? '#f97316'
+                        : uvVal <= 10 ? '#ef4444'
+                            : '#991b1b';
         const uvTile = `
             <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 10px; padding: 12px 10px; text-align:center; min-width:100px; flex: 1;">
                 <div style="font-size: 22px; margin-bottom: 4px;">☀️</div>
@@ -1831,10 +1831,13 @@ function initSgHub() {
             : `<p style="color: var(--text-subtle); margin:0; font-size: 13px;">COE data unavailable.</p>`;
 
         const hasCoeHistory = coeHistory && coeHistory.exercises && coeHistory.exercises.length > 1;
+        const coeCaption = (coeHistory && coeHistory.insight)
+            ? coeHistory.insight
+            : "Two bidding rounds per month — hover for every category's exact premium.";
         const coeHistoryHtml = hasCoeHistory ? `
             <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 2px 0 8px;">📈 COE Premium Trend — Last ${coeHistory.exercises.length} Exercises</div>
             <div id="coe-trend-chart" style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 4px;"></div>
-            <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;">💡 Two bidding rounds per month — hover for every category's exact premium.</div>
+            <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;">💡 ${escapeHTML(coeCaption)}</div>
         ` : '';
 
         const taxiMapHtml = taxiAvailability ? `
@@ -1845,17 +1848,19 @@ function initSgHub() {
             </div>` : '';
 
         transportContent.innerHTML = banner + `
-            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;">
-                ${taxiHtml}
-                <div style="flex: 2; min-width: 220px; background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px;">
-                    <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 8px;">🚗 COE BIDDING — ${coe ? escapeHTML(coe.exercise) : 'N/A'}</span>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        ${coeCategoriesHtml}
-                    </div>
+            <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 16px;">
+                <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 8px;">🚗 COE BIDDING — ${coe ? escapeHTML(coe.exercise) : 'N/A'}</span>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: ${hasCoeHistory ? '14px' : '0'};">
+                    ${coeCategoriesHtml}
                 </div>
+                ${coeHistoryHtml}
             </div>
-            ${taxiMapHtml}
-            ${coeHistoryHtml}
+            <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px;">
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: ${taxiMapHtml ? '14px' : '0'};">
+                    ${taxiHtml}
+                </div>
+                ${taxiMapHtml}
+            </div>
         `;
 
         if (hasCoeHistory) {
@@ -1871,7 +1876,7 @@ function initSgHub() {
         }
 
         // Render taxi dot-density map
-        if (window.taxiMap) { try { window.taxiMap.remove(); } catch(e) {} window.taxiMap = null; }
+        if (window.taxiMap) { try { window.taxiMap.remove(); } catch (e) { } window.taxiMap = null; }
         try {
             const taxiMapEl = document.getElementById("taxi-map");
             const positions = taxiAvailability && taxiAvailability.sample_positions;
@@ -1885,21 +1890,22 @@ function initSgHub() {
                 const tmap = L.map(taxiMapEl, { zoomControl: true, scrollWheelZoom: false })
                     .setView([1.3521, 103.8198], 11);
                 window.taxiMap = tmap;
+                window.taxiUserMarker = null;
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     maxZoom: 18,
                     attribution: '© OpenStreetMap'
                 }).addTo(tmap);
                 positions.forEach(([lat, lon]) => {
                     L.circleMarker([lat, lon], {
-                        radius: 3,
-                        color: '#f59e0b',
+                        radius: 4,
+                        color: '#ffffff',
+                        weight: 1,
                         fillColor: '#f59e0b',
-                        fillOpacity: 0.75,
-                        weight: 0
+                        fillOpacity: 0.9
                     }).addTo(tmap);
                 });
             }
-        } catch(e) {
+        } catch (e) {
             console.error("Failed to render taxi map:", e);
             const taxiMapEl = document.getElementById("taxi-map");
             if (taxiMapEl) taxiMapEl.innerHTML = "<div style='display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:12px;'>⚠️ Couldn't render the map.</div>";
@@ -1948,6 +1954,30 @@ function initSgHub() {
         block.appendChild(errEl);
     }
 
+    function showUserLocationOnTaxiMap(lat, lon) {
+        const tmap = window.taxiMap;
+        if (!tmap) return;
+        if (window.taxiUserMarker) { try { tmap.removeLayer(window.taxiUserMarker); } catch (e) { } }
+        window.taxiUserMarker = L.circleMarker([lat, lon], {
+            radius: 8,
+            color: '#ffffff',
+            weight: 2,
+            fillColor: '#2563eb',
+            fillOpacity: 1
+        }).addTo(tmap).bindTooltip("You are here", { permanent: false, direction: "top" });
+        // animate:false — Leaflet's animated setView doesn't reliably persist in this app's
+        // layout (likely a CSS transition conflict from an ancestor), leaving the map visually
+        // stuck at its old center/zoom even though the marker itself is placed correctly.
+        tmap.setView([lat, lon], 14, { animate: false });
+    }
+
+    function resetTaxiMapView() {
+        const tmap = window.taxiMap;
+        if (!tmap) return;
+        if (window.taxiUserMarker) { try { tmap.removeLayer(window.taxiUserMarker); } catch (e) { } window.taxiUserMarker = null; }
+        tmap.setView([1.3521, 103.8198], 11, { animate: false });
+    }
+
     function bindTaxiButtons(taxiAvailability) {
         const block = document.getElementById("taxi-stat-block");
         const aroundBtn = document.getElementById("taxi-around-you-btn");
@@ -1956,6 +1986,7 @@ function initSgHub() {
         if (showAllBtn) {
             showAllBtn.addEventListener("click", () => {
                 if (block) block.innerHTML = islandwideTaxiHtml(taxiAvailability);
+                resetTaxiMapView();
                 bindTaxiButtons(taxiAvailability);
             });
         }
@@ -1972,7 +2003,7 @@ function initSgHub() {
             } catch (err) {
                 const reason = err && err.code === 1 ? "Location access denied."
                     : err && err.code === 3 ? "Location request timed out."
-                    : "Location unavailable.";
+                        : "Location unavailable.";
                 aroundBtn.disabled = false;
                 aroundBtn.innerHTML = originalLabel;
                 showTaxiError(block, reason);
@@ -1984,6 +2015,7 @@ function initSgHub() {
                 if (!res.ok) throw new Error("Nearby taxi lookup failed");
                 const nearby = await res.json();
                 if (block) block.innerHTML = nearbyTaxiHtml(nearby);
+                showUserLocationOnTaxiMap(loc.lat, loc.lon);
                 bindTaxiButtons(taxiAvailability);
             } catch (err) {
                 aroundBtn.disabled = false;
@@ -2075,10 +2107,10 @@ function initSgHub() {
             mrtHtml += `<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:10px; margin-bottom:16px;">`;
             ta.lines.forEach(line => {
                 const isDisrupted = line.status === "Disrupted";
-                const statusColor   = isDisrupted ? "#c0392b" : "#1a7f3c";
-                const statusBg      = isDisrupted ? "#fdecea" : "#eafaf1";
-                const statusBorder  = isDisrupted ? "#e8b4b1" : "#a3d9b1";
-                const statusIcon    = isDisrupted ? "🔴" : "🟢";
+                const statusColor = isDisrupted ? "#c0392b" : "#1a7f3c";
+                const statusBg = isDisrupted ? "#fdecea" : "#eafaf1";
+                const statusBorder = isDisrupted ? "#e8b4b1" : "#a3d9b1";
+                const statusIcon = isDisrupted ? "🔴" : "🟢";
                 mrtHtml += `<div style="background:${statusBg}; border:1px solid ${statusBorder}; border-radius:8px; padding:10px 12px;">
                     <div style="display:flex; align-items:center; gap:7px; margin-bottom:4px;">
                         <span style="background:${escapeHTML(line.line_color)}; color:#fff; font-size:10px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">${escapeHTML(line.line_code)}</span>
@@ -2345,7 +2377,7 @@ function initSgHub() {
         let g = "";
         ticks.forEach(t => {
             g += `<line x1="${padL}" y1="${y(t)}" x2="${padL + iw}" y2="${y(t)}" stroke="${CHART_INK.grid}" stroke-width="1"/>`
-               + `<text x="${padL - 6}" y="${y(t) + 3.5}" text-anchor="end" font-size="10" fill="${CHART_INK.label}">${fmtK(t)}</text>`;
+                + `<text x="${padL - 6}" y="${y(t) + 3.5}" text-anchor="end" font-size="10" fill="${CHART_INK.label}">${fmtK(t)}</text>`;
         });
         xLabels.forEach((lab, i) => {
             if (i % xTickEvery !== 0 && i !== xLabels.length - 1) return;
@@ -2365,13 +2397,13 @@ function initSgHub() {
                 const ly = Math.max(e.yy, lastY + 13);
                 lastY = ly;
                 g += `<circle cx="${padL + iw + 3}" cy="${ly}" r="3.5" fill="${e.s.color}"/>`
-                   + `<text x="${padL + iw + 10}" y="${ly + 3.5}" font-size="10.5" font-weight="600" fill="var(--text-main)">${escapeHTML(e.s.name)}</text>`;
+                    + `<text x="${padL + iw + 10}" y="${ly + 3.5}" font-size="10.5" font-weight="600" fill="var(--text-main)">${escapeHTML(e.s.name)}</text>`;
             });
         }
         const legend = series.length > 1
             ? `<div style="display:flex; gap:14px; flex-wrap:wrap; font-size:11px; color:var(--text-main); padding:0 2px 6px;">`
-              + series.map(s => `<span><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${s.color}; margin-right:5px;"></span>${escapeHTML(s.name)}</span>`).join("")
-              + `</div>`
+            + series.map(s => `<span><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${s.color}; margin-right:5px;"></span>${escapeHTML(s.name)}</span>`).join("")
+            + `</div>`
             : "";
         el.innerHTML = legend + `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block; font-family:inherit;">${g}<g class="hoverg"></g><rect class="overlay" x="${padL}" y="${padT}" width="${iw}" height="${ih}" fill="transparent"/></svg>`;
         const svg = el.querySelector("svg"), overlay = svg.querySelector(".overlay"), hoverg = svg.querySelector(".hoverg");
@@ -2406,14 +2438,14 @@ function initSgHub() {
         let g = "";
         ticks.forEach(t => {
             g += `<line x1="${padL}" y1="${y(t)}" x2="${padL + iw}" y2="${y(t)}" stroke="${CHART_INK.grid}" stroke-width="1"/>`
-               + `<text x="${padL - 6}" y="${y(t) + 3.5}" text-anchor="end" font-size="10" fill="${CHART_INK.label}">${fmtK(t)}</text>`;
+                + `<text x="${padL - 6}" y="${y(t) + 3.5}" text-anchor="end" font-size="10" fill="${CHART_INK.label}">${fmtK(t)}</text>`;
         });
         values.forEach((v, i) => {
             const bx = padL + i * slot + gap / 2;
             const by = y(v), bh = padT + ih - by;
             const r = Math.min(4, bw / 2, bh); // 4px rounded top, anchored square to the baseline
             g += `<path class="bar" data-i="${i}" d="M${bx},${by + bh} L${bx},${by + r} Q${bx},${by} ${bx + r},${by} L${bx + bw - r},${by} Q${bx + bw},${by} ${bx + bw},${by + r} L${bx + bw},${by + bh} Z" fill="${color}"/>`
-               + `<text x="${bx + bw / 2}" y="${H - 8}" text-anchor="middle" font-size="9.5" fill="${CHART_INK.label}">${escapeHTML(labels[i])}</text>`;
+                + `<text x="${bx + bw / 2}" y="${H - 8}" text-anchor="middle" font-size="9.5" fill="${CHART_INK.label}">${escapeHTML(labels[i])}</text>`;
         });
         const mi = values.indexOf(maxV);
         g += `<text x="${padL + mi * slot + slot / 2}" y="${y(maxV) - 5}" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--text-main)">${maxV.toLocaleString()}</text>`;
@@ -2439,7 +2471,7 @@ function initSgHub() {
         [-50, 0, 50, 100].forEach(t => {
             const heavy = t === 0;
             g += `<line x1="${padL}" y1="${py(t)}" x2="${padL + iw}" y2="${py(t)}" stroke="${heavy ? CHART_INK.axis : CHART_INK.grid}" stroke-width="1"/>`
-               + `<text x="${padL - 6}" y="${py(t) + 3.5}" text-anchor="end" font-size="10" fill="${CHART_INK.label}">${t > 0 ? "+" : ""}${t}%</text>`;
+                + `<text x="${padL - 6}" y="${py(t) + 3.5}" text-anchor="end" font-size="10" fill="${CHART_INK.label}">${t > 0 ? "+" : ""}${t}%</text>`;
         });
         chartTicks(topX).forEach(t => {
             g += `<text x="${px(t)}" y="${H - 14}" text-anchor="middle" font-size="10" fill="${CHART_INK.label}">${fmtK(t)}</text>`;
@@ -2447,7 +2479,7 @@ function initSgHub() {
         g += `<text x="${padL + iw / 2}" y="${H - 2}" text-anchor="middle" font-size="9.5" fill="${CHART_INK.label}">${escapeHTML(xLabel)}</text>`;
         if (xRef) {
             g += `<line x1="${px(xRef.value)}" y1="${padT}" x2="${px(xRef.value)}" y2="${padT + ih}" stroke="${CHART_INK.axis}" stroke-width="1" stroke-dasharray="4,3"/>`
-               + `<text x="${px(xRef.value) + 5}" y="${padT + 10}" font-size="9.5" font-weight="600" fill="${CHART_INK.label}">${escapeHTML(xRef.label)}</text>`;
+                + `<text x="${px(xRef.value) + 5}" y="${padT + 10}" font-size="9.5" font-weight="600" fill="${CHART_INK.label}">${escapeHTML(xRef.label)}</text>`;
         }
         if (quadrants) {
             const qStyle = `font-size="9.5" font-weight="700" fill="${CHART_INK.label}"`;
@@ -2980,7 +3012,7 @@ function initSgHub() {
     function renderSectorDetails(sector) {
         if (!sgHubJobsData || !sgHubJobsData[sector]) return;
         const details = sgHubJobsData[sector];
-        
+
         const vacNum = parseInt(details.vacancies.replace(/[^0-9]/g, '')) || 0;
         const vacPct = Math.min((vacNum / 30000) * 100, 100);
 
@@ -3039,13 +3071,13 @@ function initSgHub() {
                 const prompt = chatSectorBtn.getAttribute("data-prompt");
                 const portalsBtn = document.getElementById("main-tab-portals-btn");
                 if (portalsBtn) portalsBtn.click();
-                
+
                 const widget = document.getElementById("chat-widget");
                 const trigger = document.getElementById("chat-trigger");
                 if (widget && widget.classList.contains("hidden")) {
                     if (trigger) trigger.click();
                 }
-                
+
                 const input = document.getElementById("user-input");
                 if (input) {
                     input.value = prompt;
@@ -3078,17 +3110,17 @@ function initSgHub() {
             renderSectorDetails(sector);
             return;
         }
-        
+
         jobsContent.innerHTML = `<p style='color: var(--text-subtle); margin:0;'><i class='fa-solid fa-circle-notch fa-spin'></i> Loading ${sector} sector statistics...</p>`;
-        
+
         try {
             const res = await fetch(`/api/sg-hub/jobs?sector=${sector}`);
             if (!res.ok) throw new Error("API error fetching job sector " + sector);
             const data = await res.json();
-            
+
             if (!sgHubJobsData) sgHubJobsData = {};
             sgHubJobsData[sector] = data.jobs[sector];
-            
+
             renderSectorDetails(sector);
         } catch (err) {
             console.error("Failed to load sector " + sector, err);

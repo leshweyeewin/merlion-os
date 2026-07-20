@@ -52,6 +52,32 @@ def _fetch_coe_rows() -> list:
     _coe_cache["fetched_at"] = now
     return rows
 
+def _build_coe_trend_insight(keys: list, per_exercise: dict, window: int = 12) -> str:
+    """Summarizes the multi-round premium trend across categories — which one led the recent
+    climb and which was flattest — so the chart isn't just a raw line plot with no read on what
+    it's actually showing. window=12 covers ~6 months (two rounds/month). Per-category next-round
+    forecast numbers are deliberately left out of this caption — the chart already plots them as
+    the "Next R (Forecast)" point, and listing all five again in prose is just noise."""
+    recent_keys = keys[-window:]
+    if len(recent_keys) < 2:
+        return ""
+    changes = {}
+    for c in "ABCDE":
+        vals = [per_exercise[k].get(c) for k in recent_keys if per_exercise[k].get(c) is not None]
+        if len(vals) >= 2 and vals[0]:
+            changes[c] = (round((vals[-1] - vals[0]) / vals[0] * 100, 1), vals[-1])
+    if not changes:
+        return ""
+    leader = max(changes, key=lambda c: changes[c][0])
+    laggard = min(changes, key=lambda c: changes[c][0])
+    n_rounds = len(recent_keys)
+
+    parts = [f"Category {leader} led the climb over the last {n_rounds} rounds: {changes[leader][0]:+.1f}% to S${changes[leader][1]:,}."]
+    if laggard != leader:
+        verb = "fell" if changes[laggard][0] < 0 else "was flattest"
+        parts.append(f"Category {laggard} {verb} ({changes[laggard][0]:+.1f}%).")
+    return " ".join(parts)
+
 def compute_coe_premium_history(max_exercises: int | None = 48) -> dict:
     """Per-exercise COE premiums for every vehicle category, oldest→newest, derived from the
     same cached dataset the headline cards use. `max_exercises=48` covers ~2 years (two
@@ -99,6 +125,8 @@ def compute_coe_premium_history(max_exercises: int | None = 48) -> dict:
     exercises = [f"{month} R{bidding_no}" for month, bidding_no in keys]
     categories = {c: [per_exercise[k].get(c) for k in keys] for c in "ABCDE"}
 
+    insight = _build_coe_trend_insight(keys, per_exercise)
+
     exercises.append("Next R (Forecast)")
     for c in "ABCDE":
         categories[c].append(forecasts.get(c))
@@ -107,6 +135,7 @@ def compute_coe_premium_history(max_exercises: int | None = 48) -> dict:
         "exercises": exercises,
         "categories": categories,
         "category_labels": _COE_CATEGORY_LABELS,
+        "insight": insight,
         "synced_at": _cache_synced_at(_coe_cache),
         "source": f"COE Bidding Results / Prices (data.gov.sg, dataset `{_COE_DATASET_ID}`).",
     }

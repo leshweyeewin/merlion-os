@@ -4,3 +4,9 @@ __pycache__/
 .git/
 .claude/
 .agents/
+.env
+service-account-key.json
+*-service-account*.json
+*-credentials*.json
+*.serviceaccount.json
+.data_cache/
