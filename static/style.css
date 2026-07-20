@@ -531,6 +531,18 @@ body {
     filter: invert(1);
 }
 
+/* SG Enable's official logo has a white "SG" baked into the artwork —
+   invisible on the card's white background. Give it its own brand-green
+   backdrop chip instead of inverting, since the rest of the mark is colored. */
+.agency-logo-wrap-chip {
+    background: #7ab143;
+    border-radius: 8px;
+    padding: 6px 10px;
+    width: auto;
+    align-self: flex-start;
+    display: inline-flex;
+}
+
 .service-card h3 {
     font-size: 21px;
     font-weight: 700;

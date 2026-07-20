@@ -129,8 +129,50 @@ _JOB_SECTOR_STATS_TTL_SECONDS = 6 * 60 * 60
 _job_sector_stats_disk_loaded = False
 _job_sector_stats_lock = _threading.Lock()
 
+def _sector_retrenchment_annual_total(rows: list, industries: list, year: str) -> int | None:
+    """Sums quarterly retrenchment counts across all four quarters of the given calendar year,
+    for the given industries. Returns None if the year isn't fully covered yet (e.g. still
+    mid-year, so a partial-year total would understate retrenchments and skew the ratio)."""
+    quarters_needed = {f"{year}-Q{q}" for q in range(1, 5)}
+    available_quarters = {r["quarter"] for r in rows}
+    if not quarters_needed <= available_quarters:
+        return None
+    total = 0
+    for r in rows:
+        if r.get("industry") in industries and r.get("quarter") in quarters_needed:
+            raw = (r.get("retrench") or "").strip()
+            if raw and raw != "-":
+                total += int(raw)
+    return total
+
+def _build_hiring_pressure_line(vacancies: int, industries: list, year: str) -> str:
+    """Cross-references vacancies against same-year retrenchments in the same industries — a
+    sector can show positive YoY vacancy growth while still shedding workers just as fast, and
+    a bare YoY delta can't tell the two apart. Returns "" if retrenchment data isn't available
+    for that year (degrades independently of the vacancy figures, same pattern as
+    compute_job_market_history)."""
+    try:
+        ret_rows = _fetch_retrenchment_rows()
+    except Exception:
+        return ""
+    retrenched = _sector_retrenchment_annual_total(ret_rows, industries, year)
+    if retrenched is None:
+        return ""
+    if retrenched == 0:
+        return f"⚖️ Hiring Pressure Index: no recorded retrenchments in {year} for this sector — pure hiring growth.\n"
+    ratio = vacancies / retrenched
+    if ratio >= 3:
+        verdict = "strong net hiring pressure"
+    elif ratio >= 1.5:
+        verdict = "moderate — hiring outpacing cuts"
+    elif ratio >= 1:
+        verdict = "balanced — vacancies roughly matching cuts"
+    else:
+        verdict = "weak — retrenchments matching or exceeding vacancies, sector may be contracting net of hiring"
+    return f"⚖️ Hiring Pressure Index: {ratio:.1f}x ({vacancies:,} vacancies vs {retrenched:,} retrenched in {year}) — {verdict}.\n"
+
 def query_singapore_job_statistics_via_bigquery(context_query: str = "general") -> str:
-    """Tool: Queries Singapore's real public job vacancy statistics (MOM, via data.gov.sg) with a YoY trend and next-year forecast.
+    """Tool: Queries Singapore's real public job vacancy statistics (MOM, via data.gov.sg) with a YoY trend, next-year forecast, and a Hiring Pressure Index (vacancies vs. same-year retrenchments in the same industries).
 
     Args:
         context_query: The target job sector, industry, or role to query (e.g., 'tech', 'finance', 'healthcare'). Defaults to 'general'.
@@ -169,6 +211,7 @@ def query_singapore_job_statistics_via_bigquery(context_query: str = "general") 
         )
 
     cacheable = True
+    latest_year = None  # only set on Tiers 1-2 (real data) — gates the hiring pressure lookup below
     try:
         # Tier 1: real BigQuery table (loaded via scripts/load_job_vacancy_to_bigquery.py)
         bq = _fetch_latest_two_year_totals_from_bigquery(meta["industries"])
@@ -195,11 +238,14 @@ def query_singapore_job_statistics_via_bigquery(context_query: str = "general") 
             trend_line = f"{arrow} {trend_pct:+.1f}% YoY (2024→2025, cached snapshot — live fetch unavailable: {type(e).__name__})."
             source_line = "💡 Source: MOM Job Vacancy by Industry & Occupation (data.gov.sg) — cached snapshot."
 
+    pressure_line = _build_hiring_pressure_line(vacancies, meta["industries"], latest_year) if latest_year else ""
+
     result = (
         f"--- [SG EMPLOYMENT & VACANCIES ANALYTICS] ---\n"
         f"📂 Matched Sector: {matched_sector} ({', '.join(meta['industries'])})\n"
         f"📊 Active Vacancies: {vacancies:,} open roles\n"
         f"📈 Market Trend: {trend_line}\n"
+        f"{pressure_line}"
         f"{source_line}"
     )
     if cacheable:

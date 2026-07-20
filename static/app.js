@@ -2996,13 +2996,21 @@ function initSgHub() {
                 </div>
             </div>
 
-            <div style="background: var(--bg-muted); border: 1px solid var(--border); padding: 10px; border-radius: 6px; margin-bottom: 12px; max-width: 260px;">
-                <span style="font-size: 10px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px; text-transform: uppercase;">📈 YoY Growth Index</span>
-                <strong style="font-size: 14px; color: ${growthColor};">${growthRate}</strong>
+            <div style="display:flex; gap:10px; margin-bottom: 12px;">
+                <div style="background: var(--bg-muted); border: 1px solid var(--border); padding: 10px; border-radius: 6px; max-width: 260px;">
+                    <span style="font-size: 10px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px; text-transform: uppercase;">📈 YoY Growth Index</span>
+                    <strong style="font-size: 14px; color: ${growthColor};">${growthRate}</strong>
+                </div>
+                ${details.pressure && details.pressure !== "N/A" ? `
+                <div style="background: var(--bg-muted); border: 1px solid var(--border); padding: 10px; border-radius: 6px; max-width: 260px;">
+                    <span style="font-size: 10px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px; text-transform: uppercase;">⚖️ Hiring Pressure</span>
+                    <strong style="font-size: 14px; color: var(--text-main);">${escapeHTML(details.pressure.split(" — ")[0])}</strong>
+                </div>` : ""}
             </div>
 
             <div style="border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; font-size:12px; color: var(--text-muted); line-height:1.5;">
                 <strong>📈 Industry Outlook:</strong> ${escapeHTML(details.trend)}
+                ${details.pressure && details.pressure !== "N/A" ? `<br><strong>⚖️ Hiring Pressure:</strong> ${escapeHTML(details.pressure)}` : ""}
             </div>
             <div style="font-size:10px; color: var(--text-muted); margin-top:10px;">ℹ️ All figures are live MOM Job Vacancy data (BigQuery / data.gov.sg); the forecast is a naive YoY extrapolation. For wages per job title, see the Occupational Wage Explorer below.</div>
 
