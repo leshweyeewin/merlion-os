@@ -1008,39 +1008,44 @@ function initSgHub() {
         const income = Math.max(0, parseFloat(taxAssessableIncome.value) || 0);
         const preExisting = Math.max(0, computePreExistingReliefs());
         const donations = Math.max(0, parseFloat(taxDonations.value) || 0);
-        // Match the optimizer: donations reduce chargeable income at face value (the 2.5x
-        // multiplier only governs the separate donation tax-saving figure, not the band).
-        const chargeable = Math.max(0, income - preExisting - donations);
+        // Correct 2.5x tax deduction for IPC-approved donations in Singapore
+        const chargeable = Math.max(0, income - preExisting - donations * 2.5);
 
-        if (chargeable <= 0) {
-            taxTierEffectiveRow.innerHTML = `<tr><td colspan="2" style="padding:8px; font-size:11.5px; color:var(--text-subtle); text-align:center;">Enter your income &amp; reliefs to see your tier…</td></tr>`;
-            if (taxTierEffectiveRate) taxTierEffectiveRate.textContent = "";
-            return;
-        }
-
-        let lower = 0, band = "", bandRate = 0, marginalRate = 0;
+        let lower = 0;
+        let tierRows = "";
+        let marginalRate = 0;
         for (let i = 0; i < TAX_BRACKETS.length; i++) {
             const b = TAX_BRACKETS[i];
             const upper = b.limit === Infinity ? null : lower + b.limit;
-            if (chargeable > lower && (upper === null || chargeable <= upper)) {
-                band = i === 0 ? "First S$" + lower.toLocaleString() + (upper ? "–S$" + upper.toLocaleString() : "")
-                    : "S$" + (lower + 1).toLocaleString() + (upper ? " – S$" + upper.toLocaleString() : "+");
-                bandRate = b.rate * 100;
-                marginalRate = bandRate;
-                break;
+            const band = i === 0
+                ? "First S$0–20,000"
+                : "S$" + (lower + 1).toLocaleString() + (upper ? " – S$" + upper.toLocaleString() : "+");
+            const inBand = (chargeable === 0 && i === 0) || (chargeable > lower && (upper === null || chargeable <= upper));
+            if (inBand) {
+                marginalRate = b.rate * 100;
             }
+            const ratePct = (b.rate * 100).toFixed(1);
+            
+            const rowStyle = inBand ? 'background:#fff7ed; font-weight:700;' : '';
+            
+            tierRows += `
+                <tr style="${rowStyle}">
+                    <td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px; color:var(--text-main);">${band}</td>
+                    <td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px; text-align:right; color:var(--text-main);">${ratePct}%</td>
+                    <td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11px; color:var(--text-muted);">${i === 0 ? 'Tax-free threshold' : ''}</td>
+                </tr>`;
             if (upper === null) break;
             lower = upper;
         }
 
         const tax = calculateSingaporeTax(chargeable);
-        const effRate = (tax / chargeable) * 100;
-        taxTierEffectiveRow.innerHTML = `
-            <tr style="background:#fff7ed; font-weight:700;">
-                <td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:12px; color:var(--text-main);">${band}</td>
-                <td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:12px; text-align:right; color:var(--text-main);">${bandRate.toFixed(1)}%</td>
-            </tr>`;
-        if (taxTierEffectiveRate) taxTierEffectiveRate.innerHTML = `Effective: <strong style="color:var(--text-main);">${effRate.toFixed(2)}%</strong> · Marginal: <strong style="color:var(--text-main);">${marginalRate.toFixed(1)}%</strong> · Chargeable: <strong style="color:var(--text-main);">S$${chargeable.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>`;
+        const effRate = chargeable > 0 ? (tax / chargeable) * 100 : 0;
+        
+        taxTierEffectiveRow.innerHTML = tierRows;
+        
+        if (taxTierEffectiveRate) {
+            taxTierEffectiveRate.innerHTML = `Effective: <strong style="color:var(--text-main);">${effRate.toFixed(2)}%</strong> · Marginal: <strong style="color:var(--text-main);">${marginalRate.toFixed(1)}%</strong> · Chargeable: <strong style="color:var(--text-main);">S$${chargeable.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>`;
+        }
     }
     relItems.forEach(inp => inp.addEventListener("input", renderEffectiveTier));
     if (taxDonations) taxDonations.addEventListener("input", renderEffectiveTier);
@@ -1396,41 +1401,42 @@ function initSgHub() {
                 const maxSRSRelief = Math.max(0, parseFloat(taxSrsCap.textContent.replace(/,/g, '')) || 0);
 
                 // --- S$80,000 total personal relief cap (effective YA 2018+) ---
-                const RELIEF_CAP = 80000;
-                const preExisting = Math.max(0, computePreExistingReliefs());
-                const headroom = Math.max(0, RELIEF_CAP - preExisting);
+                      // Optimal split algorithm (incorporating IPC-Approved Donations at 2.5x deduction):
+                // 1. CPF SA (RSTU) first up to its cap and within the S$80k total relief cap headroom (since CPF has high risk-free interest of 4.08% and is retirement savings).
+                // 2. SRS up to its cap and within the remaining S$80k total relief cap headroom.
+                // 3. Shifting any budget portion that exceeds the S$80k relief cap (which would yield 0% tax savings if topped up into CPF/SRS) into IPC-approved donations, which yield a 2.5x tax deduction outside the S$80k cap.
+                // 4. Any remaining budget (if CPF and SRS are fully capped and no more tax is payable) is marked as unused or extra donation.
+                const profileDonations = Math.max(0, parseFloat(taxDonations.value) || 0);
 
-                // Optimal split algorithm:
-                // 1. CPF SA/MA (RSTU) first up to its cap (highest risk-free interest 4.08%)
-                // 2. SRS up to its cap
-                // 3. Excess budget goes to "unused"
-                let cpfAlloc = Math.min(budget, maxCPFReliefSelf);
-                let remainingBudget = budget - cpfAlloc;
-                let srsAlloc = Math.min(remainingBudget, maxSRSRelief);
+                let cpfAlloc = Math.min(budget, maxCPFReliefSelf, headroom);
+                let remainingBudgetForSRS = budget - cpfAlloc;
+                let srsAlloc = Math.min(remainingBudgetForSRS, maxSRSRelief, Math.max(0, headroom - cpfAlloc));
 
-                let totalDeductible = cpfAlloc + srsAlloc;
-                let unusedBudget = budget - totalDeductible;
+                // Any budget portion that would exceed the S$80k relief cap is redirected to Donations
+                let donationAlloc = budget - cpfAlloc - srsAlloc;
 
-                // Only the portion of new top-ups that fits inside the remaining relief
-                // cap actually reduces taxable income; the rest is "capped out" (no tax saving).
-                const effectiveDeduction = Math.min(totalDeductible, headroom);
-                const cappedOut = Math.max(0, (preExisting + totalDeductible) - RELIEF_CAP);
+                let totalDeductible = cpfAlloc + srsAlloc + donationAlloc;
+                let unusedBudget = 0; // Fully allocated between CPF, SRS, and Donations
+
+                // Effective deduction is the actual reduction in chargeable income from this top-up allocation.
+                // Note: donations are not subject to the S$80,000 relief cap, but CPF/SRS are.
+                const effectiveDeduction = cpfAlloc + srsAlloc + donationAlloc * 2.5;
+                const cappedOut = 0; // Fully optimized, nothing is capped out!
 
                 // Chargeable income the optimization acts on (assessable less pre-existing
                 // reliefs AND donations — donations are a separate deduction, not a relief,
-                // so they reduce taxable income but do NOT consume the S$80k relief cap).
-                const donations = Math.max(0, parseFloat(taxDonations.value) || 0);
-                const referenceIncome = Math.max(0, income - preExisting - donations);
+                // so they reduce taxable income by 2.5x but do NOT consume the S$80k relief cap).
+                const referenceIncome = Math.max(0, income - preExisting - profileDonations * 2.5);
 
                 // Calculate taxes
                 // Note: referenceIncome already excludes donations (2.5x deduction applied above)
                 let originalTaxNoDonation = calculateSingaporeTax(Math.max(0, income - preExisting));
                 let originalTax = calculateSingaporeTax(referenceIncome);
-                let optimizedChargeableIncome = Math.max(0, referenceIncome - effectiveDeduction);
+                let optimizedChargeableIncome = Math.max(0, referenceIncome - (cpfAlloc + srsAlloc) - donationAlloc * 2.5);
                 let optimizedTax = calculateSingaporeTax(optimizedChargeableIncome);
                 let totalSaved = Math.max(0, originalTax - optimizedTax);
                 // Donation tax saving = tax without donations - tax with donations applied
-                const donationDeduction = donations * 2.5;
+                const donationDeduction = profileDonations * 2.5;
                 const donationTaxSaving = Math.max(0, originalTaxNoDonation - originalTax);
 
                 // --- Effective & Marginal Rate (on chargeable income) ---
@@ -1446,35 +1452,31 @@ function initSgHub() {
                     }
                 }
 
-                // --- Progressive Tax Tier Table (rendered from the same bracket data the engine uses) ---
-                const fmtMoney = (n) => "S$" + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                let tierRows = "";
-                {
-                    let lower = 0;
-                    for (let i = 0; i < TAX_BRACKETS.length; i++) {
-                        const b = TAX_BRACKETS[i];
-                        const upper = b.limit === Infinity ? null : lower + b.limit;
-                        const band = i === 0
-                            ? "First S$" + lower + (upper ? "–" + (upper).toLocaleString() : "")
-                            : "S$" + (lower + 1).toLocaleString() + (upper ? " – S$" + upper.toLocaleString() : "+");
-                        const inBand = referenceIncome > lower && (upper === null || referenceIncome <= upper);
-                        const ratePct = (b.rate * 100).toFixed(1);
-                        tierRows += `
-                            <tr style="${inBand ? 'background:#fff7ed; font-weight:700;' : ''}">
-                                <td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px; color:var(--text-main);">${band}</td>
-                                <td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px; text-align:right; color:var(--text-main);">${ratePct}%</td>
-                                ${i === 0 ? `<td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11px; color:var(--text-muted);" colspan="2">Tax-free threshold</td>` : ''}
-                            </tr>`;
-                        if (upper === null) break;
-                        lower = upper;
+                // --- Your Optimized Tax Tier ---
+                let optLower = 0, optBand = "", optBandRate = 0, optMarginalRate = 0;
+                for (let i = 0; i < TAX_BRACKETS.length; i++) {
+                    const b = TAX_BRACKETS[i];
+                    const upper = b.limit === Infinity ? null : optLower + b.limit;
+                    if (optimizedChargeableIncome > optLower && (upper === null || optimizedChargeableIncome <= upper)) {
+                        optBand = i === 0 ? "First S$0–" + upper.toLocaleString()
+                                       : "S$" + (optLower + 1).toLocaleString() + (upper ? " – S$" + upper.toLocaleString() : "+");
+                        optBandRate = b.rate * 100;
+                        optMarginalRate = optBandRate;
+                        break;
                     }
+                    if (upper === null) break;
+                    optLower = upper;
                 }
+                if (optimizedChargeableIncome <= 20000) {
+                    optBand = "First S$0–20,000";
+                    optBandRate = 0;
+                    optMarginalRate = 0;
+                }
+                const optimizedEffRate = optimizedChargeableIncome > 0 ? (optimizedTax / optimizedChargeableIncome) * 100 : 0;
+
                 const taxTierTableHtml = `
                     <div style="background:var(--bg-muted); border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:20px;">
-                        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
-                            <span style="font-size:12px; font-weight:700; color:var(--text-main); text-transform:uppercase; letter-spacing:0.5px;"><i class="fa-solid fa-table-list"></i> Progressive Tax Tiers (YA 2026)</span>
-                            <span style="font-size:11px; color:var(--text-muted);">Effective: <strong style="color:var(--text-main);">${effRate.toFixed(2)}%</strong> · Marginal: <strong style="color:var(--text-main);">${marginalRate.toFixed(1)}%</strong></span>
-                        </div>
+                        <div style="font-size:11px; font-weight:800; letter-spacing:0.6px; text-transform:uppercase; color:var(--primary); margin-bottom:10px;"><i class="fa-solid fa-layer-group"></i> Your Optimized Tax Tier <span style="font-weight:500; text-transform:none; letter-spacing:0; color:var(--text-muted);">(effective, YA 2026)</span></div>
                         <table style="width:100%; border-collapse:collapse;">
                             <thead>
                                 <tr>
@@ -1482,8 +1484,16 @@ function initSgHub() {
                                     <th style="text-align:right; font-size:10.5px; text-transform:uppercase; color:var(--text-muted); padding:4px 8px; border-bottom:2px solid var(--border);">Rate</th>
                                 </tr>
                             </thead>
-                            <tbody>${tierRows}</tbody>
+                            <tbody>
+                                <tr style="background:#eafaf1; font-weight:700; border-left:3px solid #10b981;">
+                                    <td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px; color:var(--text-main);">${optBand}</td>
+                                    <td style="padding:6px 8px; border-bottom:1px solid var(--border); font-size:11.5px; text-align:right; color:var(--text-main);">${optBandRate.toFixed(1)}%</td>
+                                </tr>
+                            </tbody>
                         </table>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:8px; text-align:right;">
+                            Effective: <strong style="color:var(--text-main);">${optimizedEffRate.toFixed(2)}%</strong> · Marginal: <strong style="color:var(--text-main);">${optMarginalRate.toFixed(1)}%</strong> · Chargeable: <strong style="color:var(--text-main);">S$${optimizedChargeableIncome.toLocaleString(undefined,{maximumFractionDigits:0})}</strong>
+                        </div>
                     </div>`;
 
                 // --- Progressive Bracket Targeter ---
@@ -1516,7 +1526,7 @@ function initSgHub() {
                     const marginalRatePct = (currentThreshold.rate * 100).toFixed(1);
                     const lowerRatePct = (currentThreshold.nextRate * 100).toFixed(1);
 
-                    if (totalDeductible >= amountToDrop) {
+                    if (effectiveDeduction >= amountToDrop) {
                         const taxSavedOnThisBracket = amountToDrop * currentThreshold.rate;
                         bracketAdvisoryHtml = `
                             <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:14px; border-radius:8px; margin-bottom:20px; border-left:4px solid #16a34a;">
@@ -1524,20 +1534,20 @@ function initSgHub() {
                                     <i class="fa-solid fa-circle-check"></i> Marginal Tax Tier Drop Successful!
                                 </span>
                                 <span style="font-size:12px; color:#166534; line-height:1.45; display:block;">
-                                    By topping up S$${totalDeductible.toLocaleString()}, you successfully reduced your chargeable income below the **S$${currentThreshold.value.toLocaleString()}** threshold. This drops you from the **${marginalRatePct}%** tax tier into the **${lowerRatePct}%** tier, saving you **S$${taxSavedOnThisBracket.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}** on this bracket portion alone!
+                                    By optimizing S$${totalDeductible.toLocaleString()} (allocated to CPF/SRS/Donations), you successfully reduced your chargeable income below the **S$${currentThreshold.value.toLocaleString()}** threshold. This drops you from the **${marginalRatePct}%** tax tier into the **${lowerRatePct}%** tier, saving you **S$${taxSavedOnThisBracket.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}** on this bracket portion alone!
                                 </span>
                             </div>
                         `;
                     } else {
-                        const shortfall = amountToDrop - totalDeductible;
+                        const shortfall = amountToDrop - effectiveDeduction;
                         const potentialExtraSaving = shortfall * currentThreshold.rate;
                         const maxPossibleTopup = maxCPFReliefSelf + maxSRSRelief;
 
                         let tipMessage = "";
                         if (amountToDrop <= maxPossibleTopup) {
-                            tipMessage = `Topping up an additional **S$${shortfall.toLocaleString()}** (total S$${amountToDrop.toLocaleString()}) will drop your chargeable income below **S$${currentThreshold.value.toLocaleString()}**, escaping the **${marginalRatePct}%** tax rate on those dollars and saving you an additional **S$${potentialExtraSaving.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}**!`;
+                            tipMessage = `Topping up an additional **S$${shortfall.toLocaleString()}** in CPF/SRS (or donating **S$${Math.ceil(shortfall / 2.5).toLocaleString()}**) will drop your chargeable income below **S$${currentThreshold.value.toLocaleString()}**, escaping the **${marginalRatePct}%** tax rate on those dollars and saving you an additional **S$${potentialExtraSaving.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}**!`;
                         } else {
-                            tipMessage = `To drop below the **S$${currentThreshold.value.toLocaleString()}** threshold requires a top-up of **S$${amountToDrop.toLocaleString()}**, which exceeds the annual CPF + SRS tax relief ceiling of **S$${maxPossibleTopup.toLocaleString()}** for this year.`;
+                            tipMessage = `To drop below the **S$${currentThreshold.value.toLocaleString()}** threshold requires an additional reduction of **S$${shortfall.toLocaleString()}**, which can be achieved by donating **S$${Math.ceil(shortfall / 2.5).toLocaleString()}** (exempt from the S$80,000 relief cap)!`;
                         }
 
                         bracketAdvisoryHtml = `
@@ -1569,18 +1579,20 @@ function initSgHub() {
                     savingsBoxHtml = `
                     <div style="background:#eafaf1; border: 1px solid #a3d9b1; padding:16px; border-radius:10px; margin-bottom:20px; text-align:center;">
                         <span style="font-size:12px; font-weight:700; color:#1a7f3c; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px;">Estimated Tax Savings</span>
-                        <span style="font-size:32px; font-weight:900; color:#1a7f3c; display:block; margin-bottom:6px;">S$${totalSaved.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        <p style="margin:0; font-size:12.5px; color:#1b5e20; font-weight:600;">${reducedNote}</p>
-                    </div>`;
-                }
-
-                // Relief-cap status strip (only when part of the top-up is capped out)
+                        <span style="font-size:32px; font-weight:900; color:#1a7f3c; display:block; margin-bottom:6px;">S$${totalSaved.toLocaleString(undefined, { minimumFractionDigits: 2, m                // Relief-cap status strip (when part of the budget is redirected to donations to avoid the cap)
                 let capStatusHtml = "";
-                if (cappedOut > 0) {
-                    capStatusHtml = `
-                    <div style="background:#fffbeb; border:1px solid #fef3c7; border-left:4px solid #d97706; padding:12px 14px; border-radius:8px; margin-bottom:16px; font-size:12px; color:#92400e; line-height:1.45;">
-                        <i class="fa-solid fa-triangle-exclamation"></i> <strong>Relief cap reached (S$80,000 YA limit):</strong> Total reliefs now claimed = <strong>S$${(preExisting + effectiveDeduction).toLocaleString()}</strong> (S$${preExisting.toLocaleString()} existing + S$${effectiveDeduction.toLocaleString()} from this top-up). <strong>S$${cappedOut.toLocaleString()}</strong> of your top-up exceeded the cap and yields <strong>no extra tax saving</strong> — though the cash still goes into CPF SA / SRS for retirement.
-                    </div>`;
+                if (donationAlloc > 0) {
+                    if ((preExisting + cpfAlloc + srsAlloc) >= RELIEF_CAP) {
+                        capStatusHtml = `
+                        <div style="background:#fffbeb; border:1px solid #fef3c7; border-left:4px solid #d97706; padding:12px 14px; border-radius:8px; margin-bottom:16px; font-size:12px; color:#92400e; line-height:1.45;">
+                            <i class="fa-solid fa-circle-info"></i> <strong>Cap Optimization:</strong> Your personal reliefs reached the <strong>S$80,000</strong> limit. The optimizer redirected <strong>S$${donationAlloc.toLocaleString()}</strong> of your budget into IPC-Approved Donations, leveraging the 2.5× tax deduction (exempt from the S$80k cap) to maximize your tax savings!
+                        </div>`;
+                    } else {
+                        capStatusHtml = `
+                        <div style="background:#fffbeb; border:1px solid #fef3c7; border-left:4px solid #d97706; padding:12px 14px; border-radius:8px; margin-bottom:16px; font-size:12px; color:#92400e; line-height:1.45;">
+                            <i class="fa-solid fa-circle-info"></i> <strong>Limit Optimization:</strong> Since your budget exceeded the individual annual limits for CPF SA (S$8,000) and SRS (S$15,300), the remaining <strong>S$${donationAlloc.toLocaleString()}</strong> has been allocated to IPC-Approved Donations to maximize your tax deduction at 2.5×!
+                        </div>`;
+                    }
                 }
 
                 let resultsHtml = `
@@ -1604,47 +1616,44 @@ function initSgHub() {
                     <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">
                         
                         <!-- CPF SA RSTU Topup Card -->
+                        ${cpfAlloc > 0 ? `
                         <div style="background:#f0f7ff; border:1px solid #b3d7ff; border-left:4px solid #005EC4; padding:12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                             <div>
                                 <span style="font-weight:700; font-size:13px; color:#004085; display:block;">CPF Special Account (RSTU) Top-up</span>
                                 <span style="font-size:11px; color:#004085; line-height:1.3;">Retirement Account compound growth (4.08% guaranteed yield)</span>
                             </div>
                             <span style="font-weight:800; font-size:16px; color:#004085;">S$${cpfAlloc.toLocaleString()}</span>
-                        </div>
+                        </div>` : ''}
 
                         <!-- SRS Contribution Card -->
+                        ${srsAlloc > 0 ? `
                         <div style="background:#fbf2ff; border:1px solid #e1bbfd; border-left:4px solid #a855f7; padding:12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                             <div>
                                 <span style="font-weight:700; font-size:13px; color:#6b21a8; display:block;">Supplementary Retirement Scheme (SRS)</span>
                                 <span style="font-size:11px; color:#6b21a8; line-height:1.3;">Investable cash account (flexible shares/bonds/annuity purchase)</span>
                             </div>
                             <span style="font-weight:800; font-size:16px; color:#6b21a8;">S$${srsAlloc.toLocaleString()}</span>
-                        </div>
-
-
-                        ${donations > 0 ? `
-                        <!-- Donation Deduction Card -->
-                        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-left:4px solid #16a34a; padding:12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <span style="font-weight:700; font-size:13px; color:#15803d; display:block;"><i class="fa-solid fa-heart"></i> IPC-Approved Donations (2.5× Deduction)</span>
-                                <span style="font-size:11px; color:#166534; line-height:1.3;">S$${donations.toLocaleString()} donated → S$${donationDeduction.toLocaleString(undefined, { minimumFractionDigits: 0 })} deducted from chargeable income (outside S$80k cap)</span>
-                            </div>
-                            <div style="text-align:right; flex-shrink:0; margin-left:12px;">
-                                <span style="font-weight:800; font-size:16px; color:#15803d; display:block;">−S$${donationTaxSaving.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                <span style="font-size:10px; color:#166534;">tax saved</span>
-                            </div>
                         </div>` : ''}
 
-                        ${unusedBudget > 0 ? `
-                        <!-- Unused Excess Card -->
-                        <div style="background:#fffbeb; border:1px solid #fef3c7; border-left:4px solid #d97706; padding:12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                        <!-- Optimized Donation Card -->
+                        ${donationAlloc > 0 ? `
+                        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-left:4px solid #16a34a; padding:12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                             <div>
-                                <span style="font-weight:700; font-size:13px; color:#92400e; display:block;">Unused Excess Budget</span>
-                                <span style="font-size:11px; color:#92400e; line-height:1.3;">This S$${unusedBudget.toLocaleString()} exceeds the relief limits for YA 2026. Keep in savings.</span>
+                                <span style="font-weight:700; font-size:13px; color:#15803d; display:block;"><i class="fa-solid fa-heart"></i> IPC-Approved Donations (Optimized Allocation)</span>
+                                <span style="font-size:11px; color:#166534; line-height:1.3;">S$${donationAlloc.toLocaleString()} allocated from budget → S$${(donationAlloc * 2.5).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})} tax deduction (separate from S$80k cap)</span>
                             </div>
-                            <span style="font-weight:800; font-size:16px; color:#92400e;">S$${unusedBudget.toLocaleString()}</span>
-                        </div>
-                        ` : ''}
+                            <span style="font-weight:800; font-size:16px; color:#15803d;">S$${donationAlloc.toLocaleString()}</span>
+                        </div>` : ''}
+
+                        <!-- Pre-existing Profile Donation Card -->
+                        ${profileDonations > 0 ? `
+                        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-left:4px solid #16a34a; padding:12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; opacity:0.85;">
+                            <div>
+                                <span style="font-weight:700; font-size:13px; color:#15803d; display:block;"><i class="fa-solid fa-heart"></i> Pre-existing IPC-Approved Donations (Profile)</span>
+                                <span style="font-size:11px; color:#166534; line-height:1.3;">S$${profileDonations.toLocaleString()} donated → S$${(profileDonations * 2.5).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})} deduction applied</span>
+                            </div>
+                            <span style="font-weight:800; font-size:16px; color:#15803d;">S$${profileDonations.toLocaleString()}</span>
+                        </div>` : ''}
                     </div>
 
                     <!-- Trade-off Advisory Box -->
@@ -1899,9 +1908,9 @@ function initSgHub() {
                     L.circleMarker([lat, lon], {
                         radius: 4,
                         color: '#ffffff',
-                        weight: 1,
-                        fillColor: '#f59e0b',
-                        fillOpacity: 0.9
+                        weight: 1.5,
+                        fillColor: '#e11d48',
+                        fillOpacity: 1
                     }).addTo(tmap);
                 });
             }
