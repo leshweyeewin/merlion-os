@@ -1579,7 +1579,12 @@ function initSgHub() {
                     savingsBoxHtml = `
                     <div style="background:#eafaf1; border: 1px solid #a3d9b1; padding:16px; border-radius:10px; margin-bottom:20px; text-align:center;">
                         <span style="font-size:12px; font-weight:700; color:#1a7f3c; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:4px;">Estimated Tax Savings</span>
-                        <span style="font-size:32px; font-weight:900; color:#1a7f3c; display:block; margin-bottom:6px;">S$${totalSaved.toLocaleString(undefined, { minimumFractionDigits: 2, m                // Relief-cap status strip (when part of the budget is redirected to donations to avoid the cap)
+                        <span style="font-size:32px; font-weight:900; color:#1a7f3c; display:block; margin-bottom:6px;">S$${totalSaved.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <p style="margin:0; font-size:12.5px; color:#1b5e20; font-weight:600;">${reducedNote}</p>
+                    </div>`;
+                }
+
+                // Relief-cap status strip (when part of the budget is redirected to donations to avoid the cap)
                 let capStatusHtml = "";
                 if (donationAlloc > 0) {
                     if ((preExisting + cpfAlloc + srsAlloc) >= RELIEF_CAP) {
