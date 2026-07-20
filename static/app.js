@@ -1826,6 +1826,7 @@ function initSgHub() {
                     <span style="background:${coeCategoryColors[c.category] || 'var(--primary)'}; color:#fff; font-size:10px; font-weight:800; padding:2px 7px; border-radius:4px;">CAT ${escapeHTML(c.category)}</span>
                     <div style="font-size: 15px; font-weight: 700; color: var(--text-main); margin-top: 6px;">${escapeHTML(c.premium)}</div>
                     <div style="font-size: 10px; color: var(--text-muted);">${escapeHTML(c.label)}</div>
+                    ${c.momentum ? `<div style="font-size: 10px; color: var(--text-muted); margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">📶 ${escapeHTML(c.momentum)}</div>` : ''}
                 </div>`).join('')
             : `<p style="color: var(--text-subtle); margin:0; font-size: 13px;">COE data unavailable.</p>`;
 

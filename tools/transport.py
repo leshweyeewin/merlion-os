@@ -111,37 +111,87 @@ def compute_coe_premium_history(max_exercises: int | None = 48) -> dict:
         "source": f"COE Bidding Results / Prices (data.gov.sg, dataset `{_COE_DATASET_ID}`).",
     }
 
+def _build_coe_momentum_line(cat: str, latest_row: dict, prior_row: dict | None) -> str:
+    """Round-over-round premium change plus a bids-to-quota oversubscription ratio — the premium
+    alone can't tell a category that's heating up (rising bids per available COE, likely to keep
+    climbing) from one that just drifted for a round. Returns "" if quota/bids fields are missing
+    or unparseable (degrades independently — never blocks the premium line itself)."""
+    letter = cat[-1]
+    try:
+        quota = int(latest_row["quota"])
+        bids_received = int(latest_row["bids_received"])
+    except (KeyError, TypeError, ValueError):
+        return ""
+    if quota <= 0:
+        return ""
+    oversubscription = bids_received / quota
+    if oversubscription >= 1.5:
+        demand_verdict = "fierce bidding"
+    elif oversubscription >= 1.2:
+        demand_verdict = "strong demand"
+    elif oversubscription >= 1.0:
+        demand_verdict = "moderate demand"
+    else:
+        demand_verdict = "quota undersubscribed — soft demand"
+
+    change_part = ""
+    if prior_row:
+        try:
+            prior_premium = int(str(prior_row["premium"]).replace(",", ""))
+            latest_premium = int(str(latest_row["premium"]).replace(",", ""))
+            if prior_premium:
+                pct = round((latest_premium - prior_premium) / prior_premium * 100, 1)
+                arrow = "▲" if pct >= 0 else "▼"
+                change_part = f"{arrow} {pct:+.1f}% vs last round; "
+        except (KeyError, TypeError, ValueError):
+            pass
+
+    return f"Category {letter} Momentum: {change_part}{oversubscription:.2f}x bids/quota — {demand_verdict}."
+
 def query_coe_bidding_results(context_query: str = "general") -> str:
-    """Tool: Retrieves Singapore's latest COE (Certificate of Entitlement) bidding results and premiums by vehicle category.
+    """Tool: Retrieves Singapore's latest COE (Certificate of Entitlement) bidding results and premiums by vehicle category, plus a demand-momentum read per category (round-over-round premium change and bids-to-quota oversubscription ratio).
 
     Args:
         context_query: The specific COE category or bidding-round question. Defaults to 'general'.
     """
     try:
         rows = _fetch_coe_rows()
-        latest_month = max(r["month"] for r in rows)
-        rounds_in_month = sorted(int(r["bidding_no"]) for r in rows if r["month"] == latest_month)
-        latest_round = rounds_in_month[-1]
+        exercise_keys = sorted({(r["month"], int(r["bidding_no"])) for r in rows})
+        latest_month, latest_round = exercise_keys[-1]
+        prior_key = exercise_keys[-2] if len(exercise_keys) >= 2 else None
 
         latest_rows = {
             r["vehicle_class"]: r
             for r in rows
             if r["month"] == latest_month and int(r["bidding_no"]) == latest_round
         }
+        prior_rows = {}
+        if prior_key:
+            prior_month, prior_round = prior_key
+            prior_rows = {
+                r["vehicle_class"]: r
+                for r in rows
+                if r["month"] == prior_month and int(r["bidding_no"]) == prior_round
+            }
 
         category_lines = []
+        momentum_lines = []
         for cat, label in _COE_CATEGORY_LABELS.items():
             row = latest_rows.get(cat)
             if not row:
                 continue
             premium = int(row["premium"].replace(",", ""))
             category_lines.append(f"Category {cat[-1]} Premium: S${premium:,} ({label})")
+            momentum_line = _build_coe_momentum_line(cat, row, prior_rows.get(cat))
+            if momentum_line:
+                momentum_lines.append(momentum_line)
 
         return (
             f"--- [SG COE BIDDING RESULTS] ---\n"
             f"\U0001F697 Latest Exercise: {latest_month} Round {latest_round}\n"
             + "\n".join(category_lines) + "\n"
-            f"\U0001F4A1 Source: COE Bidding Results / Prices, {latest_month} Round {latest_round} (data.gov.sg, dataset `{_COE_DATASET_ID}`)."
+            + ("\n".join(momentum_lines) + "\n" if momentum_lines else "")
+            + f"\U0001F4A1 Source: COE Bidding Results / Prices, {latest_month} Round {latest_round} (data.gov.sg, dataset `{_COE_DATASET_ID}`)."
         )
     except Exception as e:
         return (

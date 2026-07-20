@@ -374,7 +374,14 @@ async def get_sg_hub_transit(lat: float | None = None, lon: float | None = None)
                     premium_and_label = line.split("Premium:")[1].strip()
                     premium = premium_and_label.split(" (")[0].strip()
                     label = premium_and_label.split(" (")[1].rstrip(")") if " (" in premium_and_label else ""
-                    coe["categories"].append({"category": cat_letter, "premium": premium, "label": label})
+                    coe["categories"].append({"category": cat_letter, "premium": premium, "label": label, "momentum": None})
+                elif line.startswith("Category ") and "Momentum:" in line:
+                    cat_letter = line.split(" ", 2)[1]
+                    momentum = line.split("Momentum:")[1].strip()
+                    for entry in coe["categories"]:
+                        if entry["category"] == cat_letter:
+                            entry["momentum"] = momentum
+                            break
                 elif "Source:" in line:
                     coe["source"] = line.split("Source:")[1].strip()
             coe["synced_at"] = get_coe_synced_at()

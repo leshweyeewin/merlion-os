@@ -81,7 +81,7 @@ def mcp_query_singapore_retrenchment_advisory(context_query: str = "general") ->
 
 @mcp.tool(name="query_coe_bidding_results")
 def mcp_query_coe_bidding_results(context_query: str = "general") -> str:
-    """Retrieves Singapore's latest COE (Certificate of Entitlement) bidding results and premiums by vehicle category."""
+    """Retrieves Singapore's latest COE (Certificate of Entitlement) bidding results and premiums by vehicle category, plus a demand-momentum read per category (round-over-round premium change and bids-to-quota oversubscription ratio)."""
     return query_coe_bidding_results(context_query)
 
 @mcp.tool(name="query_hdb_resale_price_trends")
