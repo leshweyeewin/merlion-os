@@ -758,11 +758,7 @@ function initPortalVisibility() {
                     <button type="button" class="mp-mode-btn ${panelMode === 'hidden' ? 'active' : ''}" data-mode="hidden">Hidden (${hiddenCount})</button>
                     <button type="button" class="mp-mode-btn ${panelMode === 'visible' ? 'active' : ''}" data-mode="visible">Visible (${visibleCount})</button>
                 </div>
-                <div class="hidden-portals-empty" style="margin: 12px 0;">No matching portals.</div>
-                <div class="mp-actions" style="margin-top: 6px; border-top: 1px dashed var(--border); padding-top: 6px;">
-                    <button type="button" class="mp-bulk-btn mp-add" id="mp-show-all-global" style="background:#16a34a;">Show All Portals</button>
-                    <button type="button" class="mp-bulk-btn mp-hide" id="mp-hide-all-global">Hide All Portals</button>
-                </div>`;
+                <div class="hidden-portals-empty" style="margin: 12px 0;">No matching portals.</div>`;
             return;
         }
 
@@ -791,10 +787,6 @@ function initPortalVisibility() {
             <div class="mp-actions">
                 <button type="button" class="mp-bulk-btn mp-add" id="mp-bulk-add">${panelMode === 'hidden' ? 'Add back selected' : 'Show selected'}</button>
                 <button type="button" class="mp-bulk-btn mp-hide" id="mp-bulk-hide">${panelMode === 'hidden' ? 'Hide all listed' : 'Hide selected'}</button>
-            </div>
-            <div class="mp-actions" style="margin-top: 6px; border-top: 1px dashed var(--border); padding-top: 6px;">
-                <button type="button" class="mp-bulk-btn mp-add" id="mp-show-all-global" style="background:#16a34a;">Show All Portals</button>
-                <button type="button" class="mp-bulk-btn mp-hide" id="mp-hide-all-global">Hide All Portals</button>
             </div>`;
     }
 
@@ -844,6 +836,21 @@ function initPortalVisibility() {
     updateBadge();
 
     if (manageBtn && dropdown) {
+        const showAllGlobalBtn = document.getElementById("mp-show-all-global");
+        if (showAllGlobalBtn) {
+            showAllGlobalBtn.addEventListener("click", () => {
+                const list = allCards().map(c => c.dataset.agency);
+                bulkApply(list, showPortal);
+            });
+        }
+        const hideAllGlobalBtn = document.getElementById("mp-hide-all-global");
+        if (hideAllGlobalBtn) {
+            hideAllGlobalBtn.addEventListener("click", () => {
+                const list = allCards().map(c => c.dataset.agency);
+                bulkApply(list, hidePortal);
+            });
+        }
+
         manageBtn.addEventListener("click", (e) => {
             e.stopPropagation();
             const willOpen = dropdown.classList.contains("hidden");
@@ -872,18 +879,6 @@ function initPortalVisibility() {
                 panelMode = modeBtn.dataset.mode;
                 selected.clear();
                 renderDropdown();
-                return;
-            }
-            const showAllGlobBtn = e.target.closest("#mp-show-all-global");
-            if (showAllGlobBtn) {
-                const list = allCards().map(c => c.dataset.agency);
-                bulkApply(list, showPortal);
-                return;
-            }
-            const hideAllGlobBtn = e.target.closest("#mp-hide-all-global");
-            if (hideAllGlobBtn) {
-                const list = allCards().map(c => c.dataset.agency);
-                bulkApply(list, hidePortal);
                 return;
             }
             const addBtn = e.target.closest("#mp-bulk-add");
