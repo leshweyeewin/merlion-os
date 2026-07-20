@@ -1788,10 +1788,9 @@ function initSgHub() {
             <!-- 2-Hr Regional Forecast Cards -->
             <div style="margin-bottom: 16px;">
                 <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">⛅ 2-Hour Regional Forecast</div>
-                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                     ${forecastCards || '<p style="color:var(--text-subtle); margin:0;">Forecast data unavailable.</p>'}
                 </div>
-                <div id="weather-map" style="height: 250px; border-radius: 10px; border: 1px solid var(--border); position: relative; z-index: 1;"></div>
             </div>
 
             <!-- 24-Hour Outlook -->
@@ -1801,38 +1800,6 @@ function initSgHub() {
             </div>
         `;
 
-        if (window.weatherMap) {
-            try { window.weatherMap.remove(); } catch(e) {}
-        }
-        try {
-            const mapContainer = document.getElementById("weather-map");
-            if (mapContainer && typeof L !== "undefined" && forecasts.length > 0) {
-                const map = L.map(mapContainer).setView([1.3521, 103.8198], 11);
-                window.weatherMap = map;
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 18,
-                    attribution: '© OpenStreetMap'
-                }).addTo(map);
-                const coords = {
-                    "Downtown Core": [1.2836, 103.8607],
-                    "Orchard": [1.3048, 103.8318],
-                    "Tampines": [1.3496, 103.9568],
-                    "Jurong West": [1.3404, 103.7090],
-                    "Woodlands": [1.4382, 103.7891],
-                    "Punggol": [1.3984, 103.9072]
-                };
-                forecasts.forEach(f => {
-                    const loc = coords[f.area];
-                    if (loc) {
-                        const iconText = conditionIcon(f.forecast);
-                        const marker = L.marker(loc).addTo(map);
-                        marker.bindPopup(`<b>${escapeHTML(f.area)}</b><br>${iconText} ${escapeHTML(f.forecast)}`);
-                    }
-                });
-            }
-        } catch (e) {
-            console.error("Failed to render weather map:", e);
-        }
     }
 
     function renderTransportPane(taxiAvailability, coe, coeHistory) {
@@ -1867,6 +1834,13 @@ function initSgHub() {
             <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;">💡 Two bidding rounds per month — hover for every category's exact premium.</div>
         ` : '';
 
+        const taxiMapHtml = taxiAvailability ? `
+            <div style="margin-bottom: 14px;">
+                <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🗺️ Live Taxi Positions — ${taxiAvailability.count.toLocaleString()} available islandwide</div>
+                <div id="taxi-map" style="height: 280px; border-radius: 10px; border: 1px solid var(--border); position: relative; z-index: 1;"></div>
+                <div style="font-size: 10.5px; color: var(--text-muted); margin-top: 5px;">Showing up to 500 sampled positions · Source: LTA DataMall · ${escapeHTML(taxiAvailability.retrieved_at)}</div>
+            </div>` : '';
+
         transportContent.innerHTML = banner + `
             <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;">
                 ${taxiHtml}
@@ -1877,6 +1851,7 @@ function initSgHub() {
                     </div>
                 </div>
             </div>
+            ${taxiMapHtml}
             ${coeHistoryHtml}
         `;
 
@@ -1891,6 +1866,31 @@ function initSgHub() {
                 xTickEvery: 8,
             });
         }
+
+        // Render taxi dot-density map
+        if (window.taxiMap) { try { window.taxiMap.remove(); } catch(e) {} window.taxiMap = null; }
+        try {
+            const taxiMapEl = document.getElementById("taxi-map");
+            const positions = taxiAvailability && taxiAvailability.sample_positions;
+            if (taxiMapEl && positions && positions.length > 0 && typeof L !== "undefined") {
+                const tmap = L.map(taxiMapEl, { zoomControl: true, scrollWheelZoom: false })
+                    .setView([1.3521, 103.8198], 11);
+                window.taxiMap = tmap;
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 18,
+                    attribution: '© OpenStreetMap'
+                }).addTo(tmap);
+                positions.forEach(([lat, lon]) => {
+                    L.circleMarker([lat, lon], {
+                        radius: 3,
+                        color: '#f59e0b',
+                        fillColor: '#f59e0b',
+                        fillOpacity: 0.75,
+                        weight: 0
+                    }).addTo(tmap);
+                });
+            }
+        } catch(e) { console.error("Failed to render taxi map:", e); }
 
         bindTaxiButtons(taxiAvailability);
     }

@@ -299,6 +299,7 @@ def fetch_lta_taxi_availability(user_lat: float | None = None, user_lon: float |
         logger.warning("[LTA DataMall] LTA_DATAMALL_API_KEY not set — skipping taxi availability fetch.")
         return None
 
+    import random
     from datetime import datetime, timezone, timedelta
     url = "https://datamall2.mytransport.sg/ltaodataservice/Taxi-Availability"
     headers = {
@@ -324,6 +325,11 @@ def fetch_lta_taxi_availability(user_lat: float | None = None, user_lon: float |
             )
             area_name = _nearest_planning_area(user_lat, user_lon)
 
+        # Sample up to 500 positions for the frontend map (avoids sending 10k+ coords)
+        sample_size = min(500, taxi_count)
+        sampled = random.sample(taxis, sample_size) if taxi_count > sample_size else taxis
+        sample_positions = [[t["Latitude"], t["Longitude"]] for t in sampled]
+
         sgt = datetime.now(timezone(timedelta(hours=8)))
         retrieved_at = sgt.strftime("%d %b %Y, %I:%M %p")
 
@@ -334,7 +340,8 @@ def fetch_lta_taxi_availability(user_lat: float | None = None, user_lon: float |
             "nearby_count": nearby_count,
             "nearby_radius_km": nearby_radius_km,
             "area_name": area_name,
-            "retrieved_at": retrieved_at
+            "retrieved_at": retrieved_at,
+            "sample_positions": sample_positions,
         }
     except Exception as e:
         logger.warning(f"[LTA DataMall] Taxi availability fetch failed: {e}")
