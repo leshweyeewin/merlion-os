@@ -45,5 +45,5 @@ jobs:
           flags: |
             --allow-unauthenticated
             --min-instances=1
-            --memory=512Mi
+            --memory=1Gi
             --cpu=1
