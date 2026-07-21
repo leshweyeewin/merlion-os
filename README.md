@@ -94,52 +94,34 @@ The repository's comprehensive guides are split into dedicated files inside [`do
 
 ## ⚡ Quick Start
 
-### 1. Installation
-Install the project dependencies inside a python virtual environment:
-```bash
-pip install -r requirements.txt
-```
+For a detailed local setup walkthrough, Google BigQuery configuration, FastMCP agent tool servers, folder structure index, and troubleshooting, see the [Local Quickstart & Setup Guide](docs/quickstart.md).
 
-### 2. Configure Environment Variables
-Create a `.env` file in the project root with the following keys:
-```bash
-# Required
+### 1. Fast Setup
+Copy `.env.example` to `.env` in the root folder and fill in your keys:
+```env
 GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 LTA_DATAMALL_API_KEY="YOUR_LTA_DATAMALL_API_KEY"
-
-# Optional — data.gov.sg APIs work unauthenticated, but adding this key lifts
-# the rate limit so NEA weather/PSI calls skip the 1-second pacing delay.
-DATA_GOV_SG_API_KEY="YOUR_DATA_GOV_SG_API_KEY"
-
-# Optional — enables BigQuery-backed job vacancy queries (faster, pre-loaded).
-# Without these, the server falls back to live data.gov.sg fetches automatically.
-GCP_PROJECT_ID="YOUR_GCP_PROJECT_ID"
-GOOGLE_APPLICATION_CREDENTIALS="./service-account-key.json"
 ```
 
-> **PowerShell users:** To set env vars temporarily in a session use `$env:KEY = "value"`, not `KEY="value"` (that's bash syntax).
-
-### 3. Run the Server
-Launch the FastAPI server:
+### 2. Install & Run
+Install core dependencies and start the uvicorn web server:
 ```bash
+pip install -r requirements.txt
 python server.py
 ```
 Open **`http://127.0.0.1:8000/`** in your browser.
 
-> **PowerShell users:** To set env vars temporarily in a session use `$env:KEY = "value"`, not `KEY="value"` (that's bash syntax).
-
-### 4. Run the Test Suite
+### 3. Run Tests
+Ensure dependencies are installed, then run the python and javascript test suites:
 ```bash
 pip install -r requirements-dev.txt
 pytest tests/ -v
+node --test tests/*.js
 ```
-Expected output: all tests passing in < 2 seconds (no network I/O required).
 
-### 5. Docker (optional)
-Build and run the full stack in a container:
+### 4. Build & Run Container (Docker)
 ```bash
 docker build -t merlion-os .
 docker run -p 8000:8000 --env-file .env merlion-os
 ```
 
-For advanced features (BigQuery, FastMCP daemon) and Cloud Run deployment, see [docs/quickstart.md](docs/quickstart.md).
