@@ -145,7 +145,7 @@ def _fetch_bto_launch_details() -> dict:
     for row in _parse_html_table_to_grid(tables[2])[1:]:
         if len(row) < 5 or len(set(row)) == 1:  # skip section-divider rows (all cells identical)
             continue
-        town, _project_cell, flat_type, price_excl, price_incl = row[0], row[1], row[2], row[3], row[4]
+        town, _, flat_type, price_excl, price_incl = row[0], row[1], row[2], row[3], row[4]
         flat_types_by_town.setdefault(town, []).append({
             "flat_type": _re.sub(r"room(?=[A-Z])", "room ", flat_type),
             "price_excl_grants": price_excl.rstrip(";").strip(),

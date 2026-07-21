@@ -92,7 +92,7 @@ def main():
 
     if args.check:
         for m in matches:
-            agency, _img, url = m.group(1), m.group(2), m.group(3)
+            agency, _, url = m.group(1), m.group(2), m.group(3)
             fname = sanitize_ext(url, agency)
             path = os.path.join(LOGOS_DIR, fname)
             if os.path.exists(path) and os.path.getsize(path) >= 200:

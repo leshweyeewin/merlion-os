@@ -20,6 +20,9 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements-dev.txt
 
+      - name: Lint Python (pyflakes — unused imports/vars, undefined names)
+        run: pyflakes server.py tools mcp_server.py tests
+
       - name: Check static/app.js syntax
         run: node --check static/app.js
 
