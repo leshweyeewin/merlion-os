@@ -57,22 +57,23 @@ graph TD
 
 ## 🚀 Key Technical Highlights
 
-1. **Dual-Engine High-Availability AI**: 
-   - **Primary Engine**: Google Gemini 2.5 Flash with parallel tool routing coordinates complex statutory queries.
-   - **Resiliency Engine**: Dynamic automatic fallback to `gemini-3.1-flash-lite` with **Google Search Grounding** if the primary engine encounters a 429 API rate limit.
-2. **Predictive Analytics (COE & HDB Linear Regression)**:
-   - Integrates custom mathematical linear regression models directly in Python ([tools/transport.py](tools/transport.py) & [tools/housing.py](tools/housing.py)) that analyze the last 6 months of bidding rounds or flat sale records to forecast upcoming COE premiums and islandwide HDB median prices, rendering the forecast points directly on the dashboard's timeline charts.
-3. **Geo-Spatial Interactive Mapping**:
-   - Integrates a responsive Leaflet.js map layer within the Environment card. It maps geographic coordinates of key planning areas across Singapore (Woodlands, Punggol, Tampines, Orchard, etc.) and visualises live 2-hour NEA weather forecasts using custom popup forecast markers.
-4. **Analytical BigQuery Warehouse Integration**:
-   - Directly queries partitioned Google BigQuery databases containing Ministry of Manpower (MOM) employment and occupational wage datasets, computing dynamic statistics and wage percentiles in real time.
-5. **FastMCP Server Integration**:
-   - Added `mcp_server.py` to expose all statutory board tools natively via the Model Context Protocol (MCP) JSON-RPC, allowing developers to plug MerlionOS directly into IDE agents like Cursor or Claude Desktop.
-6. **Operations Terminal (Transparency Console)**:
-   - Eliminates the AI "black box" by live-streaming raw SQL queries, BeautifulSoup scraper network actions, HTTP response status codes, and crawler logs directly to a dedicated console widget in the UI.
-7. **Strict Security & Scraper Hardening**:
-   - Restricts BeautifulSoup crawlers strictly to `.gov.sg` and validated trusted domains (`healthhub.sg`, `wsg.sg`, `cdc.gov.sg`), auto-blocking any redirect to commercial domains or Singpass login interfaces.
-   - Custom client-side XSS protection via `safeURL` validation and strict HTML string escaping prevents link injection and security exploits.
+1. **Multi-Hop Agentic Tool Chaining**:
+   - The Copilot doesn't just run tools once; it coordinates multi-turn reasoning loops. It executes a tool lookup (e.g., tech job wages), passes the results back to Gemini 2.5 Flash, and can choose to chain subsequent tool dispatches (e.g., SkillsFuture course suggestions) up to 3 hops before delivering a synthesized response.
+2. **Multimodal Vision Document Uploads**:
+   - Features a paperclip attachment button. Citizens can upload images or PDFs of CPF statements, IRAS tax notices, or official government letters. The system decodes and pipes the base64 bytes natively to Gemini's vision channel, extracting actionable parameters instantly.
+3. **SSE Streaming Copilot & Cursor**:
+   - Upgraded responses to a real-time Server-Sent Events (SSE) stream (`text/event-stream`). Answers appear progressively token-by-token with a blinking cursor (`▋`) that vanishes dynamically upon final completion.
+4. **Google Search Grounding & Clickable Citations**:
+   - Safe failover layer: if the primary Gemini API quota is hit (429), it falls back to `gemini-3.1-flash-lite` with Google Search Grounding. The response parses the grounding metadata to render clickable link pills (e.g. `[1] moh.gov.sg`) below the message bubble.
+5. **Interactive Dashboards & Predictive Analytics**:
+   - Integrates linear regression modules directly in Python to analyze and forecast HDB resale and COE premium trends. Maps key Singapore regions using Leaflet.js and displays live NEA weather popups.
+6. **Operations Transparency Terminal**:
+   - Live-streams raw BigQuery SQL, BeautifulSoup scraper networks, HTTP response status codes, and crawler logs directly to an active log terminal widget in the frontend.
+7. **Shimmer Skeleton Loaders & Bookmarks**:
+   - Replaced plain spinners with pulsing grey CSS skeleton blocks matching the tab cards. Added a gold star bookmarking system pinning compact clones of user-selected portals to a "My Matters" panel (persisted in `localStorage`).
+8. **Automated Deploy Pipeline & 38 Smoke Tests**:
+   - Automated Google Cloud Run build & deploy CI/CD pipeline (`deploy.yml`) triggered on branch push. Expanded verification coverage to **38 unit tests** (testing XSS/`safeURL`, pydantic structures, OLS forecasts, allowlists) running in <3s.
+
 
 ---
 
