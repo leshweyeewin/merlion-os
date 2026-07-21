@@ -338,11 +338,47 @@ document.addEventListener("DOMContentLoaded", () => {
                         botBubbleContent.innerHTML = renderMarkdown(accumulated);
                         scrollToBottom();
 
+                    } else if (event.type === "citations") {
+                        // Render citation list below the streaming content inside the same bubble
+                        if (botBubbleContent) {
+                            const parentBubble = botBubbleContent.closest(".bot-message");
+                            if (parentBubble) {
+                                // Prevent duplicate citations block if received multiple times
+                                let citBlock = parentBubble.querySelector(".message-citations");
+                                if (!citBlock) {
+                                    citBlock = document.createElement("div");
+                                    citBlock.className = "message-citations";
+                                    parentBubble.appendChild(citBlock);
+                                }
+                                citBlock.innerHTML = `
+                                    <div class="citations-header"><i class="fa-solid fa-link"></i> Grounded Web Sources</div>
+                                    <div class="citations-list">
+                                        ${event.citations.map((c, idx) => {
+                                            let domain = c.title;
+                                            try {
+                                                domain = new URL(c.uri).hostname.replace("www.", "");
+                                            } catch (err) {}
+                                            return `
+                                                <a href="${safeURL(c.uri)}" target="_blank" rel="noopener noreferrer" class="citation-pill" title="${escapeHTML(c.title)}">
+                                                    <strong>[${idx + 1}]</strong> ${escapeHTML(domain)}
+                                                </a>
+                                            `;
+                                        }).join("")}
+                                    </div>
+                                `;
+                                scrollToBottom();
+                            }
+                        }
+
                     } else if (event.type === "done") {
                         // Finalise history
                         conversationHistory.push({ role: "user", content: text });
                         conversationHistory.push({ role: "model", content: accumulated });
+                        if (botBubbleContent) {
+                            botBubbleContent.classList.remove("streaming-content");
+                        }
                         appendLog("system", "success", "Response streamed and formatted successfully.");
+
 
                     } else if (event.type === "error") {
                         removeTypingIndicator();

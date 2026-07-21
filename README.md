@@ -1,7 +1,7 @@
 # 🇸🇬 MerlionOS: Unified Singapore Public Sector AI Coordination Brain
 *APAC GenAI Academy (APAC Edition) — Cohort 2 Hackathon Project*
 
-[![CI](https://github.com/leshweyeewin/merlion-os/actions/workflows/ci.yml/badge.svg)](https://github.com/leshweyeewin/merlion-os/actions/workflows/ci.yml)
+[![CI](https://github.com/leshweyeewin/merlion-os/actions/workflows/ci.yml/badge.svg)](https://github.com/leshweyeewin/merlion-os/actions/workflows/ci.yml) [![Deploy to Google Cloud Run](https://github.com/leshweyeewin/merlion-os/actions/workflows/deploy.yml/badge.svg)](https://github.com/leshweyeewin/merlion-os/actions/workflows/deploy.yml)
 
 **🔗 Live Demo:** [merlion-os-648096114696.asia-southeast1.run.app](https://merlion-os-648096114696.asia-southeast1.run.app)  
 *(Hosted on Google Cloud Run, region `asia-southeast1`, with a warm minimum instance — no cold-start wait.)*

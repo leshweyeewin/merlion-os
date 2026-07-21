@@ -73,9 +73,14 @@ class ToolLog(BaseModel):
     arguments: dict
     result: str
 
+class Citation(BaseModel):
+    uri: str
+    title: str
+
 class ChatResponse(BaseModel):
     response: str
     logs: list[ToolLog]
+    citations: list[Citation] = []
 
 async def run_chat_loop(user_prompt: str, history: list) -> tuple[str, list]:
     system_instruction = (
@@ -176,8 +181,8 @@ async def run_chat_loop(user_prompt: str, history: list) -> tuple[str, list]:
                     temperature=0.1
                 )
             )
-            return final_response.text or "Could not compile response.", logs
-        return response.text or "Could not generate text.", []
+            return final_response.text or "Could not compile response.", logs, []
+        return response.text or "Could not generate text.", [], []
     except genai_errors.ClientError as e:
         if e.code == 429:
             logger.warning(f"Gemini API quota exceeded — attempting Google Search grounding fallback: {e.message}")
@@ -201,6 +206,20 @@ async def run_chat_loop(user_prompt: str, history: list) -> tuple[str, list]:
                     config=search_config,
                 )
                 fallback_text = fallback_response.text or "Could not retrieve grounded search results."
+                
+                citations = []
+                seen_uris = set()
+                if fallback_response.candidates and fallback_response.candidates[0].grounding_metadata:
+                    meta = fallback_response.candidates[0].grounding_metadata
+                    if meta.grounding_chunks:
+                        for chunk in meta.grounding_chunks:
+                            if chunk.web and chunk.web.uri not in seen_uris:
+                                seen_uris.add(chunk.web.uri)
+                                citations.append({
+                                    "uri": chunk.web.uri,
+                                    "title": chunk.web.title or chunk.web.uri
+                                })
+
                 fallback_note = (
                     "\n\n---\n> ⚡ **Fallback Mode:** Primary AI quota reached. "
                     "This response was generated using **Google Search Grounding** (gemini-3.1-flash-lite)."
@@ -210,7 +229,7 @@ async def run_chat_loop(user_prompt: str, history: list) -> tuple[str, list]:
                     "tool": "google_search_grounding",
                     "arguments": {"query": user_prompt, "model": "gemini-3.1-flash-lite"},
                     "result": "[Google Search grounding activated — web-cited response returned]"
-                }]
+                }], citations
             except Exception as fallback_err:
                 logger.exception(f"Google Search grounding fallback also failed: {fallback_err}")
                 raise genai_errors.ClientError(
@@ -337,11 +356,69 @@ async def run_chat_stream(user_prompt: str, history: list):
 
     except genai_errors.ClientError as e:
         if e.code == 429:
-            error_payload = json.dumps({
-                "type": "error",
-                "message": "MerlionOS has hit the Gemini API rate limit. Please wait a moment and try again."
-            })
-            yield f"data: {error_payload}\n\n"
+            try:
+                search_config = types.GenerateContentConfig(
+                    system_instruction=(
+                        "You are MerlionOS, a Singapore public sector AI assistant. "
+                        "Answer the citizen's question using your grounded Google Search results. "
+                        "Focus on official Singapore government sources (.gov.sg) where possible. "
+                        "Be concise, cite sources, and highlight key deadlines, fees, or eligibility. "
+                        "Never output a clickable link or raw URL for SingPass, CorpPass, or any login/signin page — "
+                        "instead tell the citizen to open their own browser and navigate there manually."
+                    ),
+                    tools=[types.Tool(google_search=types.GoogleSearch())],
+                    temperature=0.1,
+                )
+                
+                log_payload = json.dumps({
+                    "type": "log",
+                    "tool": "google_search_grounding",
+                    "arguments": {"query": user_prompt, "model": "gemini-3.1-flash-lite"},
+                    "result": "[Google Search grounding activated — streaming fallback started]"
+                })
+                yield f"data: {log_payload}\n\n"
+
+                citations = []
+                seen_uris = set()
+
+                async for chunk in await _get_client().aio.models.generate_content_stream(
+                    model="gemini-3.1-flash-lite",
+                    contents=contents,
+                    config=search_config,
+                ):
+                    if chunk.text:
+                        token_payload = json.dumps({"type": "token", "text": chunk.text})
+                        yield f"data: {token_payload}\n\n"
+                    
+                    if chunk.candidates and chunk.candidates[0].grounding_metadata:
+                        meta = chunk.candidates[0].grounding_metadata
+                        if meta.grounding_chunks:
+                            for gc in meta.grounding_chunks:
+                                if gc.web and gc.web.uri not in seen_uris:
+                                    seen_uris.add(gc.web.uri)
+                                    citations.append({
+                                        "uri": gc.web.uri,
+                                        "title": gc.web.title or gc.web.uri
+                                    })
+                
+                if citations:
+                    citation_payload = json.dumps({"type": "citations", "citations": citations})
+                    yield f"data: {citation_payload}\n\n"
+                
+                fallback_note = (
+                    "\n\n---\n> ⚡ **Fallback Mode:** Primary AI quota reached. "
+                    "This response was generated using **Google Search Grounding** (gemini-3.1-flash-lite)."
+                )
+                yield f"data: {json.dumps({'type': 'token', 'text': fallback_note})}\n\n"
+                yield "data: {\"type\":\"done\"}\n\n"
+            except Exception as fallback_err:
+                logger.exception(f"Google Search grounding fallback also failed: {fallback_err}")
+                error_payload = json.dumps({
+                    "type": "error",
+                    "message": "MerlionOS has hit the Gemini API rate limit. Google Search fallback also failed."
+                })
+                yield f"data: {error_payload}\n\n"
+
         else:
             error_payload = json.dumps({"type": "error", "message": "AI service error. Please try again."})
             yield f"data: {error_payload}\n\n"

@@ -132,11 +132,13 @@ async def chat_endpoint(request: ChatRequest):
 
     try:
         history_list = [{"role": h.role, "content": h.content} for h in request.history]
-        response_text, logs = await run_chat_loop(user_prompt, history_list)
+        response_text, logs, citations = await run_chat_loop(user_prompt, history_list)
         return ChatResponse(
             response=response_text,
-            logs=[ToolLog(tool=l["tool"], arguments=l["arguments"], result=l["result"]) for l in logs]
+            logs=[ToolLog(tool=l["tool"], arguments=l["arguments"], result=l["result"]) for l in logs],
+            citations=citations
         )
+
     except Exception as e:
         err_msg = str(e)
         if "limit" in err_msg.lower() or "quota" in err_msg.lower() or "429" in err_msg:
