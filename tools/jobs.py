@@ -146,21 +146,22 @@ def _sector_retrenchment_annual_total(rows: list, industries: list, year: str) -
                 total += int(raw)
     return total
 
-def _build_hiring_pressure_line(vacancies: int, industries: list, year: str) -> str:
+def _compute_hiring_pressure(vacancies: int, industries: list, year: str) -> dict | None:
     """Cross-references vacancies against same-year retrenchments in the same industries — a
     sector can show positive YoY vacancy growth while still shedding workers just as fast, and
-    a bare YoY delta can't tell the two apart. Returns "" if retrenchment data isn't available
+    a bare YoY delta can't tell the two apart. Returns None if retrenchment data isn't available
     for that year (degrades independently of the vacancy figures, same pattern as
-    compute_job_market_history)."""
+    compute_job_market_history). Structured result — see _format_hiring_pressure_line for the
+    emoji text line the chat tool renders from it."""
     try:
         ret_rows = _fetch_retrenchment_rows()
     except Exception:
-        return ""
+        return None
     retrenched = _sector_retrenchment_annual_total(ret_rows, industries, year)
     if retrenched is None:
-        return ""
+        return None
     if retrenched == 0:
-        return f"⚖️ Hiring Pressure Index: no recorded retrenchments in {year} for this sector — pure hiring growth.\n"
+        return {"retrenched": 0, "ratio": None, "verdict": "pure hiring growth"}
     ratio = vacancies / retrenched
     if ratio >= 3:
         verdict = "strong net hiring pressure"
@@ -170,22 +171,44 @@ def _build_hiring_pressure_line(vacancies: int, industries: list, year: str) -> 
         verdict = "balanced — vacancies roughly matching cuts"
     else:
         verdict = "weak — retrenchments matching or exceeding vacancies, sector may be contracting net of hiring"
-    return f"⚖️ Hiring Pressure Index: {ratio:.1f}x ({vacancies:,} vacancies vs {retrenched:,} retrenched in {year}) — {verdict}.\n"
+    return {"retrenched": retrenched, "ratio": round(ratio, 1), "verdict": verdict}
+
+def format_hiring_pressure_display(pressure: dict | None, vacancies: int, year: str | None) -> str:
+    """Bare "N.Nx (...) — verdict." sentence from _compute_hiring_pressure's structured result
+    (no emoji label, no trailing newline) — shared by _format_hiring_pressure_line (the chat
+    tool's text line) and the /api/sg-hub/jobs REST endpoint's `pressure` field. Returns "N/A"
+    when there's no pressure reading for this sector/year."""
+    if pressure is None:
+        return "N/A"
+    if pressure["ratio"] is None:
+        return f"no recorded retrenchments in {year} for this sector — {pressure['verdict']}."
+    return (
+        f"{pressure['ratio']:.1f}x ({vacancies:,} vacancies vs {pressure['retrenched']:,} "
+        f"retrenched in {year}) — {pressure['verdict']}."
+    )
+
+def _format_hiring_pressure_line(pressure: dict | None, vacancies: int, year: str) -> str:
+    """Renders _compute_hiring_pressure's structured result as the emoji text line the chat tool
+    (query_singapore_job_statistics_via_bigquery) returns to Gemini."""
+    if pressure is None:
+        return ""
+    return f"⚖️ Hiring Pressure Index: {format_hiring_pressure_display(pressure, vacancies, year)}\n"
 
 _CAGR_DIVERGENCE_THRESHOLD_PTS = 3.0  # pp gap between this year's YoY and the multi-year CAGR before flagging accel/decel
 
-def _build_cagr_trend_line(multi_year_totals: dict, years_asc: list, trend_pct: float) -> str:
+def _compute_cagr_trend(multi_year_totals: dict, years_asc: list, trend_pct: float) -> dict | None:
     """Compares this year's YoY % against the CAGR across the full fetched window — a single
     YoY delta can look strong (or weak) off one noisy year, when the multi-year baseline tells
     a different story (e.g. "+9.6% YoY" sitting on top of a 15%/yr multi-year trend is actually
-    a deceleration, not the isolated number suggests)."""
+    a deceleration, not the isolated number suggests). Returns None with too little history
+    (fewer than 3 years) to distinguish a multi-year baseline from the YoY figure itself."""
     if len(years_asc) < 3:
-        return ""  # too little history to distinguish a multi-year baseline from the YoY figure itself
+        return None
     oldest_year, newest_year = years_asc[0], years_asc[-1]
     oldest_total, newest_total = multi_year_totals.get(oldest_year), multi_year_totals.get(newest_year)
     n_periods = int(newest_year) - int(oldest_year)
     if not oldest_total or n_periods <= 0:
-        return ""
+        return None
     cagr_pct = ((newest_total / oldest_total) ** (1 / n_periods) - 1) * 100
     diff = trend_pct - cagr_pct
     if diff <= -_CAGR_DIVERGENCE_THRESHOLD_PTS:
@@ -194,25 +217,46 @@ def _build_cagr_trend_line(multi_year_totals: dict, years_asc: list, trend_pct: 
         verdict = "accelerating vs. its own multi-year trend"
     else:
         verdict = "tracking its own multi-year trend"
+    return {"cagr_pct": round(cagr_pct, 1), "oldest_year": oldest_year, "newest_year": newest_year, "verdict": verdict}
+
+def format_cagr_trend_display(cagr: dict | None, trend_pct: float) -> str:
+    """Bare "X.X%/yr CAGR (...) — verdict." sentence from _compute_cagr_trend's structured
+    result (no emoji label, no trailing newline) — shared by _format_cagr_trend_line (the chat
+    tool's text line) and the /api/sg-hub/jobs REST endpoint's `cagr_trend` field. Returns "N/A"
+    when there's too little multi-year history."""
+    if cagr is None:
+        return "N/A"
     return (
-        f"🧭 Multi-Year Trend: {cagr_pct:+.1f}%/yr CAGR ({oldest_year}→{newest_year}) vs. "
-        f"{trend_pct:+.1f}% this year — {verdict}.\n"
+        f"{cagr['cagr_pct']:+.1f}%/yr CAGR ({cagr['oldest_year']}→{cagr['newest_year']}) vs. "
+        f"{trend_pct:+.1f}% this year — {cagr['verdict']}."
     )
 
-def query_singapore_job_statistics_via_bigquery(context_query: str = "general") -> str:
-    """Tool: Queries Singapore's real public job vacancy statistics (MOM, via data.gov.sg) with a YoY trend, next-year forecast, a Hiring Pressure Index (vacancies vs. same-year retrenchments in the same industries), and a multi-year CAGR trend-break check (flags whether this year's YoY change is accelerating or decelerating vs. the sector's own multi-year growth rate).
+def _format_cagr_trend_line(cagr: dict | None, trend_pct: float) -> str:
+    """Renders _compute_cagr_trend's structured result as the emoji text line the chat tool
+    (query_singapore_job_statistics_via_bigquery) returns to Gemini."""
+    if cagr is None:
+        return ""
+    return f"🧭 Multi-Year Trend: {format_cagr_trend_display(cagr, trend_pct)}\n"
 
-    Args:
-        context_query: The target job sector, industry, or role to query (e.g., 'tech', 'finance', 'healthcare'). Defaults to 'general'.
-    """
-    import time
-
+def resolve_job_sector(context_query: str) -> str:
+    """Maps a free-text query to one of the four dashboard sectors (tech/finance/healthcare),
+    defaulting to 'general' — shared by the chat tool and the /api/sg-hub/jobs REST endpoint so
+    both route the same query string to the same sector."""
     q_lower = context_query.lower()
-    matched_sector = "general"
     for sector in ["tech", "finance", "healthcare"]:
         if sector in q_lower:
-            matched_sector = sector
-            break
+            return sector
+    return "general"
+
+def compute_job_sector_stats(matched_sector: str) -> dict:
+    """Structured job-vacancy stats for one sector: active vacancies, YoY trend, next-year
+    forecast, Hiring Pressure Index, and the multi-year CAGR trend-break check. Tries BigQuery,
+    then a direct data.gov.sg fetch, then a hardcoded last-resort snapshot (see the FALLBACK
+    DATA comment below) — `tier` in the returned dict names which one actually served the
+    request. Shared by query_singapore_job_statistics_via_bigquery (the chat/MCP tool, which
+    formats this into emoji text for Gemini) and the /api/sg-hub/jobs REST endpoint (which
+    consumes the dict directly — no text parsing)."""
+    import time
 
     global _job_sector_stats_disk_loaded
     now = time.time()
@@ -228,28 +272,27 @@ def query_singapore_job_statistics_via_bigquery(context_query: str = "general") 
 
     meta = _JOB_SECTOR_META[matched_sector]
 
-    def _build_trend(vacancies, totals, prior_year, latest_year):
+    def _trend(vacancies, totals, prior_year, latest_year):
         trend_pct = round((totals[latest_year] - totals[prior_year]) / totals[prior_year] * 100, 1) if totals[prior_year] else 0.0
         forecast_next_year = round(vacancies * (1 + trend_pct / 100))
         next_year_label = str(int(latest_year) + 1)
-        arrow = "▲" if trend_pct >= 0 else "▼"
-        line = (
-            f"{arrow} {trend_pct:+.1f}% YoY ({prior_year}→{latest_year}). "
-            f"Naive next-year forecast: ~{forecast_next_year:,} vacancies in {next_year_label}."
-        )
-        return line, trend_pct
+        return trend_pct, forecast_next_year, next_year_label
 
     cacheable = True
-    latest_year = None  # only set on Tiers 1-2 (real data) — gates the hiring pressure / CAGR lookups below
+    tier = "fallback"
+    latest_year = prior_year = next_year_label = None  # only set on Tiers 1-2 (real data) — gates hiring pressure / CAGR / forecast below
+    forecast_next_year = None
+    fallback_period = fetch_error = None
     multi_year_totals, multi_year_years_asc = {}, []
     try:
         # Tier 1: real BigQuery table (loaded via scripts/load_job_vacancy_to_bigquery.py)
         bq = _fetch_latest_years_totals_from_bigquery(meta["industries"])
         latest_year, prior_year, totals = bq["latest_year"], bq["prior_year"], bq["totals"]
         vacancies = totals[latest_year]
-        trend_line, trend_pct = _build_trend(vacancies, totals, prior_year, latest_year)
+        trend_pct, forecast_next_year, next_year_label = _trend(vacancies, totals, prior_year, latest_year)
         multi_year_totals, multi_year_years_asc = totals, sorted(bq["years_desc"])
-        source_line = f"💡 Source: MOM Job Vacancy by Industry & Occupation, {latest_year} data — queried live from Google BigQuery (`{bq['table_ref']}`)."
+        source = f"MOM Job Vacancy by Industry & Occupation, {latest_year} data — queried live from Google BigQuery (`{bq['table_ref']}`)."
+        tier = "bigquery"
     except Exception:
         try:
             # Tier 2: direct data.gov.sg fetch (BigQuery not configured, or the query failed)
@@ -265,9 +308,10 @@ def query_singapore_job_statistics_via_bigquery(context_query: str = "general") 
             prior_year = str(int(latest_year) - 1)
             totals = _sector_vacancy_totals(rows, meta["industries"], sorted(set(years_window) | {prior_year}))
             vacancies = totals[latest_year]
-            trend_line, trend_pct = _build_trend(vacancies, totals, prior_year, latest_year)
+            trend_pct, forecast_next_year, next_year_label = _trend(vacancies, totals, prior_year, latest_year)
             multi_year_totals, multi_year_years_asc = totals, years_window
-            source_line = f"💡 Source: MOM Job Vacancy by Industry & Occupation, {latest_year} data (data.gov.sg, dataset `{_JOB_VACANCY_DATASET_ID}`)."
+            source = f"MOM Job Vacancy by Industry & Occupation, {latest_year} data (data.gov.sg, dataset `{_JOB_VACANCY_DATASET_ID}`)."
+            tier = "data_gov_sg"
         except Exception as e:
             # Tier 3: live fetch failed entirely — fall back to the last real snapshot on record.
             # FALLBACK DATA last refreshed 2025 (2024→2025 YoY) — only surfaces if BOTH the live
@@ -276,27 +320,78 @@ def query_singapore_job_statistics_via_bigquery(context_query: str = "general") 
             cacheable = False  # transient failure shouldn't stick around for the full TTL
             fallback = {"tech": (11700, -5.6), "finance": (11400, 9.6), "healthcare": (10200, -10.5), "general": (150700, 0.5)}
             vacancies, trend_pct = fallback[matched_sector]
-            arrow = "▲" if trend_pct >= 0 else "▼"
-            trend_line = f"{arrow} {trend_pct:+.1f}% YoY (2024→2025, cached snapshot — live fetch unavailable: {type(e).__name__})."
-            source_line = "💡 Source: MOM Job Vacancy by Industry & Occupation (data.gov.sg) — cached snapshot."
+            source = "MOM Job Vacancy by Industry & Occupation (data.gov.sg) — cached snapshot."
+            fallback_period = "2024→2025"
+            fetch_error = type(e).__name__
 
-    pressure_line = _build_hiring_pressure_line(vacancies, meta["industries"], latest_year) if latest_year else ""
-    cagr_line = _build_cagr_trend_line(multi_year_totals, multi_year_years_asc, trend_pct) if latest_year else ""
+    pressure = _compute_hiring_pressure(vacancies, meta["industries"], latest_year) if latest_year else None
+    cagr = _compute_cagr_trend(multi_year_totals, multi_year_years_asc, trend_pct) if latest_year else None
 
-    result = (
-        f"--- [SG EMPLOYMENT & VACANCIES ANALYTICS] ---\n"
-        f"📂 Matched Sector: {matched_sector} ({', '.join(meta['industries'])})\n"
-        f"📊 Active Vacancies: {vacancies:,} open roles\n"
-        f"📈 Market Trend: {trend_line}\n"
-        f"{cagr_line}"
-        f"{pressure_line}"
-        f"{source_line}"
-    )
+    result = {
+        "sector": matched_sector,
+        "industries": meta["industries"],
+        "vacancies": vacancies,
+        "trend_pct": trend_pct,
+        "prior_year": prior_year,
+        "latest_year": latest_year,
+        "next_year_label": next_year_label,
+        "forecast_next_year": forecast_next_year,
+        "pressure": pressure,
+        "cagr": cagr,
+        "source": source,
+        "tier": tier,
+        "fallback_period": fallback_period,
+        "fetch_error": fetch_error,
+    }
     if cacheable:
         with _job_sector_stats_lock:
             _job_sector_stats_cache[matched_sector] = {"result": result, "fetched_at": now}
             _disk_cache_save("job_sector_stats", _job_sector_stats_cache, now)
     return result
+
+def format_job_trend_line(stats: dict) -> str:
+    """Renders the YoY trend + (tier-dependent) forecast/fallback-caveat sentence from
+    compute_job_sector_stats' structured result — shared by format_job_sector_stats_text (the
+    chat tool's full text block) and the /api/sg-hub/jobs REST endpoint's `trend` field, so both
+    surfaces show the identical sentence without either re-deriving or re-parsing it."""
+    trend_pct = stats["trend_pct"]
+    arrow = "▲" if trend_pct >= 0 else "▼"
+    if stats["tier"] == "fallback":
+        return (
+            f"{arrow} {trend_pct:+.1f}% YoY ({stats['fallback_period']}, cached snapshot — "
+            f"live fetch unavailable: {stats['fetch_error']})."
+        )
+    return (
+        f"{arrow} {trend_pct:+.1f}% YoY ({stats['prior_year']}→{stats['latest_year']}). "
+        f"Naive next-year forecast: ~{stats['forecast_next_year']:,} vacancies in {stats['next_year_label']}."
+    )
+
+def format_job_sector_stats_text(stats: dict) -> str:
+    """Renders compute_job_sector_stats' structured result into the emoji-formatted text the
+    chat tool (query_singapore_job_statistics_via_bigquery) returns to Gemini."""
+    vacancies, trend_pct = stats["vacancies"], stats["trend_pct"]
+    cagr_line = _format_cagr_trend_line(stats["cagr"], trend_pct)
+    pressure_line = _format_hiring_pressure_line(stats["pressure"], vacancies, stats["latest_year"])
+
+    return (
+        f"--- [SG EMPLOYMENT & VACANCIES ANALYTICS] ---\n"
+        f"📂 Matched Sector: {stats['sector']} ({', '.join(stats['industries'])})\n"
+        f"📊 Active Vacancies: {vacancies:,} open roles\n"
+        f"📈 Market Trend: {format_job_trend_line(stats)}\n"
+        f"{cagr_line}"
+        f"{pressure_line}"
+        f"💡 Source: {stats['source']}"
+    )
+
+def query_singapore_job_statistics_via_bigquery(context_query: str = "general") -> str:
+    """Tool: Queries Singapore's real public job vacancy statistics (MOM, via data.gov.sg) with a YoY trend, next-year forecast, a Hiring Pressure Index (vacancies vs. same-year retrenchments in the same industries), and a multi-year CAGR trend-break check (flags whether this year's YoY change is accelerating or decelerating vs. the sector's own multi-year growth rate).
+
+    Args:
+        context_query: The target job sector, industry, or role to query (e.g., 'tech', 'finance', 'healthcare'). Defaults to 'general'.
+    """
+    matched_sector = resolve_job_sector(context_query)
+    stats = compute_job_sector_stats(matched_sector)
+    return format_job_sector_stats_text(stats)
 
 # ── Retrenchment ──────────────────────────────────────────────────────────────
 
@@ -391,12 +486,13 @@ def compute_job_market_history() -> dict:
 def get_retrenchment_synced_at() -> str | None:
     return _cache_synced_at(_retrenchment_cache)
 
-def query_singapore_retrenchment_advisory(context_query: str = "general") -> str:
-    """Tool: Retrieves Singapore's real quarterly retrenchment statistics (MOM, via data.gov.sg) and the top affected industries.
-
-    Args:
-        context_query: The specific retrenchment or workforce advisory question. Defaults to 'general'.
-    """
+def compute_retrenchment_stats() -> dict:
+    """Structured latest-quarter retrenchment stats: total headcount and the top-3 contributing
+    industries. Falls back to a hardcoded last-known snapshot if the live fetch fails (see the
+    FALLBACK DATA comment below) — `tier` in the returned dict names which one served the
+    request. Shared by query_singapore_retrenchment_advisory (the chat/MCP tool, which formats
+    this into emoji text for Gemini) and the /api/sg-hub/jobs REST endpoint (which consumes the
+    dict directly — no text parsing)."""
     # Singapore's three mutually-exclusive producing sectors, summed as an economy-wide total
     # (same non-overlapping rollup used for job vacancies, avoids double-counting finer industries).
     top_level_sectors = ["services", "manufacturing", "construction"]
@@ -429,23 +525,53 @@ def query_singapore_retrenchment_advisory(context_query: str = "general") -> str
             if any(words <= seen or seen <= words for seen in seen_word_sets):
                 continue
             seen_word_sets.append(words)
-            top_industries.append(name)
+            top_industries.append(name.title())
             if len(top_industries) == 3:
                 break
 
-        return (
-            f"--- [SG WORKFORCE RETRENCHMENT ADVISORY] ---\n"
-            f"⚠️ Latest Quarterly Retrenchment: {total:,} workers ({latest_quarter})\n"
-            f"📂 Primarily in: {', '.join(top_industries).title()}\n"
-            f"💡 Source: MOM Retrenched Employees by Industry, {latest_quarter} (data.gov.sg, dataset `{_RETRENCHMENT_DATASET_ID}`)."
-        )
+        return {
+            "total": total,
+            "quarter": latest_quarter,
+            "top_industries": top_industries,
+            "source": f"MOM Retrenched Employees by Industry, {latest_quarter} (data.gov.sg, dataset `{_RETRENCHMENT_DATASET_ID}`).",
+            "tier": "data_gov_sg",
+        }
     except Exception as e:
         # FALLBACK DATA last refreshed for Q4 2025 — as of 2026-07 this is already ~2 quarters
         # stale. Only surfaces if BOTH the live fetch AND disk cache fail; re-verify against a
         # fresh MOM retrenchment pull (data.gov.sg) before assuming this is still representative.
-        return (
-            f"--- [SG WORKFORCE RETRENCHMENT ADVISORY] ---\n"
-            f"⚠️ Latest Quarterly Retrenchment: 3,590 workers (Q4 2025, cached snapshot — live fetch unavailable: {type(e).__name__})\n"
-            f"📂 Primarily in: Wholesale And Retail Trade, Financial And Insurance Services, Information And Communications\n"
-            f"💡 Source: MOM Retrenched Employees by Industry (data.gov.sg) — cached snapshot."
-        )
+        return {
+            "total": 3590,
+            "quarter": "Q4 2025",
+            "top_industries": ["Wholesale And Retail Trade", "Financial And Insurance Services", "Information And Communications"],
+            "source": "MOM Retrenched Employees by Industry (data.gov.sg) — cached snapshot.",
+            "tier": "fallback",
+            "fetch_error": type(e).__name__,
+        }
+
+def format_retrenchment_headline(stats: dict) -> str:
+    """Renders the "N workers (quarter[, fallback caveat])" sentence from
+    compute_retrenchment_stats' structured result — shared by format_retrenchment_stats_text
+    (the chat tool's full text block) and the /api/sg-hub/jobs REST endpoint's
+    `retrenchment.headline` field."""
+    if stats["tier"] == "fallback":
+        return f"{stats['total']:,} workers ({stats['quarter']}, cached snapshot — live fetch unavailable: {stats['fetch_error']})"
+    return f"{stats['total']:,} workers ({stats['quarter']})"
+
+def format_retrenchment_stats_text(stats: dict) -> str:
+    """Renders compute_retrenchment_stats' structured result into the emoji-formatted text the
+    chat tool (query_singapore_retrenchment_advisory) returns to Gemini."""
+    return (
+        f"--- [SG WORKFORCE RETRENCHMENT ADVISORY] ---\n"
+        f"⚠️ Latest Quarterly Retrenchment: {format_retrenchment_headline(stats)}\n"
+        f"📂 Primarily in: {', '.join(stats['top_industries'])}\n"
+        f"💡 Source: {stats['source']}"
+    )
+
+def query_singapore_retrenchment_advisory(context_query: str = "general") -> str:
+    """Tool: Retrieves Singapore's real quarterly retrenchment statistics (MOM, via data.gov.sg) and the top affected industries.
+
+    Args:
+        context_query: The specific retrenchment or workforce advisory question. Defaults to 'general'.
+    """
+    return format_retrenchment_stats_text(compute_retrenchment_stats())

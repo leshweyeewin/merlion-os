@@ -1,6 +1,5 @@
 import os
 import sys
-import re
 import time
 import logging
 import functools
@@ -49,12 +48,18 @@ if hasattr(sys.stdout, 'reconfigure'):
 from tools import (
     _cache_get,
     _cache_set,
-    query_singapore_job_statistics_via_bigquery,
+    compute_job_sector_stats,
+    format_job_trend_line,
+    format_hiring_pressure_display,
+    format_cagr_trend_display,
     query_hdb_bto_launches_and_grants,
-    query_singapore_retrenchment_advisory,
+    compute_retrenchment_stats,
+    format_retrenchment_headline,
     get_retrenchment_synced_at,
     compute_job_market_history,
-    query_coe_bidding_results,
+    compute_coe_bidding_stats,
+    format_coe_momentum_display,
+    format_coe_exercise_display,
     get_coe_synced_at,
     compute_coe_premium_history,
     compute_hdb_resale_stats,
@@ -299,66 +304,46 @@ async def get_sg_hub_jobs(sector: str = "all"):
     # slowest fetch instead of the sum of all six.
     import asyncio
     results = await asyncio.gather(
-        *(anyio.to_thread.run_sync(query_singapore_job_statistics_via_bigquery, s) for s in sectors_to_query),
-        anyio.to_thread.run_sync(query_singapore_retrenchment_advisory),
+        *(anyio.to_thread.run_sync(compute_job_sector_stats, s) for s in sectors_to_query),
+        anyio.to_thread.run_sync(compute_retrenchment_stats),
         anyio.to_thread.run_sync(compute_job_market_history),
     )
     sector_stats = dict(zip(sectors_to_query, results[:len(sectors_to_query)]))
-    raw_retrenchment, history = results[-2], results[-1]
+    retrenchment_stats, history = results[-2], results[-1]
 
+    # These endpoints used to hand callers a Gemini-formatted text block and re-parse it back
+    # into JSON with fragile line-splits (a wording tweak in tools/jobs.py would silently break
+    # the dashboard). compute_job_sector_stats/compute_retrenchment_stats now return structured
+    # dicts directly — the fields below are built straight from them, no parsing involved.
     job_sectors = {}
     for s in sectors_to_query:
-        raw_stats = sector_stats[s]
-
-        lines = raw_stats.split("\n")
-        vacancies = "N/A"
-        trend = "N/A"
-        pressure = "N/A"
-        cagr_trend = "N/A"
-        source = "N/A"
-        for line in lines:
-            if "Active Vacancies:" in line:
-                vacancies = line.split("Active Vacancies:")[1].strip()
-            elif "Market Trend:" in line:
-                trend = line.split("Market Trend:")[1].strip()
-            elif "Hiring Pressure Index:" in line:
-                pressure = line.split("Hiring Pressure Index:")[1].strip()
-            elif "Multi-Year Trend:" in line:
-                cagr_trend = line.split("Multi-Year Trend:")[1].strip()
-            elif "Source:" in line:
-                source = line.split("Source:")[1].strip()
+        stats = sector_stats[s]
+        source = stats["source"]
 
         # Log which tier actually served this — don't assume, reflect the real source string.
-        if "BigQuery" in source:
+        if stats["tier"] == "bigquery":
             print(f"  \033[32m✦ [BigQuery]\033[0m `{s}`: {source}")
-        elif "cached snapshot" in source:
+        elif stats["tier"] == "fallback":
             print(f"  \033[31m✦ [FALLBACK: cached snapshot]\033[0m `{s}`: {source}")
         else:
             print(f"  \033[33m✦ [data.gov.sg direct]\033[0m `{s}`: {source}")
 
-        trend_pct_match = re.search(r"([+-]\d+\.?\d*)%", trend)
-        trend_pct = trend_pct_match.group(1) + "%" if trend_pct_match else "N/A"
-
         job_sectors[s] = {
-            "vacancies": vacancies,
-            "trend": trend,
-            "trend_pct": trend_pct,
-            "pressure": pressure,
-            "cagr_trend": cagr_trend,
-            "source": source
+            "vacancies": f"{stats['vacancies']:,} open roles",
+            "trend": format_job_trend_line(stats),
+            "trend_pct": f"{stats['trend_pct']:+.1f}%",
+            "pressure": format_hiring_pressure_display(stats["pressure"], stats["vacancies"], stats["latest_year"]),
+            "cagr_trend": format_cagr_trend_display(stats["cagr"], stats["trend_pct"]),
+            "source": source,
         }
     print("\033[33m[Job Market] Fetch complete.\033[0m")
 
-    retrenchment_lines = raw_retrenchment.split("\n")
-    retrenchment = {"headline": "N/A", "industries": "N/A", "source": ""}
-    for line in retrenchment_lines:
-        if "Latest Quarterly Retrenchment:" in line:
-            retrenchment["headline"] = line.split("Latest Quarterly Retrenchment:")[1].strip()
-        elif "Primarily in:" in line:
-            retrenchment["industries"] = line.split("Primarily in:")[1].strip()
-        elif "Source:" in line:
-            retrenchment["source"] = line.split("Source:")[1].strip()
-    retrenchment["synced_at"] = get_retrenchment_synced_at()
+    retrenchment = {
+        "headline": format_retrenchment_headline(retrenchment_stats),
+        "industries": ", ".join(retrenchment_stats["top_industries"]),
+        "source": retrenchment_stats["source"],
+        "synced_at": get_retrenchment_synced_at(),
+    }
     print("\033[33m[data.gov.sg] Retrenchment fetch complete.\033[0m")
 
     return {"jobs": job_sectors, "retrenchment": retrenchment, "history": history}
@@ -398,7 +383,7 @@ async def get_sg_hub_transit(lat: float | None = None, lon: float | None = None)
 
     train_alerts = None
     taxi_availability = None
-    coe_raw = None
+    coe_stats = None
     ica_news = None
 
     async def fetch_datamall_alerts():
@@ -411,9 +396,9 @@ async def get_sg_hub_transit(lat: float | None = None, lon: float | None = None)
         taxi_availability = await anyio.to_thread.run_sync(fetch_lta_taxi_availability, lat, lon)
 
     async def fetch_coe():
-        nonlocal coe_raw
+        nonlocal coe_stats
         print("  \033[90m[data.gov.sg] Fetching latest COE bidding results...\033[0m")
-        coe_raw = await anyio.to_thread.run_sync(query_coe_bidding_results)
+        coe_stats = await anyio.to_thread.run_sync(compute_coe_bidding_stats)
 
     async def fetch_ica_news():
         nonlocal ica_news
@@ -426,28 +411,25 @@ async def get_sg_hub_transit(lat: float | None = None, lon: float | None = None)
         tg.start_soon(fetch_coe)
         tg.start_soon(fetch_ica_news)
 
+    # compute_coe_bidding_stats returns a structured dict directly — no more re-parsing a
+    # Gemini-formatted text block with fragile line-splits (a wording tweak in
+    # tools/transport.py used to be able to silently break this dashboard field).
     coe = {"exercise": "N/A", "categories": [], "source": ""}
-    if coe_raw:
-        coe_lines = coe_raw.split("\n")
-        for line in coe_lines:
-            if "Latest Exercise:" in line:
-                coe["exercise"] = line.split("Latest Exercise:")[1].strip()
-            elif line.startswith("Category ") and "Premium:" in line:
-                cat_letter = line.split(" ", 2)[1]
-                premium_and_label = line.split("Premium:")[1].strip()
-                premium = premium_and_label.split(" (")[0].strip()
-                label = premium_and_label.split(" (")[1].rstrip(")") if " (" in premium_and_label else ""
-                coe["categories"].append({"category": cat_letter, "premium": premium, "label": label, "momentum": None})
-            elif line.startswith("Category ") and "Momentum:" in line:
-                cat_letter = line.split(" ", 2)[1]
-                momentum = line.split("Momentum:")[1].strip()
-                for entry in coe["categories"]:
-                    if entry["category"] == cat_letter:
-                        entry["momentum"] = momentum
-                        break
-            elif "Source:" in line:
-                coe["source"] = line.split("Source:")[1].strip()
-        coe["synced_at"] = get_coe_synced_at()
+    if coe_stats:
+        coe = {
+            "exercise": format_coe_exercise_display(coe_stats),
+            "categories": [
+                {
+                    "category": c["category"],
+                    "premium": f"S${c['premium']:,}",
+                    "label": c["label"],
+                    "momentum": format_coe_momentum_display(c["momentum"]),
+                }
+                for c in coe_stats["categories"]
+            ],
+            "source": coe_stats["source"],
+            "synced_at": get_coe_synced_at(),
+        }
 
     # Derived from the rows the COE fetch above just cached — degrades to None, never the pane.
     coe_history = None

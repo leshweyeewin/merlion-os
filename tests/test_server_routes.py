@@ -137,21 +137,35 @@ def test_sg_hub_hdb(client, monkeypatch):
     assert body["resale_history"] == [{"month": "2026-06", "median": 550000}]
 
 
-def test_sg_hub_jobs_parses_tool_output(client, monkeypatch):
-    fake_stats = (
-        "📊 Active Vacancies: 12,345 open roles\n"
-        "📈 Market Trend: +5.2% YoY\n"
-        "⚖️ Hiring Pressure Index: 1.8x (12,345 vacancies vs 6,800 retrenched in 2025) — tight.\n"
-        "🧭 Multi-Year Trend: +3.1%/yr CAGR (2021→2025) vs. this year's +5.2%\n"
-        "💡 Source: MOM via BigQuery (partitioned).\n"
-    )
-    fake_retrenchment = (
-        "⚠️ Latest Quarterly Retrenchment: 3,590 workers (Q4 2025)\n"
-        "📂 Primarily in: Wholesale And Retail Trade, Financial Services\n"
-        "💡 Source: MOM Retrenched Employees by Industry (data.gov.sg).\n"
-    )
-    monkeypatch.setattr(server, "query_singapore_job_statistics_via_bigquery", lambda sector: fake_stats)
-    monkeypatch.setattr(server, "query_singapore_retrenchment_advisory", lambda: fake_retrenchment)
+def test_sg_hub_jobs_builds_dashboard_fields_from_structured_stats(client, monkeypatch):
+    """/api/sg-hub/jobs used to re-parse a Gemini-formatted text block with line-splits; it now
+    builds its response straight from compute_job_sector_stats/compute_retrenchment_stats'
+    structured dicts. Mocks those dicts directly rather than the old text tool functions."""
+    fake_job_stats = {
+        "sector": "tech",
+        "industries": ["information and communications"],
+        "vacancies": 12345,
+        "trend_pct": 5.2,
+        "prior_year": "2024",
+        "latest_year": "2025",
+        "next_year_label": "2026",
+        "forecast_next_year": 12987,
+        "pressure": {"retrenched": 6800, "ratio": 1.8, "verdict": "tight"},
+        "cagr": {"cagr_pct": 3.1, "oldest_year": "2021", "newest_year": "2025", "verdict": "tracking its own multi-year trend"},
+        "source": "MOM via BigQuery (partitioned).",
+        "tier": "bigquery",
+        "fallback_period": None,
+        "fetch_error": None,
+    }
+    fake_retrenchment_stats = {
+        "total": 3590,
+        "quarter": "Q4 2025",
+        "top_industries": ["Wholesale And Retail Trade", "Financial Services"],
+        "source": "MOM Retrenched Employees by Industry (data.gov.sg).",
+        "tier": "data_gov_sg",
+    }
+    monkeypatch.setattr(server, "compute_job_sector_stats", lambda sector: fake_job_stats)
+    monkeypatch.setattr(server, "compute_retrenchment_stats", lambda: fake_retrenchment_stats)
     monkeypatch.setattr(server, "compute_job_market_history", lambda: [{"year": 2025, "vacancies": 12345}])
     monkeypatch.setattr(server, "get_retrenchment_synced_at", lambda: "21 Jul 2026")
 
@@ -161,9 +175,50 @@ def test_sg_hub_jobs_parses_tool_output(client, monkeypatch):
     tech = body["jobs"]["tech"]
     assert tech["vacancies"] == "12,345 open roles"
     assert tech["trend_pct"] == "+5.2%"
+    assert "2024→2025" in tech["trend"]
+    assert "1.8x" in tech["pressure"]
+    assert "3.1%/yr CAGR" in tech["cagr_trend"]
     assert "BigQuery" in tech["source"]
     assert body["retrenchment"]["headline"] == "3,590 workers (Q4 2025)"
+    assert body["retrenchment"]["industries"] == "Wholesale And Retail Trade, Financial Services"
     assert body["retrenchment"]["synced_at"] == "21 Jul 2026"
+
+
+def test_sg_hub_jobs_fallback_tier_shows_caveat(client, monkeypatch):
+    """The `trend` and `pressure`/`cagr_trend` fields must reflect a degraded (fallback-tier)
+    read distinctly from a real one — pressure/cagr are None (no multi-year data available in
+    the hardcoded snapshot), and trend must carry the live-fetch-failed caveat."""
+    fallback_stats = {
+        "sector": "general",
+        "industries": ["services", "manufacturing", "construction"],
+        "vacancies": 150700,
+        "trend_pct": 0.5,
+        "prior_year": None,
+        "latest_year": None,
+        "next_year_label": None,
+        "forecast_next_year": None,
+        "pressure": None,
+        "cagr": None,
+        "source": "MOM Job Vacancy by Industry & Occupation (data.gov.sg) — cached snapshot.",
+        "tier": "fallback",
+        "fallback_period": "2024→2025",
+        "fetch_error": "ConnectionError",
+    }
+    monkeypatch.setattr(server, "compute_job_sector_stats", lambda sector: fallback_stats)
+    monkeypatch.setattr(
+        server, "compute_retrenchment_stats",
+        lambda: {"total": 1, "quarter": "Q1 2026", "top_industries": [], "source": "x", "tier": "data_gov_sg"}
+    )
+    monkeypatch.setattr(server, "compute_job_market_history", lambda: {})
+    monkeypatch.setattr(server, "get_retrenchment_synced_at", lambda: None)
+
+    resp = client.get("/api/sg-hub/jobs?sector=general")
+    assert resp.status_code == 200
+    general = resp.json()["jobs"]["general"]
+    assert general["pressure"] == "N/A"
+    assert general["cagr_trend"] == "N/A"
+    assert "cached snapshot" in general["trend"]
+    assert "ConnectionError" in general["trend"]
 
 
 def test_sg_hub_wages(client, monkeypatch):
@@ -195,16 +250,26 @@ def test_sg_hub_taxi_nearby_502_when_unavailable(client, monkeypatch):
     assert resp.json()["detail"] == "Taxi availability could not be retrieved."
 
 
-def test_sg_hub_transit_parses_coe(client, monkeypatch):
-    fake_coe_raw = (
-        "🚗 Latest Exercise: 2026-07 Round 1\n"
-        "Category A Premium: S$129,000 (Cars ≤1,600cc & ≤97kW)\n"
-        "Category A Momentum: +2.10x bids/quota — high demand.\n"
-        "💡 Source: COE Bidding Results (data.gov.sg).\n"
-    )
+def test_sg_hub_transit_builds_coe_fields_from_structured_stats(client, monkeypatch):
+    """/api/sg-hub/transit used to re-parse a Gemini-formatted COE text block with fragile
+    line-splits; it now builds its response straight from compute_coe_bidding_stats' structured
+    dict. Mocks that dict directly rather than the old text tool function."""
+    fake_coe_stats = {
+        "exercise": "2026-07 Round 1",
+        "categories": [
+            {
+                "category": "A",
+                "label": "Cars ≤1,600cc & ≤97kW",
+                "premium": 129000,
+                "momentum": {"oversubscription": 2.10, "verdict": "high demand", "pct_change": None},
+            },
+        ],
+        "source": "COE Bidding Results (data.gov.sg).",
+        "tier": "data_gov_sg",
+    }
     monkeypatch.setattr(server, "fetch_lta_train_alerts", lambda: {"status": "normal"})
     monkeypatch.setattr(server, "fetch_lta_taxi_availability", lambda lat, lon: {"nearby_count": 0})
-    monkeypatch.setattr(server, "query_coe_bidding_results", lambda: fake_coe_raw)
+    monkeypatch.setattr(server, "compute_coe_bidding_stats", lambda: fake_coe_stats)
     monkeypatch.setattr(server, "fetch_ica_media_releases", lambda: [])
     monkeypatch.setattr(server, "compute_coe_premium_history", lambda: [{"round": "2026-07/1"}])
     monkeypatch.setattr(server, "get_coe_synced_at", lambda: "21 Jul 2026")
@@ -215,7 +280,32 @@ def test_sg_hub_transit_parses_coe(client, monkeypatch):
     assert body["coe"]["exercise"] == "2026-07 Round 1"
     assert body["coe"]["categories"][0]["category"] == "A"
     assert body["coe"]["categories"][0]["premium"] == "S$129,000"
-    assert body["coe"]["categories"][0]["momentum"] == "+2.10x bids/quota — high demand."
+    assert body["coe"]["categories"][0]["momentum"] == "2.10x bids/quota — high demand."
+
+
+def test_sg_hub_transit_coe_fallback_tier_shows_caveat(client, monkeypatch):
+    fake_coe_stats = {
+        "exercise": "2026-07 Round 1",
+        "categories": [
+            {"category": "A", "label": "Cars ≤1,600cc & ≤97kW", "premium": 129000, "momentum": None},
+        ],
+        "source": "COE Bidding Results / Prices (data.gov.sg) — cached snapshot.",
+        "tier": "fallback",
+        "fetch_error": "ConnectionError",
+    }
+    monkeypatch.setattr(server, "fetch_lta_train_alerts", lambda: {"status": "normal"})
+    monkeypatch.setattr(server, "fetch_lta_taxi_availability", lambda lat, lon: {"nearby_count": 0})
+    monkeypatch.setattr(server, "compute_coe_bidding_stats", lambda: fake_coe_stats)
+    monkeypatch.setattr(server, "fetch_ica_media_releases", lambda: [])
+    monkeypatch.setattr(server, "compute_coe_premium_history", lambda: [])
+    monkeypatch.setattr(server, "get_coe_synced_at", lambda: "21 Jul 2026")
+
+    resp = client.get("/api/sg-hub/transit")
+    assert resp.status_code == 200
+    coe = resp.json()["coe"]
+    assert "cached snapshot" in coe["exercise"]
+    assert "ConnectionError" in coe["exercise"]
+    assert coe["categories"][0]["momentum"] is None
 
 
 def test_sg_hub_gov_updates(client, monkeypatch):

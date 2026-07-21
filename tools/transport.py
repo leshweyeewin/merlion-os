@@ -120,20 +120,19 @@ def compute_coe_premium_history(max_exercises: int | None = 48) -> dict:
         "source": f"COE Bidding Results / Prices (data.gov.sg, dataset `{_COE_DATASET_ID}`).",
     }
 
-def _build_coe_momentum_line(cat: str, latest_row: dict, prior_row: dict | None) -> str:
+def _compute_coe_momentum(latest_row: dict, prior_row: dict | None) -> dict | None:
     """Round-over-round premium change plus a bids-to-quota oversubscription ratio — the premium
     alone can't tell a category that's heating up (rising bids per available COE, likely to keep
-    climbing) from one that just drifted for a round. Returns "" if quota/bids fields are missing
-    or unparseable (degrades independently — never blocks the premium line itself)."""
-    letter = cat[-1]
+    climbing) from one that just drifted for a round. Returns None if quota/bids fields are
+    missing or unparseable (degrades independently — never blocks the premium figure itself)."""
     try:
         quota = int(latest_row["quota"])
         bids_received = int(latest_row["bids_received"])
     except (KeyError, TypeError, ValueError):
-        return ""
+        return None
     if quota <= 0:
-        return ""
-    oversubscription = bids_received / quota
+        return None
+    oversubscription = round(bids_received / quota, 2)
     if oversubscription >= 1.5:
         demand_verdict = "fierce bidding"
     elif oversubscription >= 1.2:
@@ -143,26 +142,53 @@ def _build_coe_momentum_line(cat: str, latest_row: dict, prior_row: dict | None)
     else:
         demand_verdict = "quota undersubscribed — soft demand"
 
-    change_part = ""
+    pct_change = None
     if prior_row:
         try:
             prior_premium = int(str(prior_row["premium"]).replace(",", ""))
             latest_premium = int(str(latest_row["premium"]).replace(",", ""))
             if prior_premium:
-                pct = round((latest_premium - prior_premium) / prior_premium * 100, 1)
-                arrow = "▲" if pct >= 0 else "▼"
-                change_part = f"{arrow} {pct:+.1f}% vs last round; "
+                pct_change = round((latest_premium - prior_premium) / prior_premium * 100, 1)
         except (KeyError, TypeError, ValueError):
             pass
 
-    return f"Category {letter} Momentum: {change_part}{oversubscription:.2f}x bids/quota — {demand_verdict}."
+    return {"oversubscription": oversubscription, "verdict": demand_verdict, "pct_change": pct_change}
 
-def query_coe_bidding_results(context_query: str = "general") -> str:
-    """Tool: Retrieves Singapore's latest COE (Certificate of Entitlement) bidding results and premiums by vehicle category, plus a demand-momentum read per category (round-over-round premium change and bids-to-quota oversubscription ratio).
+def format_coe_momentum_display(momentum: dict | None) -> str | None:
+    """Bare "[±X.X% vs last round; ]N.NNx bids/quota — verdict." sentence from
+    _compute_coe_momentum's structured result (no "Category X Momentum:" label) — shared by
+    _format_coe_momentum_line (the chat tool's text line) and the /api/sg-hub/transit REST
+    endpoint's `momentum` field. Returns None when there's no momentum reading for this category."""
+    if momentum is None:
+        return None
+    change_part = ""
+    if momentum["pct_change"] is not None:
+        arrow = "▲" if momentum["pct_change"] >= 0 else "▼"
+        change_part = f"{arrow} {momentum['pct_change']:+.1f}% vs last round; "
+    return f"{change_part}{momentum['oversubscription']:.2f}x bids/quota — {momentum['verdict']}."
 
-    Args:
-        context_query: The specific COE category or bidding-round question. Defaults to 'general'.
-    """
+def _format_coe_momentum_line(letter: str, momentum: dict | None) -> str:
+    """Renders _compute_coe_momentum's structured result as the text line the chat tool
+    (query_coe_bidding_results) returns to Gemini."""
+    display = format_coe_momentum_display(momentum)
+    return f"Category {letter} Momentum: {display}" if display else ""
+
+def format_coe_exercise_display(stats: dict) -> str:
+    """Renders the "month Round N[, cached-snapshot caveat]" sentence from
+    compute_coe_bidding_stats' structured result — shared by format_coe_bidding_stats_text (the
+    chat tool's full text block) and the /api/sg-hub/transit REST endpoint's `coe.exercise`
+    field."""
+    if stats["tier"] == "fallback":
+        return f"{stats['exercise']} (cached snapshot — live fetch unavailable: {stats['fetch_error']})"
+    return stats["exercise"]
+
+def compute_coe_bidding_stats() -> dict:
+    """Structured latest-exercise COE bidding results: premium + demand-momentum per category.
+    Falls back to a hardcoded last-known snapshot if the live fetch fails (see the FALLBACK
+    DATA comment below) — `tier` in the returned dict names which one served the request.
+    Shared by query_coe_bidding_results (the chat/MCP tool, which formats this into text for
+    Gemini) and the /api/sg-hub/transit REST endpoint (which consumes the dict directly — no
+    text parsing)."""
     try:
         rows = _fetch_coe_rows()
         exercise_keys = sorted({(r["month"], int(r["bidding_no"])) for r in rows})
@@ -183,39 +209,68 @@ def query_coe_bidding_results(context_query: str = "general") -> str:
                 if r["month"] == prior_month and int(r["bidding_no"]) == prior_round
             }
 
-        category_lines = []
-        momentum_lines = []
+        categories = []
         for cat, label in _COE_CATEGORY_LABELS.items():
             row = latest_rows.get(cat)
             if not row:
                 continue
             premium = int(row["premium"].replace(",", ""))
-            category_lines.append(f"Category {cat[-1]} Premium: S${premium:,} ({label})")
-            momentum_line = _build_coe_momentum_line(cat, row, prior_rows.get(cat))
-            if momentum_line:
-                momentum_lines.append(momentum_line)
+            categories.append({
+                "category": cat[-1],
+                "label": label,
+                "premium": premium,
+                "momentum": _compute_coe_momentum(row, prior_rows.get(cat)),
+            })
 
-        return (
-            f"--- [SG COE BIDDING RESULTS] ---\n"
-            f"\U0001F697 Latest Exercise: {latest_month} Round {latest_round}\n"
-            + "\n".join(category_lines) + "\n"
-            + ("\n".join(momentum_lines) + "\n" if momentum_lines else "")
-            + f"\U0001F4A1 Source: COE Bidding Results / Prices, {latest_month} Round {latest_round} (data.gov.sg, dataset `{_COE_DATASET_ID}`)."
-        )
+        return {
+            "exercise": f"{latest_month} Round {latest_round}",
+            "categories": categories,
+            "source": f"COE Bidding Results / Prices, {latest_month} Round {latest_round} (data.gov.sg, dataset `{_COE_DATASET_ID}`).",
+            "tier": "data_gov_sg",
+        }
     except Exception as e:
         # FALLBACK DATA last refreshed for 2026-07 Round 1 — only surfaces if the live
         # data.gov.sg fetch fails. Re-verify premiums below against a fresh pull periodically,
         # since a new bidding round happens roughly every two weeks.
-        return (
-            f"--- [SG COE BIDDING RESULTS] ---\n"
-            f"\U0001F697 Latest Exercise: 2026-07 Round 1 (cached snapshot — live fetch unavailable: {type(e).__name__})\n"
-            f"Category A Premium: S$129,000 (Cars ≤1,600cc & ≤97kW)\n"
-            f"Category B Premium: S$130,889 (Cars >1,600cc or >97kW)\n"
-            f"Category C Premium: S$95,000 (Goods Vehicles & Buses)\n"
-            f"Category D Premium: S$10,201 (Motorcycles)\n"
-            f"Category E Premium: S$129,801 (Open Category)\n"
-            f"\U0001F4A1 Source: COE Bidding Results / Prices (data.gov.sg) — cached snapshot."
-        )
+        return {
+            "exercise": "2026-07 Round 1",
+            "categories": [
+                {"category": "A", "label": "Cars ≤1,600cc & ≤97kW", "premium": 129000, "momentum": None},
+                {"category": "B", "label": "Cars >1,600cc or >97kW", "premium": 130889, "momentum": None},
+                {"category": "C", "label": "Goods Vehicles & Buses", "premium": 95000, "momentum": None},
+                {"category": "D", "label": "Motorcycles", "premium": 10201, "momentum": None},
+                {"category": "E", "label": "Open Category", "premium": 129801, "momentum": None},
+            ],
+            "source": "COE Bidding Results / Prices (data.gov.sg) — cached snapshot.",
+            "tier": "fallback",
+            "fetch_error": type(e).__name__,
+        }
+
+def format_coe_bidding_stats_text(stats: dict) -> str:
+    """Renders compute_coe_bidding_stats' structured result into the text the chat tool
+    (query_coe_bidding_results) returns to Gemini."""
+    category_lines = [f"Category {c['category']} Premium: S${c['premium']:,} ({c['label']})" for c in stats["categories"]]
+    momentum_lines = [
+        _format_coe_momentum_line(c["category"], c["momentum"])
+        for c in stats["categories"] if c["momentum"] is not None
+    ]
+    exercise_note = format_coe_exercise_display(stats)
+
+    return (
+        f"--- [SG COE BIDDING RESULTS] ---\n"
+        f"\U0001F697 Latest Exercise: {exercise_note}\n"
+        + "\n".join(category_lines) + "\n"
+        + ("\n".join(momentum_lines) + "\n" if momentum_lines else "")
+        + f"\U0001F4A1 Source: {stats['source']}"
+    )
+
+def query_coe_bidding_results(context_query: str = "general") -> str:
+    """Tool: Retrieves Singapore's latest COE (Certificate of Entitlement) bidding results and premiums by vehicle category, plus a demand-momentum read per category (round-over-round premium change and bids-to-quota oversubscription ratio).
+
+    Args:
+        context_query: The specific COE category or bidding-round question. Defaults to 'general'.
+    """
+    return format_coe_bidding_stats_text(compute_coe_bidding_stats())
 
 # LTA DataMall — MRT line metadata for display
 MRT_LINE_META = {
