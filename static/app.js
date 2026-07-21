@@ -1349,15 +1349,15 @@ function initSgHub() {
                 const badgeBg = isIIT ? "#fee2e2" : "var(--border)";
                 const badgeColor = isIIT ? "#b91c1c" : "var(--text-main)";
 
-                timelineHtml += `<div style="background:${bg}; border:1px solid var(--border); border-left:${borderLeft}; border-radius:8px; padding:12px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-                    <div style="display:flex; flex-direction:column; gap:4px; max-width:80%;">
+                timelineHtml += `<div style="background:${bg}; border:1px solid var(--border); border-left:${borderLeft}; border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:10px;">
+                    <div style="display:flex; flex-direction:column; gap:4px;">
                         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                             <span style="font-weight:700; color:var(--text-main); font-size:13.5px;">${escapeHTML(item.date)}</span>
                             <span style="background:${badgeBg}; color:${badgeColor}; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; text-transform:uppercase; letter-spacing:0.5px;">${escapeHTML(item.category)}</span>
                         </div>
                         <span style="color:var(--text-muted); font-size:12.5px; line-height:1.4;">${escapeHTML(item.label)}</span>
                     </div>
-                    <a href="${safeURL(item.link)}" target="_blank" style="background:#ffffff; border:1px solid var(--border); padding:6px 12px; border-radius:6px; font-size:12px; color:var(--link); text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:5px;">
+                    <a href="${safeURL(item.link)}" target="_blank" style="background:#ffffff; border:1px solid var(--border); padding:6px 12px; border-radius:6px; font-size:12px; color:var(--link); text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:5px; align-self:flex-start;">
                         File Now <i class="fa-solid fa-up-right-from-square" style="font-size:10px;"></i>
                     </a>
                 </div>`;
