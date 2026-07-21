@@ -232,7 +232,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (indicator) indicator.remove();
     }
 
-    // Send query message to FastAPI backend
+    // Send query message to FastAPI backend (streaming SSE)
     async function sendMessage(text) {
         if (!text.trim()) return;
 
@@ -255,8 +255,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         appendLog("system", "agent", `User initiated query parameter matching: "${text}"`);
 
+        // Create the bot bubble early — tokens stream into it
+        let accumulated = "";
+        let botBubbleContent = null;
+
         try {
-            const response = await fetch("/api/chat", {
+            const response = await fetch("/api/chat/stream", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ message: text, history: conversationHistory })
@@ -264,69 +268,91 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (!response.ok) {
                 if (response.status === 429) {
-                    const body = await response.json().catch(() => ({}));
-                    const err = new Error(body.detail || "Rate limit reached. Please wait a minute and try again.");
-                    err.isRateLimit = true;
-                    throw err;
+                    throw Object.assign(new Error("Rate limit reached. Please wait a minute and try again."), { isRateLimit: true });
                 }
                 throw new Error(`HTTP Error Status: ${response.status}`);
             }
 
-            const data = await response.json();
-            removeTypingIndicator();
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
 
-            // Populate system operations logs
-            if (data.logs && data.logs.length > 0) {
-                data.logs.forEach(log => {
-                    let logType = "system";
-                    let tagLabel = "integration";
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
 
-                    if (log.tool === "search_singapore_government") {
-                        logType = "search";
-                        tagLabel = "search";
-                        // No user-derived values interpolated — safe plain text message
-                        appendLog(logType, tagLabel, `Executed directory lookup search for matched query`, {
-                            arguments: log.arguments,
-                            results: log.result
-                        });
-                    } else if (log.tool === "scrape_government_page") {
-                        logType = "scrape";
-                        tagLabel = "scrape";
-                        // Escape the URL (user-supplied / model-echoed) before inserting into innerHTML
-                        const safeUrl = escapeHTML(log.arguments.url || "");
-                        appendLog(logType, tagLabel, `Scraped official content matching: <code>${safeUrl}</code>`, {
-                            extracted_char_count: log.result.length,
-                            content_preview: log.result.substring(0, 300) + "..."
-                        });
-                    } else {
-                        // Escape tool name (model-controlled string) before inserting into innerHTML
-                        const safeTool = escapeHTML(log.tool || "");
-                        appendLog(logType, tagLabel, `Intercepted static database query: <code>${safeTool}</code>`, {
-                            arguments: log.arguments,
-                            result: log.result
+                buffer += decoder.decode(value, { stream: true });
+
+                // SSE lines are delimited by double newline
+                const parts = buffer.split("\n\n");
+                buffer = parts.pop(); // keep incomplete tail
+
+                for (const part of parts) {
+                    const line = part.trim();
+                    if (!line.startsWith("data:")) continue;
+
+                    let event;
+                    try {
+                        event = JSON.parse(line.slice(5).trim());
+                    } catch {
+                        continue;
+                    }
+
+                    if (event.type === "log") {
+                        // Tool execution log — render to Operations Terminal
+                        let logType = "system", tagLabel = "integration";
+                        if (event.tool === "search_singapore_government") {
+                            logType = "search"; tagLabel = "search";
+                            appendLog(logType, tagLabel, `Executed directory lookup search for matched query`, {
+                                arguments: event.arguments, results: event.result
+                            });
+                        } else if (event.tool === "scrape_government_page") {
+                            logType = "scrape"; tagLabel = "scrape";
+                            appendLog(logType, tagLabel, `Scraped official content matching: <code>${escapeHTML(event.arguments.url || "")}</code>`, {
+                                extracted_char_count: event.result.length,
+                                content_preview: event.result.substring(0, 300) + "..."
+                            });
+                        } else {
+                            appendLog(logType, tagLabel, `Intercepted static database query: <code>${escapeHTML(event.tool || "")}</code>`, {
+                                arguments: event.arguments, result: event.result
+                            });
+                        }
+
+                    } else if (event.type === "token") {
+                        // First token — remove typing indicator, create bot bubble
+                        if (!botBubbleContent) {
+                            removeTypingIndicator();
+                            const botBubble = document.createElement("div");
+                            botBubble.className = "message bot-message";
+                            botBubble.innerHTML = `
+                                <div class="message-avatar"><i class="fa-solid fa-landmark"></i></div>
+                                <div class="message-content streaming-content"></div>
+                            `;
+                            chatMessages.appendChild(botBubble);
+                            botBubbleContent = botBubble.querySelector(".streaming-content");
+                        }
+                        accumulated += event.text;
+                        // Re-render markdown on each token so formatting appears progressively
+                        botBubbleContent.innerHTML = renderMarkdown(accumulated);
+                        scrollToBottom();
+
+                    } else if (event.type === "done") {
+                        // Finalise history
+                        conversationHistory.push({ role: "user", content: text });
+                        conversationHistory.push({ role: "model", content: accumulated });
+                        appendLog("system", "success", "Response streamed and formatted successfully.");
+
+                    } else if (event.type === "error") {
+                        removeTypingIndicator();
+                        throw Object.assign(new Error(event.message || "Streaming error."), {
+                            isRateLimit: event.message && event.message.includes("rate limit")
                         });
                     }
-                });
-            } else {
-                appendLog("system", "agent", "No tool execution required. Query answered using semantic instructions.");
+                }
             }
 
-            // Render bot message response bubble
-            const botMsg = document.createElement("div");
-            botMsg.className = "message bot-message";
-            botMsg.innerHTML = `
-                <div class="message-avatar"><i class="fa-solid fa-landmark"></i></div>
-                <div class="message-content">
-                    ${renderMarkdown(data.response)}
-                </div>
-            `;
-            chatMessages.appendChild(botMsg);
-
-            appendLog("system", "success", "Response compiled and formatted successfully.");
-
-            // Update conversation history for multi-turn context
-            conversationHistory.push({ role: "user", content: text });
-            conversationHistory.push({ role: "model", content: data.response });
+            // If no tokens arrived at all (edge case), remove indicator
+            removeTypingIndicator();
 
         } catch (error) {
             removeTypingIndicator();

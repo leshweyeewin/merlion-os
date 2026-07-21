@@ -83,6 +83,7 @@ from tools.wages import (
 # ── Chat orchestration ────────────────────────────────────────────────────────
 from tools.chat import (
     run_chat_loop,
+    run_chat_stream,
     ChatMessage,
     ChatRequest,
     ToolLog,
@@ -121,6 +122,7 @@ __all__ = [
     "query_occupational_wage_insights",
     # chat
     "run_chat_loop",
+    "run_chat_stream",
     "ChatMessage",
     "ChatRequest",
     "ToolLog",

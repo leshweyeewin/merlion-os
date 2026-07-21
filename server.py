@@ -6,6 +6,7 @@ import time
 import logging
 import requests
 from fastapi import FastAPI, HTTPException, Response
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 import anyio
@@ -69,6 +70,7 @@ from tools import (
     MRT_LINE_META,
     scrape_hdb_news,
     run_chat_loop,
+    run_chat_stream,
     ChatMessage,
     ChatRequest,
     ToolLog,
@@ -147,6 +149,35 @@ async def chat_endpoint(request: ChatRequest):
             status_code=500,
             detail="An error occurred while compiling your guidance sheet. Please check the server logs."
         )
+
+@app.post("/api/chat/stream")
+async def chat_stream_endpoint(request: ChatRequest):
+    """Server-Sent Events endpoint — streams Gemini tokens as they arrive.
+
+    The client reads an EventSource (or fetch ReadableStream) and receives:
+    - ``{"type":"log", ...}`` — one event per tool call executed
+    - ``{"type":"token", "text":"..."}`` — each streamed text chunk
+    - ``{"type":"done"}`` — end of response
+    - ``{"type":"error", "message":"..."}`` — error condition
+    """
+    user_prompt = request.message
+
+    if len(user_prompt) > 2000:
+        raise HTTPException(
+            status_code=400,
+            detail="Request message exceeds the maximum allowed length of 2000 characters."
+        )
+
+    history_list = [{"role": h.role, "content": h.content} for h in request.history]
+
+    return StreamingResponse(
+        run_chat_stream(user_prompt, history_list),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # Disable Nginx buffering for SSE
+        }
+    )
 
 _weather_cache = {"data": None, "fetched_at": 0}
 _WEATHER_CACHE_TTL_SECONDS = 3 * 60  # NEA's unauthenticated real-time APIs have a tight burst rate limit

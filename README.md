@@ -119,8 +119,26 @@ GOOGLE_APPLICATION_CREDENTIALS="./service-account-key.json"
 > **PowerShell users:** To set env vars temporarily in a session use `$env:KEY = "value"`, not `KEY="value"` (that's bash syntax).
 
 ### 3. Run the Server
-Launch the FastAPI production-ready server:
+Launch the FastAPI server:
 ```bash
 python server.py
 ```
-Open **`http://127.0.0.1:8080/`** in your browser. For advanced features (BigQuery, FastMCP) and running the test suite, check out [docs/quickstart.md](docs/quickstart.md).
+Open **`http://127.0.0.1:8000/`** in your browser.
+
+> **PowerShell users:** To set env vars temporarily in a session use `$env:KEY = "value"`, not `KEY="value"` (that's bash syntax).
+
+### 4. Run the Test Suite
+```bash
+pip install -r requirements-dev.txt
+pytest tests/ -v
+```
+Expected output: all tests passing in < 2 seconds (no network I/O required).
+
+### 5. Docker (optional)
+Build and run the full stack in a container:
+```bash
+docker build -t merlion-os .
+docker run -p 8000:8000 --env-file .env merlion-os
+```
+
+For advanced features (BigQuery, FastMCP daemon) and Cloud Run deployment, see [docs/quickstart.md](docs/quickstart.md).

@@ -862,6 +862,23 @@ body {
     border: 1px solid var(--border);
 }
 
+/* Blinking cursor shown while the AI is still streaming tokens */
+.streaming-content::after {
+    content: "▋";
+    display: inline-block;
+    color: var(--primary);
+    animation: blink-cursor 0.7s step-end infinite;
+    margin-left: 2px;
+    font-size: 0.85em;
+    vertical-align: middle;
+}
+
+@keyframes blink-cursor {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+
 .message-content p {
     margin-bottom: 8px;
 }

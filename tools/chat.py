@@ -222,3 +222,130 @@ async def run_chat_loop(user_prompt: str, history: list) -> tuple[str, list]:
     except Exception as e:
         logger.exception("Exception occurred in chat_endpoint handler")
         raise
+
+
+async def run_chat_stream(user_prompt: str, history: list):
+    """Async generator version of run_chat_loop.
+
+    Yields SSE-formatted lines:
+      - ``data: {"type":"token","text":"..."}\\n\\n``  — streamed text token
+      - ``data: {"type":"log",...}\\n\\n``             — tool execution log
+      - ``data: {"type":"done"}\\n\\n``                — end-of-stream sentinel
+
+    Tool calls are resolved first (same logic as run_chat_loop), then the final
+    synthesis response is streamed token-by-token via generate_content_stream.
+    """
+    import json
+
+    system_instruction = (
+        "You are MerlionOS, the unified public sector AI coordination brain for Singapore Citizens. "
+        "Your task is to parse citizen requests and route them to the correct agency tool functions or scrape official .gov.sg web pages. "
+        "Always aggregate multiple tools if a query spans financial, civic, and lifestyle domains simultaneously. "
+        "If the information is not present in predefined tools, search the Singapore Government directory with search_singapore_government "
+        "and then scrape the resulting URL using scrape_government_page to get the answer. "
+        "Highlight concrete, actionable requirements (like deadlines, fees, or eligibility criteria) and provide the source URL links.\n\n"
+        "AUTH PORTAL SAFETY RULE:\n"
+        "Never output a clickable link or raw URL for SingPass, CorpPass, or any login/signin/authentication page, "
+        "even the genuine singpass.gov.sg domain. Instead, instruct the citizen to open their own browser and "
+        "navigate there manually (e.g. 'Open a new browser tab and go to singpass.gov.sg yourself — never follow "
+        "login links from a chat assistant'). This protects citizens from phishing habits and link-spoofing risks."
+    )
+    available_tools = list(TOOL_MAP.values())
+
+    contents = []
+    for msg in history:
+        contents.append(
+            types.Content(
+                role=msg.get("role"),
+                parts=[types.Part.from_text(text=msg.get("content"))]
+            )
+        )
+    contents.append(
+        types.Content(
+            role="user",
+            parts=[types.Part.from_text(text=user_prompt)]
+        )
+    )
+
+    try:
+        # Step 1: Initial generation (may return tool calls — not streamed yet)
+        response = await _get_client().aio.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                tools=available_tools,
+                temperature=0.1,
+                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
+            )
+        )
+
+        # Step 2: Execute any tool calls and emit log events
+        contents_for_stream = list(contents)
+        if response.function_calls:
+            tool_responses = []
+            for call in response.function_calls:
+                tool_name = call.name
+                args = call.args or {}
+                if tool_name in TOOL_MAP:
+                    try:
+                        def _exec():
+                            return call_tool_robustly(TOOL_MAP[tool_name], args)
+                        executed_text = await anyio.to_thread.run_sync(_exec)
+                    except Exception as exc:
+                        executed_text = f"Error: Failed to execute tool '{tool_name}' ({type(exc).__name__})."
+                else:
+                    executed_text = f"Error: Tool '{tool_name}' is not registered."
+
+                log_payload = json.dumps({
+                    "type": "log",
+                    "tool": tool_name,
+                    "arguments": dict(args),
+                    "result": executed_text
+                })
+                yield f"data: {log_payload}\n\n"
+
+                tool_responses.append(
+                    types.Part.from_function_response(
+                        name=tool_name,
+                        response={'result': executed_text}
+                    )
+                )
+
+            contents_for_stream.extend([
+                types.Content(role="model", parts=response.parts),
+                types.Content(role="tool", parts=tool_responses),
+            ])
+        else:
+            contents_for_stream = list(contents)
+
+        # Step 3: Stream the final synthesis token-by-token
+        async for chunk in await _get_client().aio.models.generate_content_stream(
+            model='gemini-2.5-flash',
+            contents=contents_for_stream,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                tools=available_tools,
+                temperature=0.1,
+            )
+        ):
+            if chunk.text:
+                token_payload = json.dumps({"type": "token", "text": chunk.text})
+                yield f"data: {token_payload}\n\n"
+
+        yield "data: {\"type\":\"done\"}\n\n"
+
+    except genai_errors.ClientError as e:
+        if e.code == 429:
+            error_payload = json.dumps({
+                "type": "error",
+                "message": "MerlionOS has hit the Gemini API rate limit. Please wait a moment and try again."
+            })
+            yield f"data: {error_payload}\n\n"
+        else:
+            error_payload = json.dumps({"type": "error", "message": "AI service error. Please try again."})
+            yield f"data: {error_payload}\n\n"
+    except Exception as e:
+        logger.exception("Exception in run_chat_stream")
+        error_payload = json.dumps({"type": "error", "message": "An unexpected error occurred."})
+        yield f"data: {error_payload}\n\n"
