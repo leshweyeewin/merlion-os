@@ -24,7 +24,6 @@ After running, commit the new static/logos/ assets + the rewritten index.html.
 import argparse
 import os
 import re
-import sys
 import urllib.request
 import urllib.error
 

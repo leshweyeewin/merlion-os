@@ -5,7 +5,7 @@ Ensures ChatRequest correctly parses file structures and supports multi-hop logi
 """
 import pytest
 from pydantic import ValidationError
-from tools.chat import ChatRequest, UploadedFile, ChatMessage
+from tools.chat import ChatRequest, UploadedFile
 
 
 def test_uploaded_file_valid():

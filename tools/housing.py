@@ -67,10 +67,8 @@ def _fetch_bto_launch_details() -> dict:
     """Live-scrapes the most recent HDB BTO launch press release from hdb.gov.sg's newsroom
     (same __NEXT_DATA__ technique as the HDB News scraper) for real project names, towns,
     classifications, and flat-type prices — cached since new launches are infrequent."""
-    import time
     import re as _re
     import json as _json
-    import requests
     from bs4 import BeautifulSoup
 
     now = time.time()
@@ -265,10 +263,8 @@ def query_hdb_bto_launches_and_grants(context_query: str = "general") -> str:
 
 def _fetch_hdb_resale_rows() -> list:
     """Downloads and caches the data.gov.sg HDB resale flat price dataset (CSV: month, town, flat_type, ..., resale_price)."""
-    import time
     import csv
     import io
-    import requests
 
     now = time.time()
     if _hdb_resale_cache["rows"] is not None and (now - _hdb_resale_cache["fetched_at"]) < _HDB_RESALE_CACHE_TTL_SECONDS:

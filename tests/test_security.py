@@ -6,7 +6,6 @@ and the scraper's auth-URL blocklist — the primary defences against XSS inject
 and phishing redirect attacks.
 """
 import re
-import pytest
 
 
 # ── Replicate the JS safeURL logic as a Python equivalent for server-side tests ──

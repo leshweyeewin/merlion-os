@@ -617,44 +617,6 @@ body {
     display: none;
 }
 
-.hidden-portal-chip {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 8px 10px;
-    border-radius: 6px;
-    font-size: 13px;
-    color: var(--text-main);
-}
-
-.hidden-portal-chip:hover {
-    background: var(--bg-muted);
-}
-
-.hidden-portal-chip-name {
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.add-portal-back-btn {
-    background: var(--primary);
-    color: #fff;
-    border: none;
-    padding: 4px 10px;
-    border-radius: 5px;
-    font-size: 11px;
-    font-weight: 700;
-    cursor: pointer;
-    flex-shrink: 0;
-}
-
-.add-portal-back-btn:hover {
-    opacity: 0.85;
-}
-
 .hidden-portals-empty {
     font-size: 13px;
     color: var(--text-subtle);
@@ -1433,17 +1395,11 @@ body {
 }
 
 /* ── SG Hub dashboard: mobile responsiveness ────────────────────────────────
-   Root cause of clipped headers / bars out of bound: .hub-container uses
-   minmax(320px,1fr), so cards can't shrink below 320px on a ~360px phone and
-   overflow/clip. Fix: drop the floor on mobile, wrap long H3 headers, give the
-   Co-Pilot FAB breathing room, and let the job-market + resale fixed columns
-   reflow instead of squeezing text. */
+   Root cause of clipped headers / bars out of bound: cards can't shrink below
+   the panel width on a ~360px phone and overflow/clip. Fix: wrap long H3
+   headers, give the Co-Pilot FAB breathing room, and let the job-market +
+   resale fixed columns reflow instead of squeezing text. */
 @media (max-width: 600px) {
-    .hub-container {
-        grid-template-columns: 1fr;   /* single column; cards shrink to fit */
-        gap: 14px;
-    }
-
     .hub-card {
         padding: 16px;
         /* keep long titles/values from spilling the card bound */
@@ -1562,13 +1518,6 @@ body {
     background: var(--primary-soft) !important;
     color: var(--primary) !important;
     border-color: var(--primary) !important;
-}
-
-.hub-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 20px;
-    margin-top: 10px;
 }
 
 .hub-card {

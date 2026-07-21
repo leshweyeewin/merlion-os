@@ -275,7 +275,7 @@ def fetch_weather_data() -> dict:
             "outlook_24hr": outlook_24hr
         }
         return result
-    except Exception as e:
+    except Exception:
         logger.exception("Error fetching weather data")
         raise
 

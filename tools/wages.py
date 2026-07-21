@@ -8,7 +8,6 @@ YoY increment ranking, new/discontinued titles, tech role highlighting).
 
 import re as _occ_re
 from tools.core import (
-    _data_gov_sg_headers,
     _cache_synced_at,
     _sgt_now,
     _disk_cache_load,
@@ -303,12 +302,12 @@ def query_occupational_wage_insights(context_query: str = "general") -> str:
             + "; ".join(f"{o['name']} {o['pct_change']:+.1f}% (S${o['prior_gross']:,}→S${o['gross']:,})" for o in data["top_movers"][:5])
         )
         lines.append(
-            f"\U0001F4C9 Steepest declines: "
+            "\U0001F4C9 Steepest declines: "
             + "; ".join(f"{o['name']} {o['pct_change']:+.1f}%" for o in data["bottom_movers"][:3])
         )
         top_tech = [o for o in data["tech_roles"] if o["gross"]][:5]
         lines.append(
-            f"\U0001F916 Top-paying tech/digital roles: "
+            "\U0001F916 Top-paying tech/digital roles: "
             + "; ".join(f"{o['name']} S${o['gross']:,}" for o in top_tech)
         )
         lines.append(f"\U0001F5C2 {len(data['discontinued_titles'])} titles from {prior} are no longer tracked separately.")

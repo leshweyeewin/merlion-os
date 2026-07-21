@@ -471,7 +471,6 @@ def fetch_ica_media_releases() -> list:
     Fetches the latest media releases and checkpoint advisories directly from the ICA Newsroom.
     Cached for 5 minutes.
     """
-    import os
     now = time.time()
     if (
         _ica_cache["data"] is not None
@@ -557,7 +556,6 @@ def fetch_iras_due_dates() -> list:
     """
     Scrapes the official IRAS due dates page.
     """
-    import os
     now = time.time()
     if (
         _tax_cache["data"] is not None

@@ -6,8 +6,6 @@ scrape_government_page:       BeautifulSoup scraper restricted to .gov.sg.
 call_tool_robustly:           Dynamic argument-matching helper.
 """
 
-import os
-import time
 import logging
 import requests
 from bs4 import BeautifulSoup

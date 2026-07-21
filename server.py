@@ -1,12 +1,10 @@
 import os
 import sys
 import re
-import math
 import time
 import logging
-import requests
 from collections import defaultdict, deque
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -69,11 +67,9 @@ from tools import (
     COMMUNITY_CHANNELS,
     scrape_one_telegram_channel,
     scrape_one_telegram_channel_24h,
-    MRT_LINE_META,
     scrape_hdb_news,
     run_chat_loop,
     run_chat_stream,
-    ChatMessage,
     ChatRequest,
     ToolLog,
     ChatResponse

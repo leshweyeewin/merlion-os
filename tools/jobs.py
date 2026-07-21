@@ -10,7 +10,6 @@ import threading as _threading
 from tools.core import (
     _data_gov_sg_headers,
     _cache_synced_at,
-    _annual_dataset_is_stale,
     _disk_cache_load,
     _disk_cache_save,
 )
