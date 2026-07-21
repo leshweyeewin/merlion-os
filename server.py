@@ -528,26 +528,6 @@ async def get_sg_hub_community():
         logger.exception("Error loading Community events data")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/sg-hub")
-async def get_sg_hub_data():
-    # Backward compatibility redirect
-    try:
-        weather = await get_sg_hub_weather()
-        hdb = await get_sg_hub_hdb()
-        jobs = await get_sg_hub_jobs()
-        gov = await get_sg_hub_gov_transit()
-        comm = await get_sg_hub_community()
-        return {
-            "environment": weather["environment"],
-            "jobs": jobs["jobs"],
-            "gov_events": gov["gov_events"],
-            "community_events": comm["community_events"],
-            "hdb": hdb["hdb"],
-            "hdb_news": hdb["hdb_news"]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 # Mount static folder (create if not exists)
 os.makedirs("static", exist_ok=True)
 
