@@ -5,10 +5,12 @@ import math
 import time
 import logging
 import requests
-from fastapi import FastAPI, HTTPException, Response
-from fastapi.responses import StreamingResponse
+from collections import defaultdict, deque
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 import anyio
 
 # Set up logging format
@@ -119,6 +121,36 @@ app = FastAPI(title="MerlionOS Portal API", lifespan=lifespan)
 # Compress every response over 1KB — the SG Hub JSON payloads (Occupational Wages ~130KB,
 # app.js ~100KB) shrink ~5-6x, which matters most on Render's free tier and mobile networks.
 app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+_RATE_LIMITED_PATHS = {"/api/chat", "/api/chat/stream"}
+_RATE_LIMIT_MAX_REQUESTS = 8
+_RATE_LIMIT_WINDOW_SECONDS = 60
+_rate_limit_hits: dict[str, deque] = defaultdict(deque)
+
+class ChatRateLimitMiddleware(BaseHTTPMiddleware):
+    """Caps Gemini-backed chat requests per client IP so a single abusive client (or a
+    runaway script hitting the public demo link) can't drain the shared Gemini free-tier
+    quota for everyone else. Only /api/chat* is limited — dashboard reads are unaffected.
+    In-memory and per-process, which is fine for MerlionOS's single Cloud Run instance."""
+
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path in _RATE_LIMITED_PATHS:
+            client_ip = request.client.host if request.client else "unknown"
+            now = time.time()
+            hits = _rate_limit_hits[client_ip]
+            while hits and now - hits[0] > _RATE_LIMIT_WINDOW_SECONDS:
+                hits.popleft()
+            if len(hits) >= _RATE_LIMIT_MAX_REQUESTS:
+                retry_after = int(_RATE_LIMIT_WINDOW_SECONDS - (now - hits[0])) + 1
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": f"Too many chat requests. Please wait {retry_after}s and try again."},
+                    headers={"Retry-After": str(retry_after)},
+                )
+            hits.append(now)
+        return await call_next(request)
+
+app.add_middleware(ChatRateLimitMiddleware)
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
