@@ -2621,7 +2621,7 @@ function initSgHub() {
         return `
             <div style="display:flex; align-items:center; gap:10px; padding: 7px 0; border-bottom: 1px solid var(--border);">
                 <div style="flex: 1; min-width:0;">
-                    <div style="font-size:13px; font-weight:600; color: var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(o.name)}</div>
+                    <div title="${escapeHTML(o.name)}" style="font-size:13px; font-weight:600; color: var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(o.name)}</div>
                     <div style="font-size:11px; color: var(--text-muted);">S$${o.prior_gross.toLocaleString()} &rarr; S$${o.gross.toLocaleString()} gross/mth</div>
                 </div>
                 <div style="width:110px; flex-shrink:0;">
@@ -2696,7 +2696,7 @@ function initSgHub() {
 
         const techRows = data.tech_roles.filter(o => o.gross).slice(0, 5).map(o => `
             <div style="display:flex; align-items:center; gap:10px; padding: 7px 0; border-bottom: 1px solid var(--border);">
-                <div style="flex: 1; min-width:0; font-size:13px; font-weight:600; color: var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                <div title="${escapeHTML(o.name)}" style="flex: 1; min-width:0; font-size:13px; font-weight:600; color: var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                     ${escapeHTML(o.name)}${o.is_new ? ' <span style="font-size:10px; color: var(--primary); font-weight:700;">NEW</span>' : ''}
                 </div>
                 <div style="width:88px; flex-shrink:0; text-align:right; font-size:13px; font-weight:700; color: var(--text-main);">S$${o.gross.toLocaleString()}</div>
@@ -2927,10 +2927,10 @@ function initSgHub() {
         body.innerHTML = filtered.slice(0, MAX_ROWS).map(o => `
             <div style="display:flex; align-items:center; gap:10px; padding: 6px 0; border-bottom: 1px solid var(--border);">
                 <div style="flex: 1; min-width:0;">
-                    <div style="font-size:13px; font-weight:600; color: var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    <div title="${escapeHTML(o.name)}" style="font-size:13px; font-weight:600; color: var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                         ${escapeHTML(o.name)}${o.is_new ? ' <span style="font-size:10px; color: var(--primary); font-weight:700;">NEW</span>' : ''}${o.is_tech ? ' 🤖' : ''}
                     </div>
-                    <div style="font-size:10px; color: var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(o.group || '')}</div>
+                    <div title="${escapeHTML(o.group || '')}" style="font-size:10px; color: var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(o.group || '')}</div>
                 </div>
                 <div style="width:88px; flex-shrink:0; text-align:right; font-size:13px; font-weight:700; color: var(--text-main);">${o.gross ? `S$${o.gross.toLocaleString()}` : '—'}</div>
                 <div style="width:58px; flex-shrink:0; text-align:right; font-size:12px; font-weight:700; color:${o.pct_change == null ? 'var(--text-muted)' : (o.pct_change >= 0 ? '#1a7f3c' : '#c0392b')};">
