@@ -2364,6 +2364,11 @@ function initSgHub() {
         let x = clientX + pad, y = clientY + pad;
         if (x + r.width > window.innerWidth - 8) x = clientX - r.width - pad;
         if (y + r.height > window.innerHeight - 8) y = clientY - r.height - pad;
+        
+        // Clamp to prevent the tooltip from going off-screen on small viewports
+        x = Math.max(8, Math.min(x, window.innerWidth - r.width - 8));
+        y = Math.max(8, Math.min(y, window.innerHeight - r.height - 8));
+        
         t.style.left = x + "px";
         t.style.top = y + "px";
     }
@@ -2397,16 +2402,27 @@ function initSgHub() {
         });
         // The last label always renders (it's often a "Next X (Forecast)" point worth calling
         // out) — but a regular xTickEvery label landing right next to it would just overlap the
-        // text, since neither one knows about the other's width. Rough-measure both and skip the
-        // regular tick if there isn't room, rather than hardcoding a fixed label count/spacing.
+        // text, since neither one knows about the other's width. Rough-measure and skip labels
+        // that would overlap with either the last label or the previously rendered label.
         const approxLabelHalfWidth = s => (String(s).length * 5.6 + 6) / 2;
         const lastIdx = xLabels.length - 1;
         const lastLabelHalfWidth = approxLabelHalfWidth(xLabels[lastIdx]);
+        let lastRenderedX = -Infinity;
+        let lastRenderedHalfW = 0;
+
         xLabels.forEach((lab, i) => {
             const isLast = i === lastIdx;
             if (!isLast) {
                 if (i % xTickEvery !== 0) return;
-                if (x(lastIdx) - x(i) < lastLabelHalfWidth + approxLabelHalfWidth(lab) + 4) return;
+                const thisX = x(i);
+                const thisHalfW = approxLabelHalfWidth(lab);
+                // Prevent overlapping with the last label
+                if (x(lastIdx) - thisX < lastLabelHalfWidth + thisHalfW + 6) return;
+                // Prevent overlapping with the previously rendered label
+                if (thisX - lastRenderedX < lastRenderedHalfW + thisHalfW + 6) return;
+                
+                lastRenderedX = thisX;
+                lastRenderedHalfW = thisHalfW;
             }
             g += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="${CHART_INK.label}">${escapeHTML(lab)}</text>`;
         });

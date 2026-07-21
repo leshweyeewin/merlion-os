@@ -1241,9 +1241,11 @@ body {
     color: var(--primary);
     font-family: var(--font-mono);
     font-size: 18px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+}
+
+.hub-card h3 i {
+    margin-right: 8px;
+    vertical-align: middle;
 }
 
 .sector-tab-btn {
@@ -1404,4 +1406,5 @@ body {
 .gloss {
     border-bottom: 1px dashed var(--text-muted);
     cursor: help;
+    white-space: nowrap;
 }
