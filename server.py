@@ -132,7 +132,7 @@ async def chat_endpoint(request: ChatRequest):
 
     try:
         history_list = [{"role": h.role, "content": h.content} for h in request.history]
-        response_text, logs, citations = await run_chat_loop(user_prompt, history_list)
+        response_text, logs, citations = await run_chat_loop(user_prompt, history_list, file=request.file)
         return ChatResponse(
             response=response_text,
             logs=[ToolLog(tool=l["tool"], arguments=l["arguments"], result=l["result"]) for l in logs],
@@ -173,13 +173,14 @@ async def chat_stream_endpoint(request: ChatRequest):
     history_list = [{"role": h.role, "content": h.content} for h in request.history]
 
     return StreamingResponse(
-        run_chat_stream(user_prompt, history_list),
+        run_chat_stream(user_prompt, history_list, file=request.file),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",  # Disable Nginx buffering for SSE
         }
     )
+
 
 _weather_cache = {"data": None, "fetched_at": 0}
 _WEATHER_CACHE_TTL_SECONDS = 3 * 60  # NEA's unauthenticated real-time APIs have a tight burst rate limit

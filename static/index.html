@@ -1722,13 +1722,21 @@
                     </div>
 
                     <form class="input-form" id="chat-form">
+                        <div class="upload-preview hidden" id="upload-preview" style="display:flex; align-items:center; gap:8px; margin-bottom:8px; padding:6px 12px; background:var(--bg-muted); border:1px solid var(--border); border-radius:6px; font-size:12px;">
+                            <span style="color:var(--text-muted);"><i class="fa-solid fa-file-invoice"></i></span>
+                            <span class="preview-filename" id="preview-filename" style="font-weight:700; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-main);">cpf-statement.png</span>
+                            <button type="button" id="clear-upload-btn" style="background:transparent; border:none; color:var(--text-error); cursor:pointer; font-size:14px; padding:0 4px;"><i class="fa-solid fa-circle-xmark"></i></button>
+                        </div>
                         <div class="input-wrapper">
+                            <button type="button" class="chat-file-btn" id="chat-file-btn" title="Upload document (CPF/IRAS statement)" style="background:transparent; border:none; color:var(--text-muted); padding:0 12px; cursor:pointer; font-size:16px; transition:color 0.2s;"><i class="fa-solid fa-paperclip"></i></button>
+                            <input type="file" id="chat-file-input" style="display:none;" accept="image/jpeg,image/png,image/webp,application/pdf">
                             <input type="text" id="user-input" placeholder="Type query or paste gov.sg URL..." required autocomplete="off" aria-label="User query">
                             <button type="submit" class="send-btn" aria-label="Send message">
                                 <i class="fa-solid fa-paper-plane"></i>
                             </button>
                         </div>
                     </form>
+
                 </div>
 
                 <!-- Operations Console Pane -->

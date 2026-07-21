@@ -234,9 +234,14 @@ document.addEventListener("DOMContentLoaded", () => {
         if (indicator) indicator.remove();
     }
 
-    // Send query message to FastAPI backend (streaming SSE)
+    // Send query message to FastAPI backend (streaming SSE with upload support)
     async function sendMessage(text) {
-        if (!text.trim()) return;
+        if (!text.trim() && !activeUpload) return;
+
+        const attachmentHtml = activeUpload ? `
+            <div class="message-upload-attachment" style="margin-top:8px; padding:6px 10px; background:rgba(255,255,255,0.15); border-radius:4px; font-size:12px; display:inline-flex; align-items:center; gap:6px; color:#ffffff;">
+                <i class="fa-solid fa-file-invoice"></i> Attachment: <strong>${escapeHTML(activeUpload.filename)}</strong>
+            </div>` : "";
 
         // Render user message bubble
         const userMsg = document.createElement("div");
@@ -244,7 +249,8 @@ document.addEventListener("DOMContentLoaded", () => {
         userMsg.innerHTML = `
             <div class="message-avatar"><i class="fa-solid fa-user"></i></div>
             <div class="message-content">
-                <p>${text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>
+                <p>${text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") || "<em>[Sent document for AI analysis]</em>"}</p>
+                ${attachmentHtml}
             </div>
         `;
         chatMessages.appendChild(userMsg);
@@ -262,10 +268,21 @@ document.addEventListener("DOMContentLoaded", () => {
         let botBubbleContent = null;
 
         try {
+            const reqBody = {
+                message: text,
+                history: conversationHistory
+            };
+            if (activeUpload) {
+                reqBody.file = {
+                    base64: activeUpload.base64,
+                    mime_type: activeUpload.mime_type
+                };
+            }
+
             const response = await fetch("/api/chat/stream", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message: text, history: conversationHistory })
+                body: JSON.stringify(reqBody)
             });
 
             if (!response.ok) {
@@ -416,6 +433,7 @@ document.addEventListener("DOMContentLoaded", () => {
             chatMessages.appendChild(errorMsg);
         } finally {
             userInput.disabled = false;
+            clearActiveUpload();
             userInput.focus();
             scrollToBottom();
         }
@@ -428,13 +446,67 @@ document.addEventListener("DOMContentLoaded", () => {
         sendMessage(text);
     });
 
+
     // Preset suggestion pills listener
     suggestionChips.forEach(chip => {
         chip.addEventListener("click", () => {
             sendMessage(chip.getAttribute("data-query"));
         });
     });
+
+    // Multimodal document upload bindings (Item 9)
+    let activeUpload = null;
+    const chatFileBtn = document.getElementById("chat-file-btn");
+    const chatFileInput = document.getElementById("chat-file-input");
+    const uploadPreview = document.getElementById("upload-preview");
+    const previewFilename = document.getElementById("preview-filename");
+    const clearUploadBtn = document.getElementById("clear-upload-btn");
+
+    if (chatFileBtn && chatFileInput) {
+        chatFileBtn.addEventListener("click", () => {
+            chatFileInput.click();
+        });
+
+        chatFileInput.addEventListener("change", () => {
+            const file = chatFileInput.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = () => {
+                const parts = reader.result.split(",");
+                const base64 = parts[1];
+                const mime_type = file.type;
+
+                activeUpload = {
+                    base64: base64,
+                    mime_type: mime_type,
+                    filename: file.name
+                };
+
+                if (previewFilename && uploadPreview) {
+                    previewFilename.textContent = file.name;
+                    uploadPreview.classList.remove("hidden");
+                }
+                userInput.required = false;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function clearActiveUpload() {
+        activeUpload = null;
+        if (chatFileInput) chatFileInput.value = "";
+        if (uploadPreview) uploadPreview.classList.add("hidden");
+        userInput.required = true;
+    }
+
+    if (clearUploadBtn) {
+        clearUploadBtn.addEventListener("click", () => {
+            clearActiveUpload();
+        });
+    }
 });
+
 
 // Drag-and-drop reordering of the portal directory grid, persisted in localStorage
 function initPortalSearch() {

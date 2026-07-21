@@ -64,9 +64,15 @@ class ChatMessage(BaseModel):
     role: str
     content: str
 
+class UploadedFile(BaseModel):
+    base64: str
+    mime_type: str
+
 class ChatRequest(BaseModel):
     message: str
     history: list[ChatMessage] = []
+    file: UploadedFile | None = None
+
 
 class ToolLog(BaseModel):
     tool: str
@@ -82,7 +88,7 @@ class ChatResponse(BaseModel):
     logs: list[ToolLog]
     citations: list[Citation] = []
 
-async def run_chat_loop(user_prompt: str, history: list) -> tuple[str, list]:
+async def run_chat_loop(user_prompt: str, history: list, file: UploadedFile | None = None) -> tuple[str, list, list]:
     system_instruction = (
         "You are MerlionOS, the unified public sector AI coordination brain for Singapore Citizens. "
         "Your task is to parse citizen requests and route them to the correct agency tool functions or scrape official .gov.sg web pages. "
@@ -107,82 +113,110 @@ async def run_chat_loop(user_prompt: str, history: list) -> tuple[str, list]:
                 parts=[types.Part.from_text(text=msg.get("content"))]
             )
         )
+
+    # Compile user parts (text + optional decoded file bytes part)
+    user_parts = []
+    if file:
+        try:
+            import base64
+            file_bytes = base64.b64decode(file.base64)
+            user_parts.append(
+                types.Part.from_bytes(
+                    data=file_bytes,
+                    mime_type=file.mime_type
+                )
+            )
+            print(f"[MerlionOS Multimodal] Decoded attachment of type {file.mime_type} for vision analysis.")
+        except Exception as exc:
+            logger.exception("Failed to decode base64 file attachment")
+
+    user_parts.append(types.Part.from_text(text=user_prompt or "Analyze this uploaded document."))
+
     # Append current user prompt
     contents.append(
         types.Content(
             role="user",
-            parts=[types.Part.from_text(text=user_prompt)]
+            parts=user_parts
         )
     )
+
     try:
-        # Step 1: Initial Prompt Generation Loop (Asynchronous)
-        response = await _get_client().aio.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                tools=available_tools,
-                temperature=0.1,
-                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
-            )
-        )
-        # Step 2: Handle Programmatic Tool Interception Loop
-        if response.function_calls:
-            tool_responses = []
-            for call in response.function_calls:
-                tool_name = call.name
-                args = call.args or {}
-                # Execute tool
-                if tool_name in TOOL_MAP:
-                    try:
-                        def execute_tool_call():
-                            return call_tool_robustly(TOOL_MAP[tool_name], args)
-                        executed_text = await anyio.to_thread.run_sync(execute_tool_call)
-                    except Exception as exc:
-                        logger.exception(f"Error executing tool '{tool_name}' with args {args}")
-                        executed_text = f"Error: Failed to execute tool '{tool_name}' due to an internal execution error ({type(exc).__name__})."
-                    logs.append({
-                        "tool": tool_name,
-                        "arguments": dict(args),
-                        "result": executed_text
-                    })
-                    tool_responses.append(
-                        types.Part.from_function_response(
-                            name=tool_name,
-                            response={'result': executed_text}
-                        )
-                    )
-                else:
-                    executed_text = f"Error: Tool '{tool_name}' is not registered."
-                    logger.warning(f"Intercepted unregistered tool call: {tool_name}")
-                    logs.append({
-                        "tool": tool_name,
-                        "arguments": dict(args),
-                        "result": executed_text
-                    })
-                    tool_responses.append(
-                        types.Part.from_function_response(
-                            name=tool_name,
-                            response={'result': executed_text}
-                        )
-                    )
-            # Step 3: Compile and Synthesize Final Output Response (Asynchronous)
-            contents_sync = list(contents)
-            contents_sync.extend([
-                types.Content(role="model", parts=response.parts),
-                types.Content(role="tool", parts=tool_responses)
-            ])
-            final_response = await _get_client().aio.models.generate_content(
+        current_contents = list(contents)
+        for hop in range(3):
+            # Step 1: Prompt Generation Loop (Asynchronous)
+            response = await _get_client().aio.models.generate_content(
                 model='gemini-2.5-flash',
-                contents=contents_sync,
+                contents=current_contents,
                 config=types.GenerateContentConfig(
                     system_instruction=system_instruction,
                     tools=available_tools,
-                    temperature=0.1
+                    temperature=0.1,
+                    automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
                 )
             )
-            return final_response.text or "Could not compile response.", logs, []
-        return response.text or "Could not generate text.", [], []
+
+            # Step 2: Handle Programmatic Tool Interception Loop
+            if response.function_calls:
+                tool_responses = []
+                for call in response.function_calls:
+                    tool_name = call.name
+                    args = call.args or {}
+                    
+                    if tool_name in TOOL_MAP:
+                        try:
+                            def execute_tool_call():
+                                return call_tool_robustly(TOOL_MAP[tool_name], args)
+                            executed_text = await anyio.to_thread.run_sync(execute_tool_call)
+                        except Exception as exc:
+                            logger.exception(f"Error executing tool '{tool_name}' with args {args}")
+                            executed_text = f"Error: Failed to execute tool '{tool_name}' due to an internal execution error ({type(exc).__name__})."
+                        
+                        logs.append({
+                            "tool": tool_name,
+                            "arguments": dict(args),
+                            "result": executed_text
+                        })
+                        tool_responses.append(
+                            types.Part.from_function_response(
+                                name=tool_name,
+                                response={'result': executed_text}
+                            )
+                        )
+                    else:
+                        executed_text = f"Error: Tool '{tool_name}' is not registered."
+                        logger.warning(f"Intercepted unregistered tool call: {tool_name}")
+                        logs.append({
+                            "tool": tool_name,
+                            "arguments": dict(args),
+                            "result": executed_text
+                        })
+                        tool_responses.append(
+                            types.Part.from_function_response(
+                                name=tool_name,
+                                response={'result': executed_text}
+                            )
+                        )
+                
+                # Append the model's call and our tool results back into contents for the next hop
+                current_contents.extend([
+                    types.Content(role="model", parts=response.parts),
+                    types.Content(role="tool", parts=tool_responses)
+                ])
+            else:
+                # No more function calls, we can yield the final synthesized answer directly!
+                return response.text or "Could not compile response.", logs, []
+
+        # If we exhausted all hops, compile a final synthesis answer
+        final_response = await _get_client().aio.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=current_contents,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                temperature=0.1
+            )
+        )
+        return final_response.text or "Could not compile response.", logs, []
+
     except genai_errors.ClientError as e:
         if e.code == 429:
             logger.warning(f"Gemini API quota exceeded — attempting Google Search grounding fallback: {e.message}")
@@ -243,7 +277,7 @@ async def run_chat_loop(user_prompt: str, history: list) -> tuple[str, list]:
         raise
 
 
-async def run_chat_stream(user_prompt: str, history: list):
+async def run_chat_stream(user_prompt: str, history: list, file: UploadedFile | None = None):
     """Async generator version of run_chat_loop.
 
     Yields SSE-formatted lines:
@@ -279,69 +313,94 @@ async def run_chat_stream(user_prompt: str, history: list):
                 parts=[types.Part.from_text(text=msg.get("content"))]
             )
         )
+
+    # Compile user parts (text + optional decoded file bytes part)
+    user_parts = []
+    if file:
+        try:
+            import base64
+            file_bytes = base64.b64decode(file.base64)
+            user_parts.append(
+                types.Part.from_bytes(
+                    data=file_bytes,
+                    mime_type=file.mime_type
+                )
+            )
+            print(f"[MerlionOS Multimodal Stream] Decoded attachment of type {file.mime_type} for vision analysis.")
+        except Exception as exc:
+            logger.exception("Failed to decode base64 file attachment in stream")
+
+    user_parts.append(types.Part.from_text(text=user_prompt or "Analyze this uploaded document."))
+
     contents.append(
         types.Content(
             role="user",
-            parts=[types.Part.from_text(text=user_prompt)]
+            parts=user_parts
         )
     )
 
+
     try:
-        # Step 1: Initial generation (may return tool calls — not streamed yet)
-        response = await _get_client().aio.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                tools=available_tools,
-                temperature=0.1,
-                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
-            )
-        )
-
-        # Step 2: Execute any tool calls and emit log events
-        contents_for_stream = list(contents)
-        if response.function_calls:
-            tool_responses = []
-            for call in response.function_calls:
-                tool_name = call.name
-                args = call.args or {}
-                if tool_name in TOOL_MAP:
-                    try:
-                        def _exec():
-                            return call_tool_robustly(TOOL_MAP[tool_name], args)
-                        executed_text = await anyio.to_thread.run_sync(_exec)
-                    except Exception as exc:
-                        executed_text = f"Error: Failed to execute tool '{tool_name}' ({type(exc).__name__})."
-                else:
-                    executed_text = f"Error: Tool '{tool_name}' is not registered."
-
-                log_payload = json.dumps({
-                    "type": "log",
-                    "tool": tool_name,
-                    "arguments": dict(args),
-                    "result": executed_text
-                })
-                yield f"data: {log_payload}\n\n"
-
-                tool_responses.append(
-                    types.Part.from_function_response(
-                        name=tool_name,
-                        response={'result': executed_text}
-                    )
+        current_contents = list(contents)
+        for hop in range(3):
+            # Step 1: Prompt Generation (may return tool calls — not streamed yet)
+            response = await _get_client().aio.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=current_contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                    tools=available_tools,
+                    temperature=0.1,
+                    automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
                 )
+            )
 
-            contents_for_stream.extend([
-                types.Content(role="model", parts=response.parts),
-                types.Content(role="tool", parts=tool_responses),
-            ])
+            # Step 2: Execute any tool calls and emit log events
+            if response.function_calls:
+                tool_responses = []
+                for call in response.function_calls:
+                    tool_name = call.name
+                    args = call.args or {}
+                    if tool_name in TOOL_MAP:
+                        try:
+                            def _exec():
+                                return call_tool_robustly(TOOL_MAP[tool_name], args)
+                            executed_text = await anyio.to_thread.run_sync(_exec)
+                        except Exception as exc:
+                            executed_text = f"Error: Failed to execute tool '{tool_name}' ({type(exc).__name__})."
+                    else:
+                        executed_text = f"Error: Tool '{tool_name}' is not registered."
+
+                    log_payload = json.dumps({
+                        "type": "log",
+                        "tool": tool_name,
+                        "arguments": dict(args),
+                        "result": executed_text
+                    })
+                    yield f"data: {log_payload}\n\n"
+
+                    tool_responses.append(
+                        types.Part.from_function_response(
+                            name=tool_name,
+                            response={'result': executed_text}
+                        )
+                    )
+
+                current_contents.extend([
+                    types.Content(role="model", parts=response.parts),
+                    types.Content(role="tool", parts=tool_responses),
+                ])
+            else:
+                # No more function calls, ready to stream the final answer
+                break
         else:
-            contents_for_stream = list(contents)
+            # Reached hop limit
+            pass
 
         # Step 3: Stream the final synthesis token-by-token
         async for chunk in await _get_client().aio.models.generate_content_stream(
             model='gemini-2.5-flash',
-            contents=contents_for_stream,
+            contents=current_contents,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
                 tools=available_tools,
@@ -353,6 +412,7 @@ async def run_chat_stream(user_prompt: str, history: list):
                 yield f"data: {token_payload}\n\n"
 
         yield "data: {\"type\":\"done\"}\n\n"
+
 
     except genai_errors.ClientError as e:
         if e.code == 429:

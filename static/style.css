@@ -1208,6 +1208,15 @@ body {
     flex-shrink: 0;
 }
 
+.chat-file-btn:hover {
+    color: var(--primary) !important;
+}
+
+.upload-preview.hidden {
+    display: none !important;
+}
+
+
 .input-wrapper {
     position: relative;
     display: flex;
