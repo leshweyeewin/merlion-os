@@ -6,6 +6,24 @@ No domain logic lives here; every other tools/* module imports from this one.
 """
 
 import os
+import time
+
+def _cache_get(cache: dict, ttl_seconds: float, key: str = "data"):
+    """Returns cache[key] if it's still within ttl_seconds of cache['fetched_at'], else None.
+    Shared by tools/* modules' module-level in-memory TTL caches, which used to each hand-roll
+    this same `if cache[key] is not None and (now - cache['fetched_at']) < TTL: return cache[key]`
+    check. `key` defaults to "data" but some caches store a "rows" list instead."""
+    value = cache.get(key)
+    if value is not None and (time.time() - cache.get("fetched_at", 0)) < ttl_seconds:
+        return value
+    return None
+
+def _cache_set(cache: dict, value, key: str = "data", fetched_at: float | None = None) -> None:
+    """Stores value into cache[key] and stamps cache['fetched_at']. Pass fetched_at explicitly
+    when seeding the in-memory cache from an older source (e.g. a disk snapshot or a stale
+    fallback) so 'Last synced' reflects when the data was truly fetched, not just now()."""
+    cache[key] = value
+    cache["fetched_at"] = fetched_at if fetched_at is not None else time.time()
 
 def _data_gov_sg_headers() -> dict:
     """x-api-key header for data.gov.sg calls, if DATA_GOV_SG_API_KEY is configured.
@@ -74,7 +92,6 @@ _DISK_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
 def _disk_cache_load(name: str, ttl_seconds: int):
     """Returns (data, fetched_at) from .data_cache/<name>.json if fresh, else (None, 0)."""
     import json
-    import time
     path = os.path.join(_DISK_CACHE_DIR, f"{name}.json")
     try:
         with open(path, "r", encoding="utf-8") as f:

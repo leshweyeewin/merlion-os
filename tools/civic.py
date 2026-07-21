@@ -6,10 +6,10 @@ civic utilities (ELD, HealthHub, SP Group), plus the GOV_DIRECTORY used by
 the government search tool.
 """
 
-import time
 import logging
 import requests
 from bs4 import BeautifulSoup
+from tools.core import _cache_get, _cache_set
 
 logger = logging.getLogger("merlion-os-civic")
 
@@ -471,12 +471,9 @@ def fetch_ica_media_releases() -> list:
     Fetches the latest media releases and checkpoint advisories directly from the ICA Newsroom.
     Cached for 5 minutes.
     """
-    now = time.time()
-    if (
-        _ica_cache["data"] is not None
-        and (now - _ica_cache["fetched_at"]) < _ICA_CACHE_TTL_SECONDS
-    ):
-        return _ica_cache["data"]
+    cached = _cache_get(_ica_cache, _ICA_CACHE_TTL_SECONDS)
+    if cached is not None:
+        return cached
 
     url = "https://www.ica.gov.sg/ICAContentInterface/MediaReleasesList/FindMediaReleases"
     headers = {
@@ -516,8 +513,7 @@ def fetch_ica_media_releases() -> list:
                     "image": img_url,
                 })
             
-            _ica_cache["data"] = news_items
-            _ica_cache["fetched_at"] = now
+            _cache_set(_ica_cache, news_items)
             return news_items
     except Exception as e:
         logger.warning(f"Error fetching ICA media releases: {e}")
@@ -545,8 +541,7 @@ def fetch_ica_media_releases() -> list:
             "image": "https://www.ica.gov.sg/Cwp/assets/ica/images/news/mediareleases-default.jpg",
         },
     ]
-    _ica_cache["data"] = fallback_data
-    _ica_cache["fetched_at"] = now
+    _cache_set(_ica_cache, fallback_data)
     return fallback_data
 
 _tax_cache = {"data": None, "fetched_at": 0}
@@ -556,12 +551,9 @@ def fetch_iras_due_dates() -> list:
     """
     Scrapes the official IRAS due dates page.
     """
-    now = time.time()
-    if (
-        _tax_cache["data"] is not None
-        and (now - _tax_cache["fetched_at"]) < _TAX_CACHE_TTL_SECONDS
-    ):
-        return _tax_cache["data"]
+    cached = _cache_get(_tax_cache, _TAX_CACHE_TTL_SECONDS)
+    if cached is not None:
+        return cached
 
     url = "https://www.iras.gov.sg/due-dates"
     headers = {
@@ -602,8 +594,7 @@ def fetch_iras_due_dates() -> list:
                         "link": link_url
                     })
             if due_dates:
-                _tax_cache["data"] = due_dates
-                _tax_cache["fetched_at"] = now
+                _cache_set(_tax_cache, due_dates)
                 return due_dates
     except Exception as e:
         logger.warning(f"Error scraping IRAS due dates: {e}")
@@ -616,6 +607,5 @@ def fetch_iras_due_dates() -> list:
         {"date": "31 May 2026", "category": "International Tax", "label": "Submit Common Reporting Standard (CRS) return", "link": "https://www.iras.gov.sg"},
         {"date": "30 Jun 2026", "category": "Corporate Income Tax", "label": "File Estimated Chargeable Income (ECI) (Mar financial year-end)", "link": "https://www.iras.gov.sg"}
     ]
-    _tax_cache["data"] = fallback_data
-    _tax_cache["fetched_at"] = now
+    _cache_set(_tax_cache, fallback_data)
     return fallback_data

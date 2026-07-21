@@ -109,6 +109,19 @@ def test_sg_hub_tax(client, monkeypatch):
     assert body["limits"]["cpf_sa_rstu_max"] == 8000
 
 
+def test_sg_hub_route_error_returns_generic_message_not_raw_exception(client, monkeypatch):
+    """The _sg_hub_route decorator must log the real exception server-side but never leak its
+    text to the client — a prior version returned str(e) directly in the 500 response body."""
+    def boom():
+        raise ValueError("SECRET_INTERNAL_DETAIL: /etc/some/path leaked here")
+    monkeypatch.setattr(server, "fetch_iras_due_dates", boom)
+
+    resp = client.get("/api/sg-hub/tax")
+    assert resp.status_code == 500
+    assert "SECRET_INTERNAL_DETAIL" not in resp.text
+    assert "IRAS tax data" in resp.json()["detail"]
+
+
 def test_sg_hub_hdb(client, monkeypatch):
     monkeypatch.setattr(server, "query_hdb_bto_launches_and_grants", lambda category: "BTO info text")
     monkeypatch.setattr(server, "scrape_hdb_news", lambda: [{"title": "New launch"}])
@@ -174,9 +187,12 @@ def test_sg_hub_taxi_nearby(client, monkeypatch):
 
 
 def test_sg_hub_taxi_nearby_502_when_unavailable(client, monkeypatch):
+    """Also verifies the _sg_hub_route decorator lets a handler's own deliberate HTTPException
+    (502 here) through unchanged instead of remapping it to a generic 500."""
     monkeypatch.setattr(server, "fetch_lta_taxi_availability", lambda lat, lon: None)
     resp = client.get("/api/sg-hub/taxi-nearby?lat=1.35&lon=103.85")
     assert resp.status_code == 502
+    assert resp.json()["detail"] == "Taxi availability could not be retrieved."
 
 
 def test_sg_hub_transit_parses_coe(client, monkeypatch):

@@ -10,6 +10,8 @@ import threading as _threading
 from tools.core import (
     _data_gov_sg_headers,
     _cache_synced_at,
+    _cache_get,
+    _cache_set,
     _disk_cache_load,
     _disk_cache_save,
 )
@@ -78,14 +80,13 @@ def _fetch_job_vacancy_rows() -> list:
     import requests
 
     with _job_vacancy_fetch_lock:
-        now = time.time()
-        if _job_vacancy_cache["rows"] is not None and (now - _job_vacancy_cache["fetched_at"]) < _JOB_VACANCY_CACHE_TTL_SECONDS:
-            return _job_vacancy_cache["rows"]
+        cached = _cache_get(_job_vacancy_cache, _JOB_VACANCY_CACHE_TTL_SECONDS, key="rows")
+        if cached is not None:
+            return cached
 
         disk_rows, disk_ts = _disk_cache_load("job_vacancy_rows", _JOB_VACANCY_CACHE_TTL_SECONDS)
         if disk_rows is not None:
-            _job_vacancy_cache["rows"] = disk_rows
-            _job_vacancy_cache["fetched_at"] = disk_ts
+            _cache_set(_job_vacancy_cache, disk_rows, key="rows", fetched_at=disk_ts)
             return disk_rows
 
         try:
@@ -104,13 +105,12 @@ def _fetch_job_vacancy_rows() -> list:
             stale_rows, stale_ts = _disk_cache_load("job_vacancy_rows", float("inf"))
             if stale_rows is not None:
                 print(f"  [data.gov.sg] job vacancy fetch failed ({type(e).__name__}) — serving expired disk snapshot")
-                _job_vacancy_cache["rows"] = stale_rows
-                _job_vacancy_cache["fetched_at"] = stale_ts
+                _cache_set(_job_vacancy_cache, stale_rows, key="rows", fetched_at=stale_ts)
                 return stale_rows
             raise
 
-        _job_vacancy_cache["rows"] = rows
-        _job_vacancy_cache["fetched_at"] = now
+        now = time.time()
+        _cache_set(_job_vacancy_cache, rows, key="rows", fetched_at=now)
         _disk_cache_save("job_vacancy_rows", rows, now)
         return rows
 
@@ -270,6 +270,9 @@ def query_singapore_job_statistics_via_bigquery(context_query: str = "general") 
             source_line = f"💡 Source: MOM Job Vacancy by Industry & Occupation, {latest_year} data (data.gov.sg, dataset `{_JOB_VACANCY_DATASET_ID}`)."
         except Exception as e:
             # Tier 3: live fetch failed entirely — fall back to the last real snapshot on record.
+            # FALLBACK DATA last refreshed 2025 (2024→2025 YoY) — only surfaces if BOTH the live
+            # fetch AND the disk cache fail, so it can silently go stale for a long time between
+            # incidents. Re-verify the 2024→2025 figures below against a fresh data.gov.sg pull.
             cacheable = False  # transient failure shouldn't stick around for the full TTL
             fallback = {"tech": (11700, -5.6), "finance": (11400, 9.6), "healthcare": (10200, -10.5), "general": (150700, 0.5)}
             vacancies, trend_pct = fallback[matched_sector]
@@ -310,14 +313,13 @@ def _fetch_retrenchment_rows() -> list:
     import requests
 
     with _retrenchment_fetch_lock:
-        now = time.time()
-        if _retrenchment_cache["rows"] is not None and (now - _retrenchment_cache["fetched_at"]) < _RETRENCHMENT_CACHE_TTL_SECONDS:
-            return _retrenchment_cache["rows"]
+        cached = _cache_get(_retrenchment_cache, _RETRENCHMENT_CACHE_TTL_SECONDS, key="rows")
+        if cached is not None:
+            return cached
 
         disk_rows, disk_ts = _disk_cache_load("retrenchment_rows", _RETRENCHMENT_CACHE_TTL_SECONDS)
         if disk_rows is not None:
-            _retrenchment_cache["rows"] = disk_rows
-            _retrenchment_cache["fetched_at"] = disk_ts
+            _cache_set(_retrenchment_cache, disk_rows, key="rows", fetched_at=disk_ts)
             return disk_rows
 
         try:
@@ -336,13 +338,12 @@ def _fetch_retrenchment_rows() -> list:
             stale_rows, stale_ts = _disk_cache_load("retrenchment_rows", float("inf"))
             if stale_rows is not None:
                 print(f"  [data.gov.sg] retrenchment fetch failed ({type(e).__name__}) — serving expired disk snapshot")
-                _retrenchment_cache["rows"] = stale_rows
-                _retrenchment_cache["fetched_at"] = stale_ts
+                _cache_set(_retrenchment_cache, stale_rows, key="rows", fetched_at=stale_ts)
                 return stale_rows
             raise
 
-        _retrenchment_cache["rows"] = rows
-        _retrenchment_cache["fetched_at"] = now
+        now = time.time()
+        _cache_set(_retrenchment_cache, rows, key="rows", fetched_at=now)
         _disk_cache_save("retrenchment_rows", rows, now)
         return rows
 
@@ -439,6 +440,9 @@ def query_singapore_retrenchment_advisory(context_query: str = "general") -> str
             f"💡 Source: MOM Retrenched Employees by Industry, {latest_quarter} (data.gov.sg, dataset `{_RETRENCHMENT_DATASET_ID}`)."
         )
     except Exception as e:
+        # FALLBACK DATA last refreshed for Q4 2025 — as of 2026-07 this is already ~2 quarters
+        # stale. Only surfaces if BOTH the live fetch AND disk cache fail; re-verify against a
+        # fresh MOM retrenchment pull (data.gov.sg) before assuming this is still representative.
         return (
             f"--- [SG WORKFORCE RETRENCHMENT ADVISORY] ---\n"
             f"⚠️ Latest Quarterly Retrenchment: 3,590 workers (Q4 2025, cached snapshot — live fetch unavailable: {type(e).__name__})\n"

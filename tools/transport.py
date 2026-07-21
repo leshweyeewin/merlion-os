@@ -8,7 +8,7 @@ import os
 import math
 import logging
 import requests
-from tools.core import _data_gov_sg_headers, _cache_synced_at, _forecast_next_linear
+from tools.core import _data_gov_sg_headers, _cache_synced_at, _cache_get, _cache_set, _forecast_next_linear
 
 logger = logging.getLogger("merlion-os-transport")
 
@@ -29,14 +29,13 @@ def get_coe_synced_at() -> str | None:
 
 def _fetch_coe_rows() -> list:
     """Downloads and caches the data.gov.sg LTA COE bidding dataset (CSV: month, bidding_no, vehicle_class, quota, bids_success, bids_received, premium)."""
-    import time
     import csv
     import io
     import requests
 
-    now = time.time()
-    if _coe_cache["rows"] is not None and (now - _coe_cache["fetched_at"]) < _COE_CACHE_TTL_SECONDS:
-        return _coe_cache["rows"]
+    cached = _cache_get(_coe_cache, _COE_CACHE_TTL_SECONDS, key="rows")
+    if cached is not None:
+        return cached
 
     poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{_COE_DATASET_ID}/poll-download"
     print(f"  [data.gov.sg] HTTP GET {poll_url}")
@@ -48,8 +47,7 @@ def _fetch_coe_rows() -> list:
     r_csv.raise_for_status()
     rows = list(csv.DictReader(io.StringIO(r_csv.text)))
 
-    _coe_cache["rows"] = rows
-    _coe_cache["fetched_at"] = now
+    _cache_set(_coe_cache, rows, key="rows")
     return rows
 
 def _build_coe_trend_insight(keys: list, per_exercise: dict, window: int = 12) -> str:
@@ -205,6 +203,9 @@ def query_coe_bidding_results(context_query: str = "general") -> str:
             + f"\U0001F4A1 Source: COE Bidding Results / Prices, {latest_month} Round {latest_round} (data.gov.sg, dataset `{_COE_DATASET_ID}`)."
         )
     except Exception as e:
+        # FALLBACK DATA last refreshed for 2026-07 Round 1 — only surfaces if the live
+        # data.gov.sg fetch fails. Re-verify premiums below against a fresh pull periodically,
+        # since a new bidding round happens roughly every two weeks.
         return (
             f"--- [SG COE BIDDING RESULTS] ---\n"
             f"\U0001F697 Latest Exercise: 2026-07 Round 1 (cached snapshot — live fetch unavailable: {type(e).__name__})\n"

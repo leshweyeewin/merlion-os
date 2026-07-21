@@ -10,6 +10,8 @@ This __init__.py re-exports every public symbol so that existing callers
 from tools.core import (
     _data_gov_sg_headers,
     _cache_synced_at,
+    _cache_get,
+    _cache_set,
     _sgt_now,
     _annual_dataset_is_stale,
     _DISK_CACHE_DIR,
@@ -92,7 +94,7 @@ from tools.chat import (
 
 __all__ = [
     # core
-    "_data_gov_sg_headers", "_cache_synced_at", "_sgt_now",
+    "_data_gov_sg_headers", "_cache_synced_at", "_cache_get", "_cache_set", "_sgt_now",
     "_annual_dataset_is_stale", "_DISK_CACHE_DIR", "_disk_cache_load", "_disk_cache_save",
     # civic
     "GOV_DIRECTORY",

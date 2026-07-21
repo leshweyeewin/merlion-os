@@ -13,6 +13,8 @@ import json
 from tools.core import (
     _data_gov_sg_headers,
     _cache_synced_at,
+    _cache_get,
+    _cache_set,
     _disk_cache_load,
     _disk_cache_save,
     _forecast_next_linear,
@@ -71,9 +73,9 @@ def _fetch_bto_launch_details() -> dict:
     import json as _json
     from bs4 import BeautifulSoup
 
-    now = time.time()
-    if _bto_launch_cache["data"] is not None and (now - _bto_launch_cache["fetched_at"]) < _BTO_LAUNCH_CACHE_TTL_SECONDS:
-        return _bto_launch_cache["data"]
+    cached = _cache_get(_bto_launch_cache, _BTO_LAUNCH_CACHE_TTL_SECONDS)
+    if cached is not None:
+        return cached
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
@@ -169,8 +171,7 @@ def _fetch_bto_launch_details() -> dict:
         "article_url": article_url,
         "projects": projects,
     }
-    _bto_launch_cache["data"] = result
-    _bto_launch_cache["fetched_at"] = now
+    _cache_set(_bto_launch_cache, result)
     return result
 
 def query_hdb_bto_launches_and_grants(context_query: str = "general") -> str:
@@ -188,6 +189,9 @@ def query_hdb_bto_launches_and_grants(context_query: str = "general") -> str:
         bto_projects = launch_data["projects"]
         bto_summary = f"📊 {launch_data['total_flats']} flats launched across {launch_data['total_projects']} projects."
     except Exception as e:
+        # FALLBACK DATA last refreshed for the June 2026 BTO Sales Exercise — only surfaces if
+        # the live HDB newsroom scrape fails, so it can silently go stale until the next launch.
+        # Re-verify project names/prices below against a fresh hdb.gov.sg scrape periodically.
         bto_header = f"--- [HDB BTO LAUNCH REGISTRY — cached snapshot, live fetch unavailable: {type(e).__name__}] ---"
         bto_summary = "📊 6,952 flats launched across 7 projects (June 2026 BTO Sales Exercise)."
         bto_projects = [
@@ -266,14 +270,13 @@ def _fetch_hdb_resale_rows() -> list:
     import csv
     import io
 
-    now = time.time()
-    if _hdb_resale_cache["rows"] is not None and (now - _hdb_resale_cache["fetched_at"]) < _HDB_RESALE_CACHE_TTL_SECONDS:
-        return _hdb_resale_cache["rows"]
+    cached = _cache_get(_hdb_resale_cache, _HDB_RESALE_CACHE_TTL_SECONDS, key="rows")
+    if cached is not None:
+        return cached
 
     disk_rows, disk_ts = _disk_cache_load("hdb_resale_rows", _HDB_RESALE_CACHE_TTL_SECONDS)
     if disk_rows is not None:
-        _hdb_resale_cache["rows"] = disk_rows
-        _hdb_resale_cache["fetched_at"] = disk_ts
+        _cache_set(_hdb_resale_cache, disk_rows, key="rows", fetched_at=disk_ts)
         return disk_rows
 
     try:
@@ -294,13 +297,12 @@ def _fetch_hdb_resale_rows() -> list:
         stale_rows, stale_ts = _disk_cache_load("hdb_resale_rows", float("inf"))
         if stale_rows is not None:
             print(f"  [data.gov.sg] HDB resale fetch failed ({type(e).__name__}) — serving expired disk snapshot")
-            _hdb_resale_cache["rows"] = stale_rows
-            _hdb_resale_cache["fetched_at"] = stale_ts
+            _cache_set(_hdb_resale_cache, stale_rows, key="rows", fetched_at=stale_ts)
             return stale_rows
         raise
 
-    _hdb_resale_cache["rows"] = rows
-    _hdb_resale_cache["fetched_at"] = now
+    now = time.time()
+    _cache_set(_hdb_resale_cache, rows, key="rows", fetched_at=now)
     _disk_cache_save("hdb_resale_rows", rows, now)
     return rows
 
@@ -408,6 +410,8 @@ def query_hdb_resale_price_trends(context_query: str = "general") -> str:
             f"\U0001F4A1 Source: {stats['source']}"
         )
     except Exception as e:
+        # FALLBACK DATA last refreshed for 2026-06 — only surfaces if BOTH the live fetch AND
+        # disk cache fail. Re-verify these prices against a fresh data.gov.sg pull periodically.
         return (
             f"--- [SG HDB RESALE FLAT PRICE ADVISORY] ---\n"
             f"\U0001F3E0 Latest Month: 2026-06 (cached snapshot — live fetch unavailable: {type(e).__name__})\n"

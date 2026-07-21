@@ -11,7 +11,7 @@ import time
 import math
 import logging
 import requests
-from tools.core import _data_gov_sg_headers
+from tools.core import _data_gov_sg_headers, _cache_get, _cache_set
 
 logger = logging.getLogger("merlion-os-environment")
 
@@ -288,12 +288,9 @@ def fetch_pub_flood_alerts() -> dict:
     Returns a structured dict with active/cancelled alerts.
     Cached for 3 minutes to stay within burst rate limits.
     """
-    now = time.time()
-    if (
-        _flood_alerts_cache["data"] is not None
-        and (now - _flood_alerts_cache["fetched_at"]) < _FLOOD_ALERTS_CACHE_TTL_SECONDS
-    ):
-        return _flood_alerts_cache["data"]
+    cached = _cache_get(_flood_alerts_cache, _FLOOD_ALERTS_CACHE_TTL_SECONDS)
+    if cached is not None:
+        return cached
 
     headers = {"User-Agent": "Mozilla/5.0"}
     data_gov_sg_api_key = os.environ.get("DATA_GOV_SG_API_KEY", "").strip()
@@ -330,12 +327,10 @@ def fetch_pub_flood_alerts() -> dict:
         print(f"  \033[32m✔\033[0m [PUB Flood Alerts] {len(alerts)} alert(s) retrieved ({active_count} active).")
 
         result = {"alerts": alerts, "active_count": active_count, "retrieved_at": retrieved_at}
-        _flood_alerts_cache["data"] = result
-        _flood_alerts_cache["fetched_at"] = now
+        _cache_set(_flood_alerts_cache, result)
         return result
     except Exception as e:
         logger.warning(f"[PUB Flood Alerts] Fetch failed: {e}")
         result = {"alerts": [], "active_count": 0, "retrieved_at": None}
-        _flood_alerts_cache["data"] = result
-        _flood_alerts_cache["fetched_at"] = now
+        _cache_set(_flood_alerts_cache, result)
         return result

@@ -9,6 +9,8 @@ YoY increment ranking, new/discontinued titles, tech role highlighting).
 import re as _occ_re
 from tools.core import (
     _cache_synced_at,
+    _cache_get,
+    _cache_set,
     _sgt_now,
     _disk_cache_load,
     _disk_cache_save,
@@ -116,16 +118,15 @@ def compute_occupational_wage_insights() -> dict:
     import time
     import difflib
 
-    now = time.time()
-    if _occ_wage_cache["data"] is not None and (now - _occ_wage_cache["fetched_at"]) < _OCC_WAGE_CACHE_TTL_SECONDS:
-        return _occ_wage_cache["data"]
+    cached = _cache_get(_occ_wage_cache, _OCC_WAGE_CACHE_TTL_SECONDS)
+    if cached is not None:
+        return cached
 
     # Disk snapshot second (memory first, network last) — a dev-server restart no longer
     # re-downloads the multi-MB Excel workbooks within the TTL window.
     disk_data, disk_ts = _disk_cache_load("occ_wages", _OCC_WAGE_CACHE_TTL_SECONDS)
     if disk_data is not None:
-        _occ_wage_cache["data"] = disk_data
-        _occ_wage_cache["fetched_at"] = disk_ts
+        _cache_set(_occ_wage_cache, disk_data, fetched_at=disk_ts)
         print("  [MOM OWS] Served from disk snapshot (.data_cache/occ_wages.json).")
         return disk_data
 
@@ -237,8 +238,8 @@ def compute_occupational_wage_insights() -> dict:
             f"(stats.mom.gov.sg Occupational Wages tables)."
         ),
     }
-    _occ_wage_cache["data"] = data
-    _occ_wage_cache["fetched_at"] = now
+    now = time.time()
+    _cache_set(_occ_wage_cache, data, fetched_at=now)
     data["synced_at"] = _cache_synced_at(_occ_wage_cache)
     _disk_cache_save("occ_wages", data, now)
     return data
@@ -252,6 +253,9 @@ def query_occupational_wage_insights(context_query: str = "general") -> str:
     try:
         data = compute_occupational_wage_insights()
     except Exception as e:
+        # FALLBACK DATA last refreshed for the June 2025 edition — as of 2026-07 a June 2026
+        # edition should already be out. Only surfaces if BOTH the live fetch AND disk cache
+        # fail; re-verify these figures against stats.mom.gov.sg before assuming still current.
         return (
             f"--- [SG OCCUPATIONAL WAGES (MOM OWS)] ---\n"
             f"\U0001F4CA 523 detailed occupations, June 2025 (cached snapshot — live fetch unavailable: {type(e).__name__})\n"
