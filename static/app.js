@@ -857,7 +857,13 @@ function initPortalVisibility() {
         manageBtn.addEventListener("click", (e) => {
             e.stopPropagation();
             const willOpen = dropdown.classList.contains("hidden");
-            if (willOpen) { selected.clear(); renderDropdown(); }
+            if (willOpen) {
+                selected.clear();
+                renderDropdown();
+                // Position the fixed dropdown just below the button for all screen sizes
+                const btnRect = manageBtn.getBoundingClientRect();
+                dropdown.style.top = (btnRect.bottom + 8) + "px";
+            }
             dropdown.classList.toggle("hidden", !willOpen);
         });
 
@@ -2466,6 +2472,28 @@ function initSgHub() {
             showChartTooltip(`<div style="font-weight:700; margin-bottom:2px;">${escapeHTML(String(xLabels[ci]))}</div>` + rows, ev.clientX, ev.clientY);
         });
         overlay.addEventListener("mouseleave", () => { hoverg.innerHTML = ""; hideChartTooltip(); });
+
+        const handleTouch = ev => {
+            const touch = ev.touches[0];
+            if (!touch) return;
+            const rect = svg.getBoundingClientRect();
+            const mx = (touch.clientX - rect.left) * (W / rect.width);
+            const ci = Math.max(0, Math.min(xLabels.length - 1, Math.round(((mx - padL) / iw) * (xLabels.length - 1))));
+            let hg = `<line x1="${x(ci)}" y1="${padT}" x2="${x(ci)}" y2="${padT + ih}" stroke="${CHART_INK.axis}" stroke-width="1" stroke-dasharray="3,3"/>`;
+            let rows = "";
+            series.forEach(s => {
+                const v = s.values[ci];
+                if (v == null) return;
+                hg += `<circle cx="${x(ci)}" cy="${y(v)}" r="4.5" fill="${s.color}" stroke="#ffffff" stroke-width="2"/>`;
+                rows += `<div><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${s.color}; margin-right:6px;"></span>${escapeHTML(s.name)}: <strong>${v.toLocaleString()}</strong></div>`;
+            });
+            hoverg.innerHTML = hg;
+            showChartTooltip(`<div style="font-weight:700; margin-bottom:2px;">${escapeHTML(String(xLabels[ci]))}</div>` + rows, touch.clientX, touch.clientY);
+            if (ev.cancelable) ev.preventDefault();
+        };
+        overlay.addEventListener("touchstart", handleTouch, { passive: false });
+        overlay.addEventListener("touchmove", handleTouch, { passive: false });
+        overlay.addEventListener("touchend", () => { hoverg.innerHTML = ""; hideChartTooltip(); });
     }
 
     function renderBarChart(el, { labels, values, height = 220, color = CHART_SERIES[0], tooltipFor }) {
@@ -2497,6 +2525,15 @@ function initSgHub() {
         el.querySelectorAll(".bar").forEach(b => {
             b.addEventListener("mousemove", ev => showChartTooltip(tooltipFor(+b.dataset.i), ev.clientX, ev.clientY));
             b.addEventListener("mouseleave", hideChartTooltip);
+            const handleTouch = ev => {
+                const touch = ev.touches[0];
+                if (!touch) return;
+                showChartTooltip(tooltipFor(+b.dataset.i), touch.clientX, touch.clientY);
+                if (ev.cancelable) ev.preventDefault();
+            };
+            b.addEventListener("touchstart", handleTouch, { passive: false });
+            b.addEventListener("touchmove", handleTouch, { passive: false });
+            b.addEventListener("touchend", hideChartTooltip);
         });
     }
 
@@ -2558,6 +2595,31 @@ function initSgHub() {
                 ev.clientX, ev.clientY);
         });
         overlay.addEventListener("mouseleave", () => { hoverg.innerHTML = ""; hideChartTooltip(); });
+
+        const handleTouch = ev => {
+            const touch = ev.touches[0];
+            if (!touch) return;
+            const rect = svg.getBoundingClientRect();
+            const scale = W / rect.width;
+            const mx = (touch.clientX - rect.left) * scale, my = (touch.clientY - rect.top) * scale;
+            let bestD = 14 * 14, best = null;
+            points.forEach(p => {
+                const dx = px(p.x) - mx, dy = py(p.y) - my, d = dx * dx + dy * dy;
+                if (d < bestD) { bestD = d; best = p; }
+            });
+            if (!best) { hoverg.innerHTML = ""; hideChartTooltip(); return; }
+            hoverg.innerHTML = `<circle cx="${px(best.x)}" cy="${py(best.y)}" r="6" fill="${best.highlight ? CHART_SERIES[0] : CHART_CONTEXT}" stroke="#ffffff" stroke-width="2"/>`;
+            const clamped = best.y > Y_MAX || best.y < Y_MIN;
+            showChartTooltip(
+                `<div style="font-weight:700; margin-bottom:2px;">${escapeHTML(best.name)}</div>`
+                + (best.sub ? `<div style="color:var(--text-muted); font-size:10.5px;">${escapeHTML(best.sub)}</div>` : "")
+                + `<div>S$${best.x.toLocaleString()}/mth · <strong>${best.y >= 0 ? "+" : ""}${best.y.toFixed(1)}%</strong> YoY${clamped ? " (beyond chart scale)" : ""}</div>`,
+                touch.clientX, touch.clientY);
+            if (ev.cancelable) ev.preventDefault();
+        };
+        overlay.addEventListener("touchstart", handleTouch, { passive: false });
+        overlay.addEventListener("touchmove", handleTouch, { passive: false });
+        overlay.addEventListener("touchend", () => { hoverg.innerHTML = ""; hideChartTooltip(); });
     }
     // ==== end chart layer =======================================================
 
@@ -2637,7 +2699,7 @@ function initSgHub() {
         return `
             <div style="display:flex; align-items:center; gap:10px; padding: 7px 0; border-bottom: 1px solid var(--border);">
                 <div style="flex: 1; min-width:0;">
-                    <div title="${escapeHTML(o.name)}" style="font-size:13px; font-weight:600; color: var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(o.name)}</div>
+                    <div title="${escapeHTML(o.name)}" style="font-size:13px; font-weight:600; color: var(--text-main); word-break:break-word; white-space:normal;">${escapeHTML(o.name)}</div>
                     <div style="font-size:11px; color: var(--text-muted);">S$${o.prior_gross.toLocaleString()} &rarr; S$${o.gross.toLocaleString()} gross/mth</div>
                 </div>
                 <div style="width:110px; flex-shrink:0;">
@@ -2712,7 +2774,7 @@ function initSgHub() {
 
         const techRows = data.tech_roles.filter(o => o.gross).slice(0, 5).map(o => `
             <div style="display:flex; align-items:center; gap:10px; padding: 7px 0; border-bottom: 1px solid var(--border);">
-                <div title="${escapeHTML(o.name)}" style="flex: 1; min-width:0; font-size:13px; font-weight:600; color: var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                <div title="${escapeHTML(o.name)}" style="flex: 1; min-width:0; font-size:13px; font-weight:600; color: var(--text-main); word-break:break-word; white-space:normal;">
                     ${escapeHTML(o.name)}${o.is_new ? ' <span style="font-size:10px; color: var(--primary); font-weight:700;">NEW</span>' : ''}
                 </div>
                 <div style="width:88px; flex-shrink:0; text-align:right; font-size:13px; font-weight:700; color: var(--text-main);">S$${o.gross.toLocaleString()}</div>
@@ -2943,10 +3005,10 @@ function initSgHub() {
         body.innerHTML = filtered.slice(0, MAX_ROWS).map(o => `
             <div style="display:flex; align-items:center; gap:10px; padding: 6px 0; border-bottom: 1px solid var(--border);">
                 <div style="flex: 1; min-width:0;">
-                    <div title="${escapeHTML(o.name)}" style="font-size:13px; font-weight:600; color: var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    <div title="${escapeHTML(o.name)}" style="font-size:13px; font-weight:600; color: var(--text-main); word-break:break-word; white-space:normal;">
                         ${escapeHTML(o.name)}${o.is_new ? ' <span style="font-size:10px; color: var(--primary); font-weight:700;">NEW</span>' : ''}${o.is_tech ? ' 🤖' : ''}
                     </div>
-                    <div title="${escapeHTML(o.group || '')}" style="font-size:10px; color: var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(o.group || '')}</div>
+                    <div title="${escapeHTML(o.group || '')}" style="font-size:10px; color: var(--text-muted); word-break:break-word; white-space:normal;">${escapeHTML(o.group || '')}</div>
                 </div>
                 <div style="width:88px; flex-shrink:0; text-align:right; font-size:13px; font-weight:700; color: var(--text-main);">${o.gross ? `S$${o.gross.toLocaleString()}` : '—'}</div>
                 <div style="width:58px; flex-shrink:0; text-align:right; font-size:12px; font-weight:700; color:${o.pct_change == null ? 'var(--text-muted)' : (o.pct_change >= 0 ? '#1a7f3c' : '#c0392b')};">

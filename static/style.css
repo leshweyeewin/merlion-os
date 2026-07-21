@@ -156,6 +156,12 @@ body {
     margin: 0 auto;
 }
 
+@media (max-width: 600px) {
+    .app-directory {
+        padding: 20px 14px 80px;
+    }
+}
+
 .directory-header {
     margin-bottom: 28px;
     max-width: 760px;
@@ -179,10 +185,20 @@ body {
 .directory-toolbar {
     margin-top: 16px;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 10px;
+}
+
+@media (max-width: 600px) {
+    .directory-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .reorder-hint {
+        display: none;
+    }
 }
 
 .reorder-hint {
@@ -296,6 +312,21 @@ body {
     position: relative;
     display: flex;
     gap: 8px;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 600px) {
+    .toolbar-btn-group {
+        width: 100%;
+    }
+    .toolbar-btn-group .reset-layout-btn,
+    .toolbar-btn-group .manage-portals-wrap {
+        flex: 1;
+        justify-content: center;
+    }
+    .toolbar-btn-group .reset-layout-btn {
+        display: inline-flex;
+    }
 }
 
 .manage-portals-btn {
@@ -313,11 +344,13 @@ body {
 }
 
 .hidden-portals-dropdown {
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    z-index: 50;
-    width: 300px;
+    position: fixed;
+    top: auto;
+    left: 14px;
+    right: 14px;
+    z-index: 200;
+    width: auto;
+    max-width: 420px;
     background: var(--bg-panel);
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -325,6 +358,8 @@ body {
     padding: 10px;
     display: flex;
     flex-direction: column;
+    max-height: 75vh;
+    overflow-y: auto;
 }
 
 .hidden-portals-dropdown.hidden {
