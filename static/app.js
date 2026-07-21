@@ -862,7 +862,12 @@ function initPortalVisibility() {
                 renderDropdown();
                 // Position the fixed dropdown just below the button for all screen sizes
                 const btnRect = manageBtn.getBoundingClientRect();
-                dropdown.style.top = (btnRect.bottom + 8) + "px";
+                const topPos = btnRect.bottom + 8;
+                dropdown.style.top = topPos + "px";
+                // Cap height so the dropdown never overlaps the fixed Co-Pilot button
+                // (button is bottom:24px, ~48px tall → reserve 80px from the bottom)
+                const safeBottom = 80;
+                dropdown.style.maxHeight = Math.max(120, window.innerHeight - topPos - safeBottom) + "px";
             }
             dropdown.classList.toggle("hidden", !willOpen);
         });

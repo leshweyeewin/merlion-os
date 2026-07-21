@@ -358,7 +358,8 @@ body {
     padding: 10px;
     display: flex;
     flex-direction: column;
-    max-height: 75vh;
+    /* JS overrides this on open; the fallback leaves room above the fixed Co-Pilot button */
+    max-height: calc(100dvh - 160px);
     overflow-y: auto;
 }
 
