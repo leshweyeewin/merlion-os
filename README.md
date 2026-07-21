@@ -79,6 +79,10 @@ graph TD
     - Automated Google Cloud Run build & deploy CI/CD pipeline (`deploy.yml`) triggered on branch push. CI runs a `pyflakes` lint gate (unused imports, undefined names) plus **92 unit tests** (routes, caching, structured stats, "why" explanations, XSS/`safeURL`, pydantic structures, OLS forecasts, allowlists) on every push.
 11. **Chat Rate Limiting**:
     - Per-IP request caps (8/min, in-memory sliding window) on `/api/chat` and `/api/chat/stream`, so a single client can't drain the shared Gemini free-tier quota on the public demo link.
+12. **Intent-Based Portal Search & Plain-English Glossary**:
+    - A top-of-grid search box matches everyday phrasing ("top up CPF", "change company address") against a per-agency synonym map, not just each card's official name — plus quick-task chips and clickable suggestions that route to a live SG Hub panel when one answers the query better than a static portal link. Separately, ~26 government acronyms/jargon terms rendered anywhere in SG Hub get a dashed-underline tooltip (hover on desktop, tap on mobile) explaining them in plain English, applied automatically to newly-loaded panel content via a `MutationObserver`.
+13. **Mobile Responsiveness**:
+    - Dedicated breakpoints reflow the portal grid, directory toolbar, onboarding banner, header, and hub dashboard cards for narrow screens, with tap-based interaction (search chips, glossary/chart tooltips) replacing hover where a touchscreen has no hover state.
 
 
 ---

@@ -92,6 +92,7 @@ from tools.transport import (
 # ── Wages: salary growth & occupational wage survey ──────────────────────────
 from tools.wages import (
     compute_occupational_wage_insights,
+    compute_tech_wage_growth_reason,
     query_occupational_wage_insights,
 )
 
@@ -141,6 +142,7 @@ __all__ = [
     "MRT_LINE_META", "fetch_lta_train_alerts", "fetch_lta_taxi_availability",
     # wages
     "compute_occupational_wage_insights",
+    "compute_tech_wage_growth_reason",
     "query_occupational_wage_insights",
     # chat
     "run_chat_loop",

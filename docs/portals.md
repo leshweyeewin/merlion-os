@@ -105,6 +105,10 @@ The directory is divided into four main administrative categories:
 
 ---
 
+## Intent-Based Search
+
+A search box sits above the portal grid: `What do you need? Try "renew passport", "pay road tax", "change company address"...`. It doesn't just match each card's official name — every agency has a hand-mapped list of everyday-language synonyms ("change shop address" → ACRA, not "Change in Registered Office Address"), so citizens can search in plain English without knowing the government term. Quick-task chips below the box surface common searches in one tap, and if a query is better answered by a live SG Hub panel than a static portal link (e.g. "COE premium", "MRT delay"), a clickable suggestion routes straight to that dashboard tab instead.
+
 ## Manage Portals & Visibility
 
 Since the directory includes 81 portals, you can hide cards you do not need by hovering over a card and clicking the eye icon. The **Manage Portals** panel at the top of the grid lets you search by name or description, switch between Hidden/Visible sets, multi-select portals, and bulk add-back or hide them. Layout orders are automatically persisted across sessions in browser `localStorage`.

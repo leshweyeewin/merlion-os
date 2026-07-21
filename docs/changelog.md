@@ -33,6 +33,7 @@ Test suite grown from 38 to **92 tests**: full route-level coverage for every `/
 **🐛 UI fixes**
 - Fixed the onboarding banner's first bullet scattering across broken lines in production ("renew" / "passport" / "top" / "up" / "CPF" on separate lines) — a CSS descendant-selector bug was forcing `display:grid` onto an element with mixed inline content (icon + text + multiple `<em>` tags), which Grid then auto-placed into extra rows instead of letting the text wrap normally.
 - Surfaced the taxi "Around You" search radius (2km) on the button label itself, before the user opts in — it previously only appeared after clicking and granting location access.
+- Mobile polish pass: chart touch events (tap-to-see-tooltip on trend charts), full (non-truncated) job titles on narrow screens, the portal directory toolbar wrapping instead of overflowing, the Manage Portals dropdown capping its height above the Co-Pilot launcher button, the IRAS due-dates "File Now" button sitting consistently below each row at all widths, and glossary term / chart label wrapping no longer breaking mid-word on small screens.
 
 ---
 
@@ -55,6 +56,13 @@ Release cycle building on the baseline. What's new or changed:
 **🏛️ Statutory Portals Directory**
 - Grown from **19 → 81** portals (+62 agencies: HPB, MSF, PUB, NLB, URA, NParks, MAS, IMDA, OneNS, SPF, SCDF, ACRA, EnterpriseSG, IPOS, SLA, CEA, PA, STB, NHB, MinLaw, CDC, SFA, Judiciary, Parliament, MOF, GovTech, HSA, SG Enable, EDB, PMO, MHA, MDDI, MFA, MINDEF, MND, MCCY, MOT, MTI, MSE, EMA, A*STAR, BCA, CAAS, CSC, CDA, CCCS, DSTA, GRA, HTX, ISEAS, JTC, MPA, NAC, NCSS, PTC, SDC, SEAB, AGO, CPIB, PSC, Istana, AGC), with a dedicated portal index page.
 - **Custom Visibility & Filtering**: Hovering any portal card lets you hide it using the eye icon. The **Manage Portals** panel (top of the grid) supports searching by name/description, a Hidden/Visible mode toggle, multi-select checkboxes with select-all, and bulk add-back / hide actions for selected portals or the entire filtered list — all persisted in `localStorage`.
+- **Intent-based search bar**: a top-of-grid search box matches everyday phrasing ("change shop address", "top up CPF", "renew passport") against a per-agency map of plain-language synonyms, not just each card's official name/description — so nobody needs to know the government term to find the right portal. Ships with quick-task chips for common searches and, when a query matches a live SG Hub panel instead of a static portal (e.g. "COE premium"), surfaces a clickable suggestion linking straight to that dashboard tab.
+
+**📖 Plain-English glossary**
+Any of ~26 government acronyms/jargon terms (CPF, SA/OA, SRS, COE, BTO, EHG, PSI, YA, SSOC, accrued interest, etc.) rendered anywhere inside SG Hub gets a dashed underline; hovering (desktop) or tapping (mobile) shows a one-sentence plain-English explanation in a tooltip. Applied automatically via a `MutationObserver` so it keeps annotating newly-loaded panel content, not just what's on screen at page load.
+
+**📱 Mobile responsiveness**
+Layout breakpoints (≤600px, header ≤500px) reflow the portal grid, directory toolbar, onboarding banner, header, and hub dashboard cards for narrow screens — toolbar buttons stack and go full-width, long card titles/values no longer spill their bounds, and glossary/chart tooltips respond to tap instead of requiring hover.
 
 **🧹 Code Cleanup & Refactoring**
 - **Monolith Refactoring**: Split the monolithic `tools.py` into a modular package under `tools/` (core, civic, search, environment, jobs, housing, transport, wages) with clean, backwards-compatible exports.

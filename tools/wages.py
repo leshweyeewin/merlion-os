@@ -104,6 +104,36 @@ def _fetch_occ_wage_year(year: int) -> dict | None:
         return None
     return _parse_occ_wage_table1(r.content)
 
+_TECH_WAGE_GAP_THRESHOLD_PTS = 2.0  # pp gap between tech/non-tech average YoY increment before flagging it
+
+def compute_tech_wage_growth_reason(movers: list) -> str | None:
+    """Explains whether tech/AI roles are actually seeing faster raises than the rest of the
+    workforce, or whether the AI-era wage story is mostly about new job creation and pay
+    *level* rather than pay *growth* — cross-references the same is_tech flag and pct_change
+    values compute_occupational_wage_insights already computed for every occupation, so this
+    adds no extra fetch. Returns None when there's too little tech coverage among movers, or
+    the tech/non-tech gap isn't meaningful."""
+    tech_changes = [m["pct_change"] for m in movers if m["is_tech"]]
+    non_tech_changes = [m["pct_change"] for m in movers if not m["is_tech"]]
+    if len(tech_changes) < 5 or len(non_tech_changes) < 5:
+        return None
+    tech_avg = sum(tech_changes) / len(tech_changes)
+    non_tech_avg = sum(non_tech_changes) / len(non_tech_changes)
+    gap = round(tech_avg - non_tech_avg, 1)
+    if abs(gap) < _TECH_WAGE_GAP_THRESHOLD_PTS:
+        return None
+    if gap > 0:
+        return (
+            f"Tech/AI roles are seeing faster raises than the rest of the workforce "
+            f"({tech_avg:+.1f}% avg vs {non_tech_avg:+.1f}% for other titles) — the AI-era "
+            f"hiring wave shows up in pay growth, not just new job titles."
+        )
+    return (
+        f"Despite the new AI-era job titles, tech/digital roles aren't seeing outsized raises "
+        f"this year ({tech_avg:+.1f}% avg vs {non_tech_avg:+.1f}% for other titles) — the AI "
+        f"wave shows up more in headcount/new titles than above-average pay growth."
+    )
+
 def compute_occupational_wage_insights() -> dict:
     """
     Shared computation used by both the AI chat tool (query_occupational_wage_insights, below)
@@ -221,6 +251,7 @@ def compute_occupational_wage_insights() -> dict:
         (o for o in all_occupations if o["is_tech"]),
         key=lambda o: -(o["gross"] or 0)
     )
+    tech_wage_growth_reason = compute_tech_wage_growth_reason(movers)
 
     data = {
         "latest_year": latest_year,
@@ -232,6 +263,7 @@ def compute_occupational_wage_insights() -> dict:
         "top_movers": movers_sorted[:10],
         "bottom_movers": movers_sorted[-5:][::-1],
         "tech_roles": tech_roles,
+        "tech_wage_growth_reason": tech_wage_growth_reason,
         "all_occupations": all_occupations,
         "source": (
             f"MOM Occupational Wage Survey, June {latest_year} vs June {prior_year} "
@@ -315,6 +347,8 @@ def query_occupational_wage_insights(context_query: str = "general") -> str:
             + "; ".join(f"{o['name']} S${o['gross']:,}" for o in top_tech)
         )
         lines.append(f"\U0001F5C2 {len(data['discontinued_titles'])} titles from {prior} are no longer tracked separately.")
+        if data["tech_wage_growth_reason"]:
+            lines.append(f"\U0001F50D Why: {data['tech_wage_growth_reason']}")
 
     lines.append("⚠️ Survey-based figures — small occupations can swing sharply year to year; treat extreme increments as indicative, not guaranteed raises.")
     lines.append(f"\U0001F4A1 Source: {data['source']}")

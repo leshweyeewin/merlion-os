@@ -1,16 +1,18 @@
 """
 tests/test_why_explanations.py — rule-based "why" reasoning for dashboard insights
 -----------------------------------------------------------------------------------------
-Three deterministic explanation functions, added on top of the existing structured stats,
+Four deterministic explanation functions, added on top of the existing structured stats,
 that answer "why did this move" from data the app already fetched (no extra network calls, no
 AI-generated narrative):
-  - tools.jobs.compute_trend_break_reason        (job-market CAGR trend-break vs. hiring pressure)
-  - tools.transport.compute_coe_movement_reason   (COE premium/momentum vs. quota & bid changes)
-  - tools.housing.compute_resale_mix_shift_reason (HDB resale YoY change vs. per-flat-type moves)
+  - tools.jobs.compute_trend_break_reason         (job-market CAGR trend-break vs. hiring pressure)
+  - tools.transport.compute_coe_movement_reason    (COE premium/momentum vs. quota & bid changes)
+  - tools.housing.compute_resale_mix_shift_reason  (HDB resale YoY change vs. per-flat-type moves)
+  - tools.wages.compute_tech_wage_growth_reason    (tech/AI vs. non-tech YoY wage growth)
 """
 import tools.jobs as jobs
 import tools.transport as transport
 import tools.housing as housing
+import tools.wages as wages
 
 
 # ── Job market: CAGR trend-break reason ──────────────────────────────────────────────────────
@@ -188,3 +190,48 @@ def test_resale_mix_shift_reason_wired_into_compute_hdb_resale_stats(monkeypatch
     stats = housing.compute_hdb_resale_stats()
     assert stats["mix_shift_reason"] is not None
     assert "Broad-based" in stats["mix_shift_reason"]
+
+
+# ── Occupational Wages: tech vs. non-tech wage-growth reason ───────────────────────────────
+
+def _mover(pct_change, is_tech):
+    return {"pct_change": pct_change, "is_tech": is_tech}
+
+def test_tech_wage_growth_reason_none_with_too_few_tech_movers():
+    movers = [_mover(5.0, True)] * 2 + [_mover(3.0, False)] * 10
+    assert wages.compute_tech_wage_growth_reason(movers) is None
+
+
+def test_tech_wage_growth_reason_none_with_too_few_non_tech_movers():
+    movers = [_mover(5.0, True)] * 10 + [_mover(3.0, False)] * 2
+    assert wages.compute_tech_wage_growth_reason(movers) is None
+
+
+def test_tech_wage_growth_reason_none_when_gap_too_small():
+    movers = [_mover(5.0, True)] * 10 + [_mover(4.0, False)] * 10
+    assert wages.compute_tech_wage_growth_reason(movers) is None
+
+
+def test_tech_wage_growth_reason_tech_outpacing():
+    movers = [_mover(8.0, True)] * 10 + [_mover(3.0, False)] * 10
+    reason = wages.compute_tech_wage_growth_reason(movers)
+    assert "faster raises" in reason
+    assert "+8.0%" in reason
+    assert "+3.0%" in reason
+
+
+def test_tech_wage_growth_reason_tech_lagging():
+    movers = [_mover(1.0, True)] * 10 + [_mover(5.0, False)] * 10
+    reason = wages.compute_tech_wage_growth_reason(movers)
+    assert "aren't seeing outsized raises" in reason
+    assert "+1.0%" in reason
+    assert "+5.0%" in reason
+
+
+def test_tech_wage_growth_reason_wired_into_result_dict_key():
+    """Wiring itself (compute_occupational_wage_insights's concurrent multi-year fetch +
+    difflib title-matching) is exercised live in the app, not re-mocked here — this locks in
+    only the field name/shape so a rename doesn't silently break the dashboard/chat text."""
+    import inspect
+    source = inspect.getsource(wages.compute_occupational_wage_insights)
+    assert '"tech_wage_growth_reason": tech_wage_growth_reason' in source

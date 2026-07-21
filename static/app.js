@@ -3036,6 +3036,7 @@ function initSgHub() {
                 ${best ? `<div>• Sharpest rise: <strong>${escapeHTML(best.name)}</strong> at <strong style="color:#1a7f3c;">+${best.pct_change.toFixed(1)}%</strong> (S$${best.prior_gross.toLocaleString()} &rarr; S$${best.gross.toLocaleString()}); steepest decline: <strong>${escapeHTML(worst.name)}</strong> at <strong style="color:#c0392b;">${worst.pct_change.toFixed(1)}%</strong>.</div>` : ''}
                 ${topNewPaid ? `<div>• The SSOC refresh added <strong>${data.new_titles.length}</strong> new job titles — ${newTechCount} of them tech/AI-era. Highest-paid newcomer: <strong>${escapeHTML(topNewPaid.name)}</strong> (S$${topNewPaid.gross.toLocaleString()}/mth).</div>` : ''}
                 ${topTech ? `<div>• Top-paying tech role: <strong>${escapeHTML(topTech.name)}</strong> at <strong>S$${topTech.gross.toLocaleString()}/mth</strong> median.</div>` : ''}
+                ${data.tech_wage_growth_reason ? `<div>🔍 <strong>Why:</strong> ${escapeHTML(data.tech_wage_growth_reason)}</div>` : ''}
             </div>`;
 
         // New-title chips: server sorts tech-first then by wage — show the 8 most notable
@@ -3555,6 +3556,7 @@ function initSgHub() {
         "ICA": "Immigration & Checkpoints Authority — handles passports, NRICs, PRs and border checkpoints.",
         "IR8A": "The employer-issued form reporting your yearly employment income for tax filing.",
         "UV Index": "Measure of sunburn-causing ultraviolet radiation: 0–2 low, 6–7 high, 11+ extreme (NEA scale).",
+        "CAGR": "Compound Annual Growth Rate — the steady yearly growth rate that would take a figure from its starting value to its ending value over the given number of years.",
         "accrued interest": "The CPF interest you must refund (on top of the principal) to your own CPF account when you sell a property bought with CPF savings.",
     };
     const GLOSS_RE = new RegExp(
