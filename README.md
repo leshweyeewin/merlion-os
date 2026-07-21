@@ -29,9 +29,11 @@ MerlionOS aggregates this entire ecosystem into a single-pane-of-glass daily uti
 graph TD
     User([Citizen / Developer]) -->|Natural Language Query| UI[Frontend Dashboard]
     UI -->|AJAX POST /api/chat| Server[FastAPI Server]
-    
+    Server -->|Per-IP Rate Limit 8 req/min| RateLimit{Under limit?}
+    RateLimit -.->|No: 429| UI
+
     subgraph AI Orchestration Layer
-        Server -->|Chat Engine| Chat[tools/chat.py]
+        RateLimit -->|Yes| Chat[tools/chat.py]
         Chat -->|Orchestrate| Gemini[Gemini 2.5 Flash]
         Gemini -->|Parallel Tool Calling| Tools{Statutory Tools}
         Gemini -.->|Quota Exceeded 429| Fallback[Gemini 3.1 Flash-Lite + Google Search Grounding]
