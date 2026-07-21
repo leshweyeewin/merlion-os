@@ -7,14 +7,21 @@ pip install -r requirements.txt
 ```
 
 ## 2. Set API Keys & Start Server
-Set the required API keys (Gemini and LTA DataMall) in your environment variables.
+Create a `.env` file in the project root folder (you can copy `.env.example` as a template). The server automatically reads variables from `.env` on startup.
+
+**Create `.env` file:**
+```env
+GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
+LTA_DATAMALL_API_KEY="YOUR_LTA_DATAMALL_API_KEY"
+DATA_GOV_SG_API_KEY="YOUR_DATA_GOV_SG_API_KEY" # optional
+```
+
+Alternatively, you can export them directly into your shell session:
 
 **Windows PowerShell:**
 ```powershell
 $env:GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 $env:LTA_DATAMALL_API_KEY="YOUR_LTA_DATAMALL_API_KEY"
-$env:DATA_GOV_SG_API_KEY="YOUR_DATA_GOV_SG_API_KEY"  # optional, see note below
-$env:PORT="8080"
 python server.py
 ```
 
@@ -22,26 +29,21 @@ python server.py
 ```bash
 export GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 export LTA_DATAMALL_API_KEY="YOUR_LTA_DATAMALL_API_KEY"
-export DATA_GOV_SG_API_KEY="YOUR_DATA_GOV_SG_API_KEY"  # optional, see note below
-export PORT="8080"
 python server.py
 ```
 
-> **`DATA_GOV_SG_API_KEY` (optional):** applied as the `x-api-key` header on every data.gov.sg call in the app (Weather panel's NEA real-time APIs, plus the Job Vacancy, MOM Retrenchment, HDB Resale, and COE Bidding datasets). It's most impactful on the Weather panel, which fires 9 sequential NEA calls per load — unauthenticated calls hit data.gov.sg's burst rate limit after ~6 rapid requests, so without a key the last few fields (wind, rainfall, 24-hr outlook) pace themselves ~1s apart to stay under it. With a key configured, that pacing is skipped entirely for instant loads. [Get a free key](https://guide.data.gov.sg/developer-guide/api-overview/how-to-request-an-api-key) — sign in with the account you just created, then follow [how to use your API key](https://guide.data.gov.sg/developer-guide/api-overview/how-to-use-your-api-key).
-
-Open your browser to: **`http://127.0.0.1:8080/`**
-*(Note: If port 8000 is occupied on your machine, you can change the `PORT` env variable to run the server on any free port).*
+Open your browser to: **`http://127.0.0.1:8000/`**
+*(Note: If port 8000 is occupied on your machine, you can set the `PORT` env variable to run the server on another port).*
 
 A successful startup looks like this in your terminal:
 ```
+[MOM OWS] Startup pre-warm complete: 512 occupations cached.
 INFO:     Started server process [16864]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8080 (Press CTRL+C to quit)
-INFO:     127.0.0.1:64638 - "GET / HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64638 - "GET /style.css HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64638 - "GET /app.js HTTP/1.1" 200 OK
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 ```
+
 
 ## 3. Setup Google BigQuery for Job Market Analysis
 By default, the Job Market Analysis panel queries Google BigQuery first. If GCP credentials or the table is not set up, it automatically falls back to fetching directly from data.gov.sg (without any loss of functionality). To populate and run with the Google BigQuery tier:
@@ -52,12 +54,12 @@ python scripts/load_job_vacancy_to_bigquery.py --project YOUR_GCP_PROJECT_ID
 Then set `GCP_PROJECT_ID` alongside your other environment variables before starting the server. If this isn't configured, the app automatically falls back to the direct data.gov.sg fetch.
 
 ## 4. Run Tests
-The unit test suite covers the security-critical scraper domain validator (`tools/search.py`), the shared COE/HDB forecast math (`tools/core.py`), and the client-side tax bracket calculator (`static/app.js`) — the same checks GitHub Actions runs on every push via [`.github/workflows/ci.yml`](../.github/workflows/ci.yml):
+The test suite consists of **38 unit tests** spanning both Python and Node.js testing frameworks:
 ```bash
 pip install -r requirements-dev.txt
-pytest tests/ -v            # Python: domain validation + forecast regression
-node --check static/app.js  # JS syntax check
-node --test tests/*.js      # JS: tax calculator
+pytest tests/ -v            # Python tests: validation, security, forecasting, models
+node --check static/app.js  # JavaScript syntax check
+node --test tests/*.js      # JavaScript tests: progressive tax calculator
 ```
 
 ## 5. Run FastMCP Tool Server
@@ -72,7 +74,8 @@ Below is the directory layout of the codebase:
 merlion-os/
 ├── .github/
 │   └── workflows/
-│       └── ci.yml        # GitHub Actions: node --check, JS tests, pytest on every push/PR
+│       ├── ci.yml        # GitHub Actions: syntax checks, Node tests, pytest
+│       └── deploy.yml    # GitHub Actions: build & deploy Docker image to GCP Cloud Run
 ├── docs/                 # Detailed topic-specific documentation guides
 │   ├── changelog.md         # Release notes and version history
 │   ├── data_sources.md      # Data sources and APIs for SG Hub
@@ -81,14 +84,17 @@ merlion-os/
 │   ├── quickstart.md        # Local quickstart, BigQuery, and MCP setup
 │   └── security_and_performance.md  # Hardening, caching, and safety strategy
 ├── static/               # Frontend assets (HTML, CSS, JS, and Logos)
-│   ├── logos/            # 81 local statutory agency SVG/PNG logos
+│   ├── logos/            # Local statutory agency SVG/PNG logos
 │   ├── app.js            # Frontend logic and UI rendering (Leaflet integration)
 │   ├── index.html        # Main dashboard structure
 │   └── style.css         # Custom layout, animations, and dark mode rules
 ├── tests/                # Unit tests run locally and in CI
+│   ├── test_chat_models.py              # Pydantic request/response schema tests
 │   ├── test_forecast.py                 # COE/HDB shared forecast math
+│   ├── test_multimodal_multihop.py      # Base64 attachment parsing tests
 │   ├── test_search_domain_validation.py # Scraper domain allowlist
-│   └── test_tax_calculator.js           # Client-side tax bracket calculator
+│   ├── test_security.py                 # Client-side XSS protection replica tests
+│   └── test_tax_calculator.js           # Client-side tax bracket calculator Node test
 ├── tools/                # Modular statutory boards execution and chat modules
 │   ├── __init__.py       # Package exports and interfaces
 │   ├── chat.py           # Gemini parallel routing and fallback logic
@@ -105,5 +111,7 @@ merlion-os/
 ├── requirements.txt      # Python dependencies manifest
 ├── requirements-dev.txt  # requirements.txt + pytest, for local/CI test runs
 ├── server.py             # Uvicorn FastAPI routing entrypoint
+├── .env.example          # Environment variables template
 └── README.md             # Main repository index and hackathon brief
 ```
+
