@@ -57,6 +57,8 @@ document.addEventListener("DOMContentLoaded", () => {
     initPortalReordering();
     initPortalVisibility();
     initPortalSearch();
+    initOnboardingBanner();
+    initPortalBookmarks();
 
     const chatForm = document.getElementById("chat-form");
     const userInput = document.getElementById("user-input");
@@ -973,6 +975,121 @@ function initPortalVisibility() {
     }
 }
 
+function initOnboardingBanner() {
+    const banner = document.getElementById("onboarding-banner");
+    const dismissBtn = document.getElementById("onboarding-dismiss");
+    if (!banner || !dismissBtn) return;
+
+    const dismissed = localStorage.getItem("merlionos-onboarding-dismissed");
+    if (!dismissed) {
+        banner.style.display = "block";
+    }
+
+    dismissBtn.addEventListener("click", () => {
+        banner.style.display = "none";
+        localStorage.setItem("merlionos-onboarding-dismissed", "true");
+    });
+}
+
+function initPortalBookmarks() {
+    const grid = document.querySelector(".grid-container");
+    const mattersSection = document.getElementById("my-matters-section");
+    const mattersGrid = document.getElementById("my-matters-grid");
+    if (!grid || !mattersSection || !mattersGrid) return;
+
+    const STORAGE_KEY = "merlionos-bookmarked-portals";
+
+    function loadBookmarks() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+            return Array.isArray(saved) ? saved : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function saveBookmarks(list) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    }
+
+    function toggleBookmark(agency) {
+        let list = loadBookmarks();
+        if (list.includes(agency)) {
+            list = list.filter(a => a !== agency);
+        } else {
+            list.push(agency);
+        }
+        saveBookmarks(list);
+        updateCardStars();
+        renderMattersGrid();
+    }
+
+    function updateCardStars() {
+        const bookmarks = new Set(loadBookmarks());
+        grid.querySelectorAll(".service-card").forEach(card => {
+            const agency = card.dataset.agency;
+            const star = card.querySelector(".bookmark-btn");
+            if (star) {
+                if (bookmarks.has(agency)) {
+                    star.classList.add("bookmarked");
+                    star.title = "Remove from bookmarks";
+                } else {
+                    star.classList.remove("bookmarked");
+                    star.title = "Bookmark this portal";
+                }
+            }
+        });
+    }
+
+    function renderMattersGrid() {
+        mattersGrid.innerHTML = "";
+        const bookmarks = loadBookmarks();
+        if (bookmarks.length === 0) {
+            mattersSection.classList.add("hidden");
+            return;
+        }
+
+        mattersSection.classList.remove("hidden");
+        bookmarks.forEach(agency => {
+            const origCard = grid.querySelector(`.service-card[data-agency="${agency}"]`);
+            if (!origCard) return;
+
+            const clone = origCard.cloneNode(true);
+            clone.removeAttribute("draggable");
+            clone.querySelectorAll(".drag-handle").forEach(el => el.remove());
+            clone.querySelectorAll(".hide-portal-btn").forEach(el => el.remove());
+            
+            // Hook up clone star button
+            const cloneStar = clone.querySelector(".bookmark-btn");
+            if (cloneStar) {
+                cloneStar.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    toggleBookmark(agency);
+                });
+            }
+
+            mattersGrid.appendChild(clone);
+        });
+    }
+
+    // Add star buttons to all original cards
+    grid.querySelectorAll(".service-card").forEach(card => {
+        const agency = card.dataset.agency;
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "bookmark-btn";
+        btn.innerHTML = `<i class="fa-solid fa-star"></i>`;
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            toggleBookmark(agency);
+        });
+        card.appendChild(btn);
+    });
+
+    updateCardStars();
+    renderMattersGrid();
+}
+
 // ── SG Hub Live Dashboard Data Loading ───────────────────────────────────
 function initSgHub() {
     let sgHubLoaded = false;
@@ -1228,20 +1345,38 @@ function initSgHub() {
         "hub-env-pane": false
     };
 
+    function skeletonRows(n, widths = ["tall", "medium", "short"]) {
+        const rows = Array.from({ length: n }, () => `
+            <div class="skeleton-row">
+                ${widths.map(w => `<div class="skeleton-line ${w}"></div>`).join("")}
+            </div>`).join("");
+        return `<div class="skeleton-shimmer">${rows}</div>`;
+    }
+
+    function skeletonCardGrid(n = 6) {
+        const cards = Array.from({ length: n }, () => `
+            <div class="skeleton-card">
+                <div class="skeleton-line tall short"></div>
+                <div class="skeleton-line medium"></div>
+                <div class="skeleton-line short"></div>
+            </div>`).join("");
+        return `<div class="skeleton-shimmer"><div class="skeleton-cards">${cards}</div></div>`;
+    }
+
     function showPaneLoader(paneId) {
         if (paneId === "hub-transport-pane" || paneId === "hub-gov-transit-pane") {
-            mrtEventsContent.innerHTML = "<p style='color: var(--text-subtle); margin:0;'><i class='fa-solid fa-circle-notch fa-spin'></i> Loading transit advisories...</p>";
-            if (transportContent) transportContent.innerHTML = "<p style='color: var(--text-subtle); margin:0;'><i class='fa-solid fa-circle-notch fa-spin'></i> Loading transport data...</p>";
-            govEventsContent.innerHTML = "<p style='color: var(--text-subtle); margin:0;'><i class='fa-solid fa-circle-notch fa-spin'></i> Loading official alerts...</p>";
+            mrtEventsContent.innerHTML = skeletonRows(3);
+            if (transportContent) transportContent.innerHTML = skeletonCardGrid(9);
+            govEventsContent.innerHTML = skeletonRows(3);
         } else if (paneId === "hub-hdb-pane") {
-            hdbLaunchesContent.innerHTML = "<p style='color: var(--text-subtle); margin:0;'><i class='fa-solid fa-circle-notch fa-spin'></i> Loading BTO listings...</p>";
-            hdbNewsContent.innerHTML = "<p style='color: var(--text-subtle); margin:0;'><i class='fa-solid fa-circle-notch fa-spin'></i> Loading press releases...</p>";
+            hdbLaunchesContent.innerHTML = skeletonRows(3, ["tall", "full", "medium"]);
+            hdbNewsContent.innerHTML = skeletonRows(3, ["medium", "long", "short"]);
         } else if (paneId === "hub-jobs-pane") {
-            jobsContent.innerHTML = "<p style='color: var(--text-subtle); margin:0;'><i class='fa-solid fa-circle-notch fa-spin'></i> Loading jobs analysis...</p>";
+            jobsContent.innerHTML = skeletonRows(4, ["tall", "full", "long", "medium"]);
         } else if (paneId === "hub-community-pane") {
-            communityEventsContent.innerHTML = "<p style='color: var(--text-subtle); margin:0;'><i class='fa-solid fa-circle-notch fa-spin'></i> Loading community events...</p>";
+            communityEventsContent.innerHTML = skeletonRows(4, ["medium", "long", "short"]);
         } else if (paneId === "hub-env-pane") {
-            weatherContent.innerHTML = "<p style='color: var(--text-subtle); margin:0;'><i class='fa-solid fa-circle-notch fa-spin'></i> Loading Weather and PSI...</p>";
+            weatherContent.innerHTML = skeletonCardGrid(8);
         }
     }
 

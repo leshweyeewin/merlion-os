@@ -53,6 +53,24 @@
                 </button>
             </div>
 
+            <!-- Onboarding Banner — shown once to new/first-time users -->
+            <div class="onboarding-banner" id="onboarding-banner" style="display:none;">
+                <div class="onboarding-inner">
+                    <div class="onboarding-icon" aria-hidden="true">🦁</div>
+                    <div class="onboarding-body">
+                        <div class="onboarding-title">Welcome to MerlionOS — Singapore's AI-powered public service brain</div>
+                        <div class="onboarding-feats">
+                            <span><i class="fa-solid fa-magnifying-glass"></i> Search 30+ agencies in plain English — <em>"renew passport"</em>, <em>"top up CPF"</em></span>
+                            <span><i class="fa-solid fa-robot"></i> Ask the AI Copilot any government question and get cited, actionable answers</span>
+                            <span><i class="fa-solid fa-chart-line"></i> Live dashboards — MRT status, PSI, BTO launches, job market &amp; COE trends</span>
+                        </div>
+                    </div>
+                    <button type="button" class="onboarding-dismiss" id="onboarding-dismiss" aria-label="Dismiss welcome banner">
+                        <i class="fa-solid fa-xmark"></i> Got it
+                    </button>
+                </div>
+            </div>
+
             <!-- Portal Pane -->
             <div id="portals-pane" class="main-pane">
                 <!-- Intent-based search: everyday phrases route to the right agency, no gov jargon needed -->
@@ -88,6 +106,16 @@
                     </div>
                 </div>
                 
+                <!-- My Matters — pinned portals (populated by JS from localStorage bookmarks) -->
+                <div class="my-matters-section hidden" id="my-matters-section">
+                    <div class="my-matters-header">
+                        <span><i class="fa-solid fa-star"></i> My Matters</span>
+                        <span class="my-matters-hint">Your bookmarked portals — click ★ on any card to pin it here</span>
+                    </div>
+                    <div class="my-matters-grid" id="my-matters-grid"></div>
+                    <hr class="my-matters-divider">
+                </div>
+
                 <div class="grid-container">
                 <!-- ICA Card -->
                 <div class="service-card" draggable="true" data-agency="ica">
