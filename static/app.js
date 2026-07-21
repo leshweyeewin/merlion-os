@@ -2218,8 +2218,8 @@ function initSgHub() {
             <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">🚕 TAXIS AVAILABLE ISLANDWIDE</span>
             <strong style="font-size: 22px; color: var(--primary); display:block;">${taxiAvailability.count.toLocaleString()}</strong>
             <span style="font-size: 10px; color: var(--text-muted); display:block; margin-bottom:8px;">${escapeHTML(taxiAvailability.retrieved_at)}</span>
-            <button type="button" id="taxi-around-you-btn" style="${TAXI_BTN_STYLE}">
-                <i class="fa-solid fa-location-crosshairs"></i> Around You
+            <button type="button" id="taxi-around-you-btn" style="${TAXI_BTN_STYLE}" title="Uses your location to count taxis within 2km">
+                <i class="fa-solid fa-location-crosshairs"></i> Around You (2km)
             </button>
         `;
     }
