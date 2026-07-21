@@ -6,7 +6,7 @@ on:
       - main
 
 env:
-  PROJECT_ID: "648096114696"
+  PROJECT_ID: "gen-lang-client-0985772581"
   REGION: asia-southeast1
   SERVICE_NAME: merlion-os
 
@@ -28,17 +28,6 @@ jobs:
 
       - name: Configure Docker
         run: gcloud auth configure-docker asia-southeast1-docker.pkg.dev --quiet
-
-      - name: Debug - show active identity
-        run: |
-          echo "--- gcloud auth list ---"
-          gcloud auth list
-          echo "--- gcloud config list ---"
-          gcloud config list
-          echo "--- repo IAM policy ---"
-          gcloud artifacts repositories get-iam-policy merlion-os-repo --location=asia-southeast1 || echo "no repo-level policy or denied"
-          echo "--- repo describe ---"
-          gcloud artifacts repositories describe merlion-os-repo --location=asia-southeast1 || echo "describe failed"
 
       - name: Build and Push Container Image
         run: |
