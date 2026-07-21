@@ -361,6 +361,32 @@ def compute_resale_mix_shift_reason(rows: list, latest_month: str, prior_month: 
         f"which flat types transacted, not pure price movement."
     )
 
+_PRICIEST_TOWN_LOW_SAMPLE_RATIO = 0.5  # top town flagged when its txn count is under half the across-town median
+
+def compute_priciest_town_caveat(towns: list) -> str | None:
+    """Flags when the #1 priciest town's median is built from an unusually thin transaction
+    sample for that month — e.g. Bukit Timah is almost entirely private/landed housing with
+    only a handful of surviving HDB blocks, so a handful of large, well-located units selling
+    can swing its median sharply without reflecting a broad repricing. Compares the top town's
+    count against the median count across all towns (not a fixed number) so the threshold
+    adapts with overall market volume. Returns None when there are too few towns to compare,
+    or the top town's volume isn't unusually thin relative to the rest."""
+    if len(towns) < 3:
+        return None
+    import statistics
+
+    counts = [t["transaction_count"] for t in towns]
+    median_count = statistics.median(counts)
+    top = towns[0]
+    if median_count <= 0 or top["transaction_count"] >= median_count * _PRICIEST_TOWN_LOW_SAMPLE_RATIO:
+        return None
+    return (
+        f"{top['town']}'s S${top['median_price']:,} median is based on just {top['transaction_count']} "
+        f"transaction{'s' if top['transaction_count'] != 1 else ''} this month — a thin sample (vs a "
+        f"{median_count:.0f}-transaction median across all towns) that can swing sharply on which "
+        f"specific units happened to sell, not necessarily a broad repricing."
+    )
+
 def compute_hdb_resale_stats() -> dict:
     """
     Shared computation used by both the AI chat tool (query_hdb_resale_price_trends, below)
@@ -397,6 +423,7 @@ def compute_hdb_resale_stats() -> dict:
         ),
         key=lambda x: -x["median_price"]
     )
+    priciest_town_caveat = compute_priciest_town_caveat(towns)
 
     return {
         "latest_month": latest_month,
@@ -405,6 +432,7 @@ def compute_hdb_resale_stats() -> dict:
         "prior_median_price": round(median_prior) if median_prior else None,
         "yoy_pct": yoy_pct,
         "mix_shift_reason": mix_shift_reason,
+        "priciest_town_caveat": priciest_town_caveat,
         "transaction_count": len(prices_latest),
         "towns": towns,
         "synced_at": _cache_synced_at(_hdb_resale_cache),
@@ -458,6 +486,7 @@ def query_hdb_resale_price_trends(context_query: str = "general") -> str:
         priciest = ", ".join(f"{t['town']} (S${t['median_price']:,})" for t in stats["towns"][:3])
         yoy_line = f"{stats['yoy_pct']:+.1f}% (vs S${stats['prior_median_price']:,} in {stats['prior_month']})" if stats["yoy_pct"] is not None else ""
         reason_line = f"\U0001F50D Why: {stats['mix_shift_reason']}\n" if stats["mix_shift_reason"] else ""
+        town_caveat_line = f"\U0001F50D Why {stats['towns'][0]['town']} tops the list: {stats['priciest_town_caveat']}\n" if stats.get("priciest_town_caveat") else ""
 
         return (
             f"--- [SG HDB RESALE FLAT PRICE ADVISORY] ---\n"
@@ -466,7 +495,8 @@ def query_hdb_resale_price_trends(context_query: str = "general") -> str:
             + (f"\U0001F4C8 YoY Change: {yoy_line}\n" if yoy_line else "")
             + reason_line
             + f"\U0001F3D9️ Priciest Towns: {priciest}\n"
-            f"\U0001F4A1 Source: {stats['source']}"
+            + town_caveat_line
+            + f"\U0001F4A1 Source: {stats['source']}"
         )
     except Exception as e:
         # FALLBACK DATA last refreshed for 2026-06 — only surfaces if BOTH the live fetch AND

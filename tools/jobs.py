@@ -475,6 +475,109 @@ def _fetch_retrenchment_rows() -> list:
         _disk_cache_save("retrenchment_rows", rows, now)
         return rows
 
+_SECTOR_DIVERGENCE_MIN_GAP_PTS = 5.0  # pp gap between leader/laggard YoY change before it's worth explaining
+_SECTOR_DIVERGENCE_PRESSURE_RATIO = 1.3  # one sector's pressure ratio must be this many times the other's to call it "meaningfully" different
+
+def compute_sector_divergence_reason(trend_pct: dict, pressures: dict) -> str | None:
+    """Explains why the vacancy-by-sector trend chart's sectors are diverging by comparing the
+    leader's and laggard's latest YoY change (`trend_pct`, one entry per sector key) against
+    each one's own Hiring Pressure Index (`pressures`, same keys, values shaped like
+    _compute_hiring_pressure's return). Takes pre-computed inputs rather than fetching itself —
+    compute_job_market_history already has both from the same retrenchment rows the quarterly
+    chart fetches, so wiring this in adds no extra network call. Explicitly names the case where
+    the laggard's pressure is actually the stronger one (a real possibility — a sector can lag
+    on vacancy growth while still having low retrenchments relative to its smaller vacancy base)
+    rather than collapsing it into a vague "not much different" reading. Returns None with fewer
+    than two sectors to compare, when they aren't meaningfully diverging, or when a pressure
+    reading for either extreme sector isn't available."""
+    if len(trend_pct) < 2:
+        return None
+    leader_key = max(trend_pct, key=trend_pct.get)
+    laggard_key = min(trend_pct, key=trend_pct.get)
+    if leader_key == laggard_key or trend_pct[leader_key] - trend_pct[laggard_key] < _SECTOR_DIVERGENCE_MIN_GAP_PTS:
+        return None
+
+    leader_pressure = pressures.get(leader_key)
+    laggard_pressure = pressures.get(laggard_key)
+    if not leader_pressure or not laggard_pressure or leader_pressure["ratio"] is None or laggard_pressure["ratio"] is None:
+        return None
+    leader_ratio, laggard_ratio = leader_pressure["ratio"], laggard_pressure["ratio"]
+
+    if leader_ratio >= laggard_ratio * _SECTOR_DIVERGENCE_PRESSURE_RATIO:
+        pressure_read = (
+            f"{leader_key.title()}'s hiring pressure ({leader_ratio:.1f}x vacancies per retrenchment) is "
+            f"clearly stronger than {laggard_key.title()}'s ({laggard_ratio:.1f}x) — consistent with the diverging trend."
+        )
+    elif laggard_ratio >= leader_ratio * _SECTOR_DIVERGENCE_PRESSURE_RATIO:
+        pressure_read = (
+            f"{laggard_key.title()}'s hiring pressure ({laggard_ratio:.1f}x) is actually the stronger one, versus "
+            f"{leader_key.title()}'s ({leader_ratio:.1f}x) — the vacancy divergence isn't explained by hiring pressure alone."
+        )
+    else:
+        pressure_read = (
+            f"{leader_key.title()}'s hiring pressure ({leader_ratio:.1f}x) and {laggard_key.title()}'s "
+            f"({laggard_ratio:.1f}x) aren't meaningfully different — the vacancy divergence isn't explained by a hiring-pressure gap."
+        )
+    return (
+        f"{leader_key.title()} led ({trend_pct[leader_key]:+.1f}% YoY) while {laggard_key.title()} lagged "
+        f"({trend_pct[laggard_key]:+.1f}% YoY) — {pressure_read}"
+    )
+
+_RETRENCH_DEVIATION_MIN_SHARE = 0.4  # a single sector must own at least this share of the combined cross-sector movement to be named as "the driver"
+
+def compute_retrenchment_deviation_reason(ret_rows: list, quarters: list, totals: list) -> str | None:
+    """Explains why the latest quarter's retrenchment total deviated from the trailing 4-quarter
+    average, by identifying which of the three top-level sectors (services/manufacturing/
+    construction) drove the move — reuses the same rows the quarterly chart already fetched, no
+    extra network call. The driver's share is measured against the combined absolute movement
+    across all three sectors (not the net total_delta), since sectors can partly offset each
+    other — dividing by the net figure alone can make one sector's share read as over 100% when
+    others move the opposite way. Returns None with too little quarterly history, no meaningful
+    deviation, or when no single sector clearly dominates the move (a broad-based shift, nothing
+    specific to name)."""
+    if len(quarters) < 5:
+        return None
+    latest_q = quarters[-1]
+    prior_4 = quarters[-5:-1]
+    prior_avg_total = sum(totals[-5:-1]) / 4
+    total_delta = totals[-1] - prior_avg_total
+    if abs(total_delta) < 1:
+        return None
+
+    def _sector_total(industry: str, quarter: str) -> int:
+        total = 0
+        for r in ret_rows:
+            if r.get("industry") == industry and r.get("quarter") == quarter:
+                raw = (r.get("retrench") or "").strip()
+                if raw and raw != "-":
+                    total += int(raw)
+        return total
+
+    deltas = {}
+    for industry in ("services", "manufacturing", "construction"):
+        latest_val = _sector_total(industry, latest_q)
+        prior_avg = sum(_sector_total(industry, q) for q in prior_4) / len(prior_4)
+        deltas[industry] = latest_val - prior_avg
+
+    same_sign = {k: v for k, v in deltas.items() if (v >= 0) == (total_delta >= 0)}
+    if not same_sign:
+        return None
+    driver = max(same_sign, key=lambda k: abs(same_sign[k]))
+    total_abs_movement = sum(abs(v) for v in deltas.values())
+    if total_abs_movement <= 0:
+        return None
+    driver_share = abs(deltas[driver]) / total_abs_movement
+    if driver_share < _RETRENCH_DEVIATION_MIN_SHARE:
+        return None
+
+    direction = "rose" if deltas[driver] >= 0 else "fell"
+    overall_direction = "increase" if total_delta >= 0 else "decrease"
+    return (
+        f"{driver.title()} {direction} the most versus its own 4-quarter average "
+        f"({deltas[driver]:+,.0f} workers) — {driver_share:.0%} of the combined movement across all "
+        f"three sectors, the main contributor behind this quarter's {overall_direction}."
+    )
+
 def compute_job_market_history() -> dict:
     """Multi-year vacancy totals per named sector plus the quarterly retrenchment series, for
     the SG Hub trend charts. Derived entirely from the same cached CSVs the headline cards
@@ -495,7 +598,20 @@ def compute_job_market_history() -> dict:
                     if raw and raw != "-":
                         totals[r["year"]] += int(raw)
             sectors[key] = [totals[y] for y in years]
-        vacancy = {"years": years, "sectors": sectors}
+
+        divergence_reason = None
+        if len(years) >= 2:
+            latest_year = years[-1]
+            trend_pct = {
+                key: round((sectors[key][-1] - sectors[key][-2]) / sectors[key][-2] * 100, 1)
+                for key in sectors if sectors[key][-2]
+            }
+            pressures = {
+                key: _compute_hiring_pressure(sectors[key][-1], _JOB_SECTOR_META[key]["industries"], latest_year)
+                for key in trend_pct
+            }
+            divergence_reason = compute_sector_divergence_reason(trend_pct, pressures)
+        vacancy = {"years": years, "sectors": sectors, "divergence_reason": divergence_reason}
     except Exception as e:
         print(f"  [history] vacancy trend skipped: {type(e).__name__}: {e}")
 
@@ -510,7 +626,12 @@ def compute_job_market_history() -> dict:
                 if raw and raw != "-":
                     per_quarter[r["quarter"]] = per_quarter.get(r["quarter"], 0) + int(raw)
         quarters = sorted(per_quarter)[-24:]  # last 6 years of quarters
-        retrenchment = {"quarters": quarters, "totals": [per_quarter[q] for q in quarters]}
+        totals = [per_quarter[q] for q in quarters]
+        retrenchment = {
+            "quarters": quarters,
+            "totals": totals,
+            "deviation_reason": compute_retrenchment_deviation_reason(ret_rows, quarters, totals),
+        }
     except Exception as e:
         print(f"  [history] retrenchment trend skipped: {type(e).__name__}: {e}")
 

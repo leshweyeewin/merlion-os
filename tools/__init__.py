@@ -57,6 +57,8 @@ from tools.jobs import (
     compute_job_sector_stats,
     compute_retrenchment_stats,
     compute_trend_break_reason,
+    compute_sector_divergence_reason,
+    compute_retrenchment_deviation_reason,
     format_job_trend_line,
     format_hiring_pressure_display,
     format_cagr_trend_display,
@@ -126,7 +128,7 @@ __all__ = [
     # jobs
     "compute_job_market_history", "get_retrenchment_synced_at",
     "resolve_job_sector", "compute_job_sector_stats", "compute_retrenchment_stats",
-    "compute_trend_break_reason",
+    "compute_trend_break_reason", "compute_sector_divergence_reason", "compute_retrenchment_deviation_reason",
     "format_job_trend_line", "format_hiring_pressure_display",
     "format_cagr_trend_display", "format_retrenchment_headline",
     "query_singapore_job_statistics_via_bigquery", "query_singapore_retrenchment_advisory",

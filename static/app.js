@@ -2598,6 +2598,7 @@ function initSgHub() {
             </div>
 
             ${resale.mix_shift_reason ? `<div style="font-size: 12px; color: var(--text-muted); background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;"><strong>🔍 Why:</strong> ${escapeHTML(resale.mix_shift_reason)}</div>` : ''}
+            ${resale.priciest_town_caveat ? `<div style="font-size: 12px; color: var(--text-muted); background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;"><strong>🔍 Why ${escapeHTML(towns[0].town)} tops the list:</strong> ${escapeHTML(resale.priciest_town_caveat)}</div>` : ''}
 
             <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">🗺️ Median Resale Price by Town</div>
             <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; max-height: 340px; overflow-y: auto;">
@@ -2914,7 +2915,8 @@ function initSgHub() {
             vtEl.innerHTML = `
                 <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 8px;">📈 Vacancy Trend by Sector (${escapeHTML(v.years[0])}–${escapeHTML(v.years[latestI])})</div>
                 <div id="vacancy-trend-chart" style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 4px;"></div>
-                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;">💡 ${escapeHTML(leader.name)} leads with ${leader.values[latestI].toLocaleString()} open roles in ${escapeHTML(v.years[latestI])}. Hover for exact counts per year. Source: MOM Job Vacancy by Industry &amp; Occupation.</div>`;
+                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;">💡 ${escapeHTML(leader.name)} leads with ${leader.values[latestI].toLocaleString()} open roles in ${escapeHTML(v.years[latestI])}. Hover for exact counts per year. Source: MOM Job Vacancy by Industry &amp; Occupation.</div>
+                ${v.divergence_reason ? `<div style="font-size: 12px; color: var(--text-muted); background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-top: 8px;"><strong>🔍 Why the sectors diverge:</strong> ${escapeHTML(v.divergence_reason)}</div>` : ''}`;
             renderLineChart(document.getElementById("vacancy-trend-chart"), { xLabels: v.years, series: seriesDefs });
         }
 
@@ -2929,7 +2931,8 @@ function initSgHub() {
             rtEl.innerHTML = `
                 <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 8px;">📉 Quarterly Retrenchments — Last ${r.quarters.length} Quarters</div>
                 <div id="retrenchment-trend-chart" style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 4px;"></div>
-                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;">💡 Latest quarter (${latest.toLocaleString()} workers) is ${Math.abs(delta) < 1 ? 'in line with' : `<strong style="color:${delta < 0 ? '#1a7f3c' : '#c0392b'};">${delta > 0 ? '+' : ''}${delta.toFixed(0)}%</strong> vs`} the average of the four quarters before it. Hover for exact headcounts.</div>`;
+                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;">💡 Latest quarter (${latest.toLocaleString()} workers) is ${Math.abs(delta) < 1 ? 'in line with' : `<strong style="color:${delta < 0 ? '#1a7f3c' : '#c0392b'};">${delta > 0 ? '+' : ''}${delta.toFixed(0)}%</strong> vs`} the average of the four quarters before it. Hover for exact headcounts.</div>
+                ${r.deviation_reason ? `<div style="font-size: 12px; color: var(--text-muted); background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-top: 8px;"><strong>🔍 Why:</strong> ${escapeHTML(r.deviation_reason)}</div>` : ''}`;
             renderLineChart(document.getElementById("retrenchment-trend-chart"), {
                 xLabels: labels,
                 series: [{ name: "Retrenched", color: CHART_SERIES[0], values: r.totals }],
