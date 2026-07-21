@@ -125,7 +125,10 @@ def test_sg_hub_route_error_returns_generic_message_not_raw_exception(client, mo
 def test_sg_hub_hdb(client, monkeypatch):
     monkeypatch.setattr(server, "query_hdb_bto_launches_and_grants", lambda category: "BTO info text")
     monkeypatch.setattr(server, "scrape_hdb_news", lambda: [{"title": "New launch"}])
-    monkeypatch.setattr(server, "compute_hdb_resale_stats", lambda: {"median_price": 550000})
+    monkeypatch.setattr(
+        server, "compute_hdb_resale_stats",
+        lambda: {"median_price": 550000, "mix_shift_reason": "Broad-based: individual flat types averaged +1.1% YoY too, not just a shift in which types sold."}
+    )
     monkeypatch.setattr(server, "compute_hdb_resale_history", lambda: [{"month": "2026-06", "median": 550000}])
 
     resp = client.get("/api/sg-hub/hdb")
@@ -134,6 +137,9 @@ def test_sg_hub_hdb(client, monkeypatch):
     assert body["hdb"] == "BTO info text"
     assert body["hdb_news"] == [{"title": "New launch"}]
     assert body["resale"]["median_price"] == 550000
+    # server.py passes compute_hdb_resale_stats' dict through unchanged — mix_shift_reason
+    # (and any other field) reaches the client with no repackaging.
+    assert "Broad-based" in body["resale"]["mix_shift_reason"]
     assert body["resale_history"] == [{"month": "2026-06", "median": 550000}]
 
 
@@ -151,7 +157,8 @@ def test_sg_hub_jobs_builds_dashboard_fields_from_structured_stats(client, monke
         "next_year_label": "2026",
         "forecast_next_year": 12987,
         "pressure": {"retrenched": 6800, "ratio": 1.8, "verdict": "tight"},
-        "cagr": {"cagr_pct": 3.1, "oldest_year": "2021", "newest_year": "2025", "verdict": "tracking its own multi-year trend"},
+        "cagr": {"cagr_pct": 3.1, "oldest_year": "2021", "newest_year": "2025", "verdict": "accelerating vs. its own multi-year trend"},
+        "trend_break_reason": "Vacancy growth is outrunning its own multi-year pace while retrenchments stay low — genuine net hiring demand, not just a rebound off a weak base.",
         "source": "MOM via BigQuery (partitioned).",
         "tier": "bigquery",
         "fallback_period": None,
@@ -178,6 +185,7 @@ def test_sg_hub_jobs_builds_dashboard_fields_from_structured_stats(client, monke
     assert "2024→2025" in tech["trend"]
     assert "1.8x" in tech["pressure"]
     assert "3.1%/yr CAGR" in tech["cagr_trend"]
+    assert "genuine net hiring demand" in tech["trend_break_reason"]
     assert "BigQuery" in tech["source"]
     assert body["retrenchment"]["headline"] == "3,590 workers (Q4 2025)"
     assert body["retrenchment"]["industries"] == "Wholesale And Retail Trade, Financial Services"
@@ -199,6 +207,7 @@ def test_sg_hub_jobs_fallback_tier_shows_caveat(client, monkeypatch):
         "forecast_next_year": None,
         "pressure": None,
         "cagr": None,
+        "trend_break_reason": None,
         "source": "MOM Job Vacancy by Industry & Occupation (data.gov.sg) — cached snapshot.",
         "tier": "fallback",
         "fallback_period": "2024→2025",
@@ -217,6 +226,7 @@ def test_sg_hub_jobs_fallback_tier_shows_caveat(client, monkeypatch):
     general = resp.json()["jobs"]["general"]
     assert general["pressure"] == "N/A"
     assert general["cagr_trend"] == "N/A"
+    assert general["trend_break_reason"] is None
     assert "cached snapshot" in general["trend"]
     assert "ConnectionError" in general["trend"]
 
@@ -262,6 +272,7 @@ def test_sg_hub_transit_builds_coe_fields_from_structured_stats(client, monkeypa
                 "label": "Cars ≤1,600cc & ≤97kW",
                 "premium": 129000,
                 "momentum": {"oversubscription": 2.10, "verdict": "high demand", "pct_change": None},
+                "movement_reason": "Bids rose +12% on a roughly stable quota — mainly a demand story.",
             },
         ],
         "source": "COE Bidding Results (data.gov.sg).",
@@ -281,13 +292,14 @@ def test_sg_hub_transit_builds_coe_fields_from_structured_stats(client, monkeypa
     assert body["coe"]["categories"][0]["category"] == "A"
     assert body["coe"]["categories"][0]["premium"] == "S$129,000"
     assert body["coe"]["categories"][0]["momentum"] == "2.10x bids/quota — high demand."
+    assert body["coe"]["categories"][0]["movement_reason"] == "Bids rose +12% on a roughly stable quota — mainly a demand story."
 
 
 def test_sg_hub_transit_coe_fallback_tier_shows_caveat(client, monkeypatch):
     fake_coe_stats = {
         "exercise": "2026-07 Round 1",
         "categories": [
-            {"category": "A", "label": "Cars ≤1,600cc & ≤97kW", "premium": 129000, "momentum": None},
+            {"category": "A", "label": "Cars ≤1,600cc & ≤97kW", "premium": 129000, "momentum": None, "movement_reason": None},
         ],
         "source": "COE Bidding Results / Prices (data.gov.sg) — cached snapshot.",
         "tier": "fallback",
@@ -306,6 +318,7 @@ def test_sg_hub_transit_coe_fallback_tier_shows_caveat(client, monkeypatch):
     assert "cached snapshot" in coe["exercise"]
     assert "ConnectionError" in coe["exercise"]
     assert coe["categories"][0]["momentum"] is None
+    assert coe["categories"][0]["movement_reason"] is None
 
 
 def test_sg_hub_gov_updates(client, monkeypatch):

@@ -154,6 +154,48 @@ def _compute_coe_momentum(latest_row: dict, prior_row: dict | None) -> dict | No
 
     return {"oversubscription": oversubscription, "verdict": demand_verdict, "pct_change": pct_change}
 
+_COE_QUOTA_MOVE_THRESHOLD_PCT = 5.0  # round-over-round % change treated as a meaningful quota/demand shift
+_COE_DEMAND_MOVE_THRESHOLD_PCT = 5.0
+
+def compute_coe_movement_reason(latest_row: dict, prior_row: dict | None) -> str | None:
+    """Explains *why* a category's premium/oversubscription moved round-over-round by comparing
+    quota and bids received against the prior round — a premium jump can come from a tighter
+    quota, a demand surge, or both, and the oversubscription ratio alone can't tell them apart.
+    Both fields are already present in the rows _compute_coe_momentum reads, so this adds no
+    extra fetch. Returns None if the prior round is unavailable or the fields don't parse."""
+    if not prior_row:
+        return None
+    try:
+        quota_latest = int(latest_row["quota"])
+        quota_prior = int(prior_row["quota"])
+        bids_latest = int(latest_row["bids_received"])
+        bids_prior = int(prior_row["bids_received"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if quota_prior <= 0 or bids_prior <= 0:
+        return None
+
+    quota_change_pct = round((quota_latest - quota_prior) / quota_prior * 100, 1)
+    bids_change_pct = round((bids_latest - bids_prior) / bids_prior * 100, 1)
+    quota_shrank = quota_change_pct <= -_COE_QUOTA_MOVE_THRESHOLD_PCT
+    quota_grew = quota_change_pct >= _COE_QUOTA_MOVE_THRESHOLD_PCT
+    demand_grew = bids_change_pct >= _COE_DEMAND_MOVE_THRESHOLD_PCT
+    demand_shrank = bids_change_pct <= -_COE_DEMAND_MOVE_THRESHOLD_PCT
+
+    if quota_shrank and demand_grew:
+        return f"Quota fell {abs(quota_change_pct):.0f}% while bids rose {bids_change_pct:+.0f}% — tighter supply and stronger demand both pushed the premium."
+    if quota_shrank:
+        return f"Quota fell {abs(quota_change_pct):.0f}% this round — mainly a supply story, not a demand surge."
+    if demand_grew:
+        return f"Bids rose {bids_change_pct:+.0f}% on a roughly stable quota — mainly a demand story."
+    if quota_grew and demand_shrank:
+        return f"Quota rose {quota_change_pct:+.0f}% while bids fell {abs(bids_change_pct):.0f}% — easing supply and softening demand both eased the premium."
+    if quota_grew:
+        return f"Quota rose {quota_change_pct:+.0f}% this round — a supply expansion is easing pressure on the premium."
+    if demand_shrank:
+        return f"Bids fell {abs(bids_change_pct):.0f}% this round — softening demand is easing pressure on the premium."
+    return None  # neither quota nor demand moved meaningfully — no clear driver to name
+
 def format_coe_momentum_display(momentum: dict | None) -> str | None:
     """Bare "[±X.X% vs last round; ]N.NNx bids/quota — verdict." sentence from
     _compute_coe_momentum's structured result (no "Category X Momentum:" label) — shared by
@@ -215,11 +257,13 @@ def compute_coe_bidding_stats() -> dict:
             if not row:
                 continue
             premium = int(row["premium"].replace(",", ""))
+            prior_row = prior_rows.get(cat)
             categories.append({
                 "category": cat[-1],
                 "label": label,
                 "premium": premium,
-                "momentum": _compute_coe_momentum(row, prior_rows.get(cat)),
+                "momentum": _compute_coe_momentum(row, prior_row),
+                "movement_reason": compute_coe_movement_reason(row, prior_row),
             })
 
         return {
@@ -235,11 +279,11 @@ def compute_coe_bidding_stats() -> dict:
         return {
             "exercise": "2026-07 Round 1",
             "categories": [
-                {"category": "A", "label": "Cars ≤1,600cc & ≤97kW", "premium": 129000, "momentum": None},
-                {"category": "B", "label": "Cars >1,600cc or >97kW", "premium": 130889, "momentum": None},
-                {"category": "C", "label": "Goods Vehicles & Buses", "premium": 95000, "momentum": None},
-                {"category": "D", "label": "Motorcycles", "premium": 10201, "momentum": None},
-                {"category": "E", "label": "Open Category", "premium": 129801, "momentum": None},
+                {"category": "A", "label": "Cars ≤1,600cc & ≤97kW", "premium": 129000, "momentum": None, "movement_reason": None},
+                {"category": "B", "label": "Cars >1,600cc or >97kW", "premium": 130889, "momentum": None, "movement_reason": None},
+                {"category": "C", "label": "Goods Vehicles & Buses", "premium": 95000, "momentum": None, "movement_reason": None},
+                {"category": "D", "label": "Motorcycles", "premium": 10201, "momentum": None, "movement_reason": None},
+                {"category": "E", "label": "Open Category", "premium": 129801, "momentum": None, "movement_reason": None},
             ],
             "source": "COE Bidding Results / Prices (data.gov.sg) — cached snapshot.",
             "tier": "fallback",
@@ -254,6 +298,10 @@ def format_coe_bidding_stats_text(stats: dict) -> str:
         _format_coe_momentum_line(c["category"], c["momentum"])
         for c in stats["categories"] if c["momentum"] is not None
     ]
+    reason_lines = [
+        f"Category {c['category']} Why: {c['movement_reason']}"
+        for c in stats["categories"] if c["movement_reason"]
+    ]
     exercise_note = format_coe_exercise_display(stats)
 
     return (
@@ -261,6 +309,7 @@ def format_coe_bidding_stats_text(stats: dict) -> str:
         f"\U0001F697 Latest Exercise: {exercise_note}\n"
         + "\n".join(category_lines) + "\n"
         + ("\n".join(momentum_lines) + "\n" if momentum_lines else "")
+        + ("\n".join(reason_lines) + "\n" if reason_lines else "")
         + f"\U0001F4A1 Source: {stats['source']}"
     )
 

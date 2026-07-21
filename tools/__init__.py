@@ -56,6 +56,7 @@ from tools.jobs import (
     resolve_job_sector,
     compute_job_sector_stats,
     compute_retrenchment_stats,
+    compute_trend_break_reason,
     format_job_trend_line,
     format_hiring_pressure_display,
     format_cagr_trend_display,
@@ -68,6 +69,7 @@ from tools.jobs import (
 from tools.housing import (
     compute_hdb_resale_stats,
     compute_hdb_resale_history,
+    compute_resale_mix_shift_reason,
     query_hdb_bto_launches_and_grants,
     query_hdb_resale_price_trends,
     scrape_hdb_news,
@@ -78,6 +80,7 @@ from tools.transport import (
     compute_coe_premium_history,
     get_coe_synced_at,
     compute_coe_bidding_stats,
+    compute_coe_movement_reason,
     format_coe_momentum_display,
     format_coe_exercise_display,
     query_coe_bidding_results,
@@ -122,16 +125,18 @@ __all__ = [
     # jobs
     "compute_job_market_history", "get_retrenchment_synced_at",
     "resolve_job_sector", "compute_job_sector_stats", "compute_retrenchment_stats",
+    "compute_trend_break_reason",
     "format_job_trend_line", "format_hiring_pressure_display",
     "format_cagr_trend_display", "format_retrenchment_headline",
     "query_singapore_job_statistics_via_bigquery", "query_singapore_retrenchment_advisory",
     # housing
-    "compute_hdb_resale_stats", "compute_hdb_resale_history",
+    "compute_hdb_resale_stats", "compute_hdb_resale_history", "compute_resale_mix_shift_reason",
     "query_hdb_bto_launches_and_grants", "query_hdb_resale_price_trends",
     "scrape_hdb_news",
     # transport
     "compute_coe_premium_history", "get_coe_synced_at",
-    "compute_coe_bidding_stats", "format_coe_momentum_display", "format_coe_exercise_display",
+    "compute_coe_bidding_stats", "compute_coe_movement_reason",
+    "format_coe_momentum_display", "format_coe_exercise_display",
     "query_coe_bidding_results",
     "MRT_LINE_META", "fetch_lta_train_alerts", "fetch_lta_taxi_availability",
     # wages

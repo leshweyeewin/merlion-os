@@ -334,6 +334,7 @@ async def get_sg_hub_jobs(sector: str = "all"):
             "trend_pct": f"{stats['trend_pct']:+.1f}%",
             "pressure": format_hiring_pressure_display(stats["pressure"], stats["vacancies"], stats["latest_year"]),
             "cagr_trend": format_cagr_trend_display(stats["cagr"], stats["trend_pct"]),
+            "trend_break_reason": stats["trend_break_reason"],
             "source": source,
         }
     print("\033[33m[Job Market] Fetch complete.\033[0m")
@@ -424,6 +425,7 @@ async def get_sg_hub_transit(lat: float | None = None, lon: float | None = None)
                     "premium": f"S${c['premium']:,}",
                     "label": c["label"],
                     "momentum": format_coe_momentum_display(c["momentum"]),
+                    "movement_reason": c["movement_reason"],
                 }
                 for c in coe_stats["categories"]
             ],

@@ -306,6 +306,61 @@ def _fetch_hdb_resale_rows() -> list:
     _disk_cache_save("hdb_resale_rows", rows, now)
     return rows
 
+_RESALE_MIX_SHIFT_MIN_TXNS = 5       # per flat-type/month minimum transactions for a stable median
+_RESALE_MIX_SHIFT_MIN_TYPES = 3      # minimum flat types with usable data before saying anything
+_RESALE_MIX_SHIFT_AGREE_FRACTION = 0.7  # share of flat types that must move the same direction as the headline figure to call it "broad-based"
+_RESALE_MIX_SHIFT_CLOSE_PTS = 2.0    # pp gap between the average flat-type move and the headline figure treated as "matches"
+
+def compute_resale_mix_shift_reason(rows: list, latest_month: str, prior_month: str | None, yoy_pct: float | None) -> str | None:
+    """Explains whether the reported YoY median change is broad-based across flat types, or
+    largely a mix-shift (e.g. more executive-flat sales this month skewing the islandwide
+    median up even if no single flat type actually got pricier). Computed by comparing each
+    flat type's own YoY median change against the headline islandwide figure — using the same
+    rows compute_hdb_resale_stats already downloaded, so this adds no extra fetch. Returns None
+    when there's no YoY figure to explain, or too few flat types have enough transactions in
+    both months for a stable per-type median."""
+    if yoy_pct is None or not prior_month:
+        return None
+    import statistics
+    from collections import defaultdict
+
+    by_type_latest = defaultdict(list)
+    by_type_prior = defaultdict(list)
+    for r in rows:
+        if r["month"] == latest_month:
+            by_type_latest[r["flat_type"]].append(float(r["resale_price"]))
+        elif r["month"] == prior_month:
+            by_type_prior[r["flat_type"]].append(float(r["resale_price"]))
+
+    type_changes = []
+    for flat_type, latest_prices in by_type_latest.items():
+        prior_prices = by_type_prior.get(flat_type)
+        if not prior_prices or len(latest_prices) < _RESALE_MIX_SHIFT_MIN_TXNS or len(prior_prices) < _RESALE_MIX_SHIFT_MIN_TXNS:
+            continue  # too few transactions at this granularity for a stable median
+        med_latest = statistics.median(latest_prices)
+        med_prior = statistics.median(prior_prices)
+        if med_prior <= 0:
+            continue
+        type_changes.append(round((med_latest - med_prior) / med_prior * 100, 1))
+
+    if len(type_changes) < _RESALE_MIX_SHIFT_MIN_TYPES:
+        return None  # not enough flat-type coverage to say anything meaningful
+
+    same_direction = sum(1 for c in type_changes if (c >= 0) == (yoy_pct >= 0))
+    avg_type_change = round(sum(type_changes) / len(type_changes), 1)
+    broad_based = (
+        same_direction >= len(type_changes) * _RESALE_MIX_SHIFT_AGREE_FRACTION
+        and abs(avg_type_change - yoy_pct) <= _RESALE_MIX_SHIFT_CLOSE_PTS
+    )
+
+    if broad_based:
+        return f"Broad-based: individual flat types averaged {avg_type_change:+.1f}% YoY too, not just a shift in which types sold."
+    return (
+        f"Partly a mix-shift: individual flat types averaged {avg_type_change:+.1f}% YoY, "
+        f"versus the {yoy_pct:+.1f}% islandwide figure — some of that gap reflects a change in "
+        f"which flat types transacted, not pure price movement."
+    )
+
 def compute_hdb_resale_stats() -> dict:
     """
     Shared computation used by both the AI chat tool (query_hdb_resale_price_trends, below)
@@ -329,6 +384,7 @@ def compute_hdb_resale_stats() -> dict:
     prices_prior = [float(r["resale_price"]) for r in rows if r["month"] == prior_month]
     median_prior = statistics.median(prices_prior) if prices_prior else None
     yoy_pct = round((median_latest - median_prior) / median_prior * 100, 1) if median_prior else None
+    mix_shift_reason = compute_resale_mix_shift_reason(rows, latest_month, prior_month if median_prior else None, yoy_pct)
 
     by_town = defaultdict(list)
     for r in rows:
@@ -348,6 +404,7 @@ def compute_hdb_resale_stats() -> dict:
         "median_price": round(median_latest),
         "prior_median_price": round(median_prior) if median_prior else None,
         "yoy_pct": yoy_pct,
+        "mix_shift_reason": mix_shift_reason,
         "transaction_count": len(prices_latest),
         "towns": towns,
         "synced_at": _cache_synced_at(_hdb_resale_cache),
@@ -400,12 +457,14 @@ def query_hdb_resale_price_trends(context_query: str = "general") -> str:
         stats = compute_hdb_resale_stats()
         priciest = ", ".join(f"{t['town']} (S${t['median_price']:,})" for t in stats["towns"][:3])
         yoy_line = f"{stats['yoy_pct']:+.1f}% (vs S${stats['prior_median_price']:,} in {stats['prior_month']})" if stats["yoy_pct"] is not None else ""
+        reason_line = f"\U0001F50D Why: {stats['mix_shift_reason']}\n" if stats["mix_shift_reason"] else ""
 
         return (
             f"--- [SG HDB RESALE FLAT PRICE ADVISORY] ---\n"
             f"\U0001F3E0 Latest Month: {stats['latest_month']} ({stats['transaction_count']:,} transactions)\n"
             f"\U0001F4CA Islandwide Median Resale Price: S${stats['median_price']:,}\n"
             + (f"\U0001F4C8 YoY Change: {yoy_line}\n" if yoy_line else "")
+            + reason_line
             + f"\U0001F3D9️ Priciest Towns: {priciest}\n"
             f"\U0001F4A1 Source: {stats['source']}"
         )

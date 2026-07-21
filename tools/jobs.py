@@ -219,6 +219,35 @@ def _compute_cagr_trend(multi_year_totals: dict, years_asc: list, trend_pct: flo
         verdict = "tracking its own multi-year trend"
     return {"cagr_pct": round(cagr_pct, 1), "oldest_year": oldest_year, "newest_year": newest_year, "verdict": verdict}
 
+_HIRING_PRESSURE_STRONG_RATIO = 1.5  # ratio at/above which retrenchments are "low" relative to vacancies
+_HIRING_PRESSURE_WEAK_RATIO = 1.0    # ratio below which retrenchments are "high" relative to vacancies
+
+def compute_trend_break_reason(cagr: dict | None, pressure: dict | None) -> str | None:
+    """Explains *why* this year's YoY trend is accelerating/decelerating vs. the sector's own
+    multi-year CAGR, by cross-referencing it against the Hiring Pressure Index — both are
+    already computed from data compute_job_sector_stats already fetched, so this adds no extra
+    network I/O. A CAGR break alone can't distinguish "the sector added net jobs" from "vacancy
+    churn while retrenchments rose just as fast"; the pressure ratio can. Returns None when
+    either reading is unavailable, or when the trend isn't actually breaking (tracking)."""
+    if cagr is None or pressure is None or pressure["ratio"] is None:
+        return None
+    accelerating = "accelerating" in cagr["verdict"]
+    decelerating = "decelerating" in cagr["verdict"]
+    if not accelerating and not decelerating:
+        return None
+    strong = pressure["ratio"] >= _HIRING_PRESSURE_STRONG_RATIO
+    weak = pressure["ratio"] < _HIRING_PRESSURE_WEAK_RATIO
+
+    if accelerating and strong:
+        return "Vacancy growth is outrunning its own multi-year pace while retrenchments stay low — genuine net hiring demand, not just a rebound off a weak base."
+    if accelerating and weak:
+        return "Vacancies are rising faster than the multi-year trend, but retrenchments in the same industries are rising just as fast or faster — likely churn (roles being refilled) rather than net job growth."
+    if decelerating and weak:
+        return "The slowdown lines up with rising retrenchments in the same industries — consistent with a genuine contraction, not just a noisy year."
+    if decelerating and strong:
+        return "Vacancy growth is cooling off a high base, but retrenchments remain low — still net-positive hiring, just decelerating from an unusually strong prior period."
+    return None  # moderate pressure ratio doesn't clearly support either read
+
 def format_cagr_trend_display(cagr: dict | None, trend_pct: float) -> str:
     """Bare "X.X%/yr CAGR (...) — verdict." sentence from _compute_cagr_trend's structured
     result (no emoji label, no trailing newline) — shared by _format_cagr_trend_line (the chat
@@ -326,6 +355,7 @@ def compute_job_sector_stats(matched_sector: str) -> dict:
 
     pressure = _compute_hiring_pressure(vacancies, meta["industries"], latest_year) if latest_year else None
     cagr = _compute_cagr_trend(multi_year_totals, multi_year_years_asc, trend_pct) if latest_year else None
+    trend_break_reason = compute_trend_break_reason(cagr, pressure)
 
     result = {
         "sector": matched_sector,
@@ -338,6 +368,7 @@ def compute_job_sector_stats(matched_sector: str) -> dict:
         "forecast_next_year": forecast_next_year,
         "pressure": pressure,
         "cagr": cagr,
+        "trend_break_reason": trend_break_reason,
         "source": source,
         "tier": tier,
         "fallback_period": fallback_period,
@@ -372,6 +403,7 @@ def format_job_sector_stats_text(stats: dict) -> str:
     vacancies, trend_pct = stats["vacancies"], stats["trend_pct"]
     cagr_line = _format_cagr_trend_line(stats["cagr"], trend_pct)
     pressure_line = _format_hiring_pressure_line(stats["pressure"], vacancies, stats["latest_year"])
+    reason_line = f"🔍 Why: {stats['trend_break_reason']}\n" if stats["trend_break_reason"] else ""
 
     return (
         f"--- [SG EMPLOYMENT & VACANCIES ANALYTICS] ---\n"
@@ -380,6 +412,7 @@ def format_job_sector_stats_text(stats: dict) -> str:
         f"📈 Market Trend: {format_job_trend_line(stats)}\n"
         f"{cagr_line}"
         f"{pressure_line}"
+        f"{reason_line}"
         f"💡 Source: {stats['source']}"
     )
 

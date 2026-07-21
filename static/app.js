@@ -2123,6 +2123,7 @@ function initSgHub() {
                     <div style="font-size: 15px; font-weight: 700; color: var(--text-main); margin-top: 6px;">${escapeHTML(c.premium)}</div>
                     <div style="font-size: 10px; color: var(--text-muted);">${escapeHTML(c.label)}</div>
                     ${c.momentum ? `<div style="font-size: 10px; color: var(--text-muted); margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">📶 ${escapeHTML(c.momentum)}</div>` : ''}
+                    ${c.movement_reason ? `<div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">🔍 ${escapeHTML(c.movement_reason)}</div>` : ''}
                 </div>`).join('')
             : `<p style="color: var(--text-subtle); margin:0; font-size: 13px;">COE data unavailable.</p>`;
 
@@ -2595,6 +2596,8 @@ function initSgHub() {
                     ${towns.length ? `<strong style="font-size: 16px; color: var(--text-main); display:block;">${escapeHTML(towns[0].town)}</strong><span style="font-size:12px; color: var(--text-muted);">S$${towns[0].median_price.toLocaleString()} median</span>` : '<span style="color:var(--text-subtle);">N/A</span>'}
                 </div>
             </div>
+
+            ${resale.mix_shift_reason ? `<div style="font-size: 12px; color: var(--text-muted); background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;"><strong>🔍 Why:</strong> ${escapeHTML(resale.mix_shift_reason)}</div>` : ''}
 
             <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">🗺️ Median Resale Price by Town</div>
             <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; max-height: 340px; overflow-y: auto;">
@@ -3434,6 +3437,7 @@ function initSgHub() {
                 <strong>📈 Industry Outlook:</strong> ${escapeHTML(details.trend)}
                 ${details.cagr_trend && details.cagr_trend !== "N/A" ? `<br><strong>🧭 Multi-Year Trend:</strong> ${escapeHTML(details.cagr_trend)}` : ""}
                 ${details.pressure && details.pressure !== "N/A" ? `<br><strong>⚖️ Hiring Pressure:</strong> ${escapeHTML(details.pressure)}` : ""}
+                ${details.trend_break_reason ? `<br><strong>🔍 Why:</strong> ${escapeHTML(details.trend_break_reason)}` : ""}
             </div>
             <div style="font-size:10px; color: var(--text-muted); margin-top:10px;">ℹ️ All figures are live MOM Job Vacancy data (BigQuery / data.gov.sg); the forecast is a naive YoY extrapolation. For wages per job title, see the Occupational Wage Explorer below.</div>
 
