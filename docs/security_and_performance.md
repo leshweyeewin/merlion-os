@@ -5,6 +5,8 @@ MerlionOS is built with robust security protections to govern the AI agent and w
 - **XSS Sanitization (`safeURL`):** Client-side Javascript filters URLs starting with `javascript:`, `data:`, or `vbscript:` and escapes double/single quotes to prevent HTML attribute breakouts.
 - **Redirection Verification:** The backend BeautifulSoup scraper follows redirect chains but validates that the final landing domain belongs to the `.gov.sg` domain or trusted public domains (`healthhub.sg`, `wsg.sg`, `cdc.gov.sg`).
 - **Auth Protection:** URLs matching authentication keywords (`singpass`, `login`, `signin`, `auth`, `corppass`) are blocked from scraping.
+- **Chat Rate Limiting:** `/api/chat` and `/api/chat/stream` are capped at 8 requests/minute per client IP (in-memory sliding window, `server.py::ChatRateLimitMiddleware`), so a single client can't drain the shared Gemini free-tier quota on the public demo link. Dashboard reads are unaffected.
+- **No Internal Error Leakage:** Every `/api/sg-hub/*` endpoint's error handling runs through a shared `_sg_hub_route` decorator that logs the full exception server-side but returns only a generic message to the client — raw exception text (stack traces, library error strings) never reaches an HTTP response body.
 
 ## Performance Engineering
 - **GZip everywhere:** every API and static response over 1KB is compressed (the ~130KB Occupational Wages payload and ~100KB `app.js` ship ~5-6x smaller).

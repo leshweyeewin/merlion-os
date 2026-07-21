@@ -2,8 +2,42 @@
 
 The document above always reflects the **latest** release. This section records what changed between versions.
 
-## Version 2 — current
-Current release cycle building on the baseline. What's new or changed:
+## Version 3 — current
+A hardening/refactor cycle on top of Version 2's feature set — no new dashboard panels, but a real architecture and reliability pass driven by a code-quality audit. What's new or changed:
+
+**🔍 New: rule-based "why" explanations**
+Three deterministic explanation functions, built entirely from data the app already fetches (no extra network calls, no AI-generated narrative), added on top of existing insights:
+- **Job Market** — cross-references the Hiring Pressure Index against the CAGR trend-break verdict to explain *why* this year's vacancy trend is accelerating/decelerating vs. the sector's own multi-year pace (e.g. distinguishes genuine net hiring demand from vacancy churn during an "accelerating" read).
+- **COE Bidding** — compares quota and bids-received round-over-round to explain whether a premium move was a supply story, a demand story, or both.
+- **HDB Resale** — compares each flat type's own YoY median price change against the headline islandwide figure to flag when the reported change is broad-based versus largely a mix-shift (e.g. more executive flats transacting, not genuine price movement).
+
+All three stay silent rather than force a guess when the signal is ambiguous or there's too little data to say anything meaningful.
+
+**🏗️ Architecture: tools return structured data, not text servers had to re-parse**
+Job vacancy stats, retrenchment stats, and COE bidding results used to be computed once as a single Gemini-formatted text block (emoji labels + prose), which `server.py` then re-parsed back into JSON with fragile line-splits for the `/api/sg-hub/jobs` and `/api/sg-hub/transit` dashboard endpoints — a wording tweak in `tools/jobs.py` could silently break the dashboard while the chat tool kept working fine. `compute_job_sector_stats`, `compute_retrenchment_stats`, and `compute_coe_bidding_stats` now return structured dicts consumed directly by the dashboard, with thin text-formatting wrappers rendering the same dicts into the emoji text the chat/MCP tool still returns to Gemini (verified byte-identical to the pre-refactor output). Caught and fixed a real regression during the split (a doubled "no recorded retrenchments" phrase), now covered by a regression test.
+
+**🔧 Refactoring & code health**
+- Shared `_cache_get`/`_cache_set` TTL-cache helpers in `tools/core.py` replaced 10 duplicated hand-rolled `{"data": None, "fetched_at": 0}` cache blocks across `civic.py`, `environment.py`, `housing.py`, `jobs.py`, `transport.py`, `wages.py`, and `server.py`.
+- A `_sg_hub_route` decorator collapsed 9 duplicated try/except blocks in `server.py` — and fixed a minor info leak where raw internal exception text (`detail=str(e)`) was being returned to API clients instead of a generic message.
+- Removed the dead `/api/sg-hub` legacy endpoint (referenced a function that didn't exist, would 500 if ever called; unreferenced anywhere in the frontend, docs, or tests) and deduplicated ~130 lines of repeated system-instruction/fallback logic between the buffered and streaming chat endpoints.
+- Removed 10+ unused imports and 3 dead CSS rule blocks left over from two superseded UI iterations (an old hidden-portals dropdown design, a pre-tabs SG Hub grid layout).
+- Labeled the six hardcoded last-resort fallback data blocks (used only when both the live fetch and disk cache fail) with the period they were captured for, since they were drifting silently.
+
+**🛡️ Hardening**
+- Per-IP rate limiting (8 requests/minute, in-memory sliding window) on `/api/chat` and `/api/chat/stream`, so a single client can't drain the shared Gemini free-tier quota on the public demo link.
+- `pyflakes` added as a hard CI lint gate (unused imports, undefined names) — catches the exact class of drift this cycle's cleanup addressed, automatically, on every push.
+
+**🧪 Testing**
+Test suite grown from 38 to **92 tests**: full route-level coverage for every `/api/sg-hub/*` endpoint (external I/O mocked, so it needs no network access or API keys in CI), direct coverage of the new TTL-cache helpers, and decision-boundary coverage for all three "why" functions.
+
+**🐛 UI fixes**
+- Fixed the onboarding banner's first bullet scattering across broken lines in production ("renew" / "passport" / "top" / "up" / "CPF" on separate lines) — a CSS descendant-selector bug was forcing `display:grid` onto an element with mixed inline content (icon + text + multiple `<em>` tags), which Grid then auto-placed into extra rows instead of letting the text wrap normally.
+- Surfaced the taxi "Around You" search radius (2km) on the button label itself, before the user opts in — it previously only appeared after clicking and granting location access.
+
+---
+
+## Version 2
+Release cycle building on the baseline. What's new or changed:
 
 **➕ New dashboard panels & widgets**
 - 🚕 **Transport & Vehicle Costs** — live islandwide taxi count (LTA `Taxi-Availability`) + latest COE bidding premiums for all 5 categories, plus an opt-in "Around You" geolocation lookup (nearby taxis within 2km + nearest planning area).

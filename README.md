@@ -71,8 +71,14 @@ graph TD
    - Live-streams raw BigQuery SQL, BeautifulSoup scraper networks, HTTP response status codes, and crawler logs directly to an active log terminal widget in the frontend.
 7. **Shimmer Skeleton Loaders & Bookmarks**:
    - Replaced plain spinners with pulsing grey CSS skeleton blocks matching the tab cards. Added a gold star bookmarking system pinning compact clones of user-selected portals to a "My Matters" panel (persisted in `localStorage`).
-8. **Automated Deploy Pipeline & 38 Smoke Tests**:
-   - Automated Google Cloud Run build & deploy CI/CD pipeline (`deploy.yml`) triggered on branch push. Expanded verification coverage to **38 unit tests** (testing XSS/`safeURL`, pydantic structures, OLS forecasts, allowlists) running in <3s.
+8. **Rule-Based "Why" Explanations**:
+   - Deterministic causal reasoning built entirely from data the app already fetches (no extra AI calls, no generated narrative): the Job Market panel cross-references the Hiring Pressure Index against the CAGR trend-break to distinguish genuine hiring demand from vacancy churn; COE Bidding compares quota vs. bid-volume to explain whether a premium move was a supply story, a demand story, or both; HDB Resale compares each flat type's own YoY move against the islandwide figure to flag a mix-shift vs. a broad-based price change. All three stay silent rather than force a guess when the signal is ambiguous.
+9. **Structured-Data Architecture**:
+   - Job vacancy, retrenchment, and COE bidding stats used to be computed once as Gemini-formatted text that the server then re-parsed with fragile line-splits for the dashboard. These now compute structured dicts consumed directly by the dashboard, with thin formatting wrappers rendering the same data into text for the chat/MCP tool — eliminating an entire class of "a wording tweak silently breaks the UI" bugs.
+10. **Automated Deploy Pipeline, CI Lint Gate & 92-Test Suite**:
+    - Automated Google Cloud Run build & deploy CI/CD pipeline (`deploy.yml`) triggered on branch push. CI runs a `pyflakes` lint gate (unused imports, undefined names) plus **92 unit tests** (routes, caching, structured stats, "why" explanations, XSS/`safeURL`, pydantic structures, OLS forecasts, allowlists) on every push.
+11. **Chat Rate Limiting**:
+    - Per-IP request caps (8/min, in-memory sliding window) on `/api/chat` and `/api/chat/stream`, so a single client can't drain the shared Gemini free-tier quota on the public demo link.
 
 
 ---
@@ -112,9 +118,10 @@ python server.py
 Open **`http://127.0.0.1:8000/`** in your browser.
 
 ### 3. Run Tests
-Ensure dependencies are installed, then run the python and javascript test suites:
+Ensure dependencies are installed, then run the lint gate and the python/javascript test suites (92 tests total):
 ```bash
 pip install -r requirements-dev.txt
+pyflakes server.py tools mcp_server.py tests
 pytest tests/ -v
 node --test tests/*.js
 ```

@@ -53,14 +53,16 @@ python scripts/load_job_vacancy_to_bigquery.py --project YOUR_GCP_PROJECT_ID
 ```
 Then set `GCP_PROJECT_ID` alongside your other environment variables before starting the server. If this isn't configured, the app automatically falls back to the direct data.gov.sg fetch.
 
-## 4. Run Tests
-The test suite consists of **38 unit tests** spanning both Python and Node.js testing frameworks:
+## 4. Run Tests & Lint
+The test suite consists of **92 unit tests** spanning both Python and Node.js testing frameworks, plus a `pyflakes` lint gate:
 ```bash
 pip install -r requirements-dev.txt
-pytest tests/ -v            # Python tests: validation, security, forecasting, models
+pyflakes server.py tools mcp_server.py tests  # Lint: unused imports, undefined names
+pytest tests/ -v            # Python tests: routes, caching, structured stats, "why" explanations, security, forecasting, models
 node --check static/app.js  # JavaScript syntax check
 node --test tests/*.js      # JavaScript tests: progressive tax calculator
 ```
+All four checks run on every push/PR in CI (`.github/workflows/ci.yml`).
 
 ## 5. Run FastMCP Tool Server
 To load the statutory tools inside development agents (like Cursor or Claude Desktop):
@@ -74,7 +76,7 @@ Below is the directory layout of the codebase:
 merlion-os/
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml        # GitHub Actions: syntax checks, Node tests, pytest
+│       ├── ci.yml        # GitHub Actions: pyflakes lint, syntax checks, Node tests, pytest
 │       └── deploy.yml    # GitHub Actions: build & deploy Docker image to GCP Cloud Run
 ├── docs/                 # Detailed topic-specific documentation guides
 │   ├── changelog.md         # Release notes and version history
@@ -88,12 +90,16 @@ merlion-os/
 │   ├── app.js            # Frontend logic and UI rendering (Leaflet integration)
 │   ├── index.html        # Main dashboard structure
 │   └── style.css         # Custom layout, animations, and dark mode rules
-├── tests/                # Unit tests run locally and in CI
+├── tests/                # Unit tests run locally and in CI (92 tests total)
+│   ├── test_cache_helpers.py            # Shared TTL-cache helper (_cache_get/_cache_set) tests
 │   ├── test_chat_models.py              # Pydantic request/response schema tests
 │   ├── test_forecast.py                 # COE/HDB shared forecast math
 │   ├── test_multimodal_multihop.py      # Base64 attachment parsing tests
 │   ├── test_search_domain_validation.py # Scraper domain allowlist
 │   ├── test_security.py                 # Client-side XSS protection replica tests
+│   ├── test_server_routes.py            # Every /api/sg-hub/* + /api/chat route, I/O mocked
+│   ├── test_structured_stats.py         # Job/retrenchment/COE structured-stats fallback tiers
+│   ├── test_why_explanations.py         # Rule-based "why" explanation decision boundaries
 │   └── test_tax_calculator.js           # Client-side tax bracket calculator Node test
 ├── tools/                # Modular statutory boards execution and chat modules
 │   ├── __init__.py       # Package exports and interfaces
@@ -109,7 +115,7 @@ merlion-os/
 │   └── wages.py          # Occupational wages analytic helper
 ├── mcp_server.py         # FastMCP server for JSON-RPC agent tools export
 ├── requirements.txt      # Python dependencies manifest
-├── requirements-dev.txt  # requirements.txt + pytest, for local/CI test runs
+├── requirements-dev.txt  # requirements.txt + pytest & pyflakes, for local/CI test+lint runs
 ├── server.py             # Uvicorn FastAPI routing entrypoint
 ├── .env.example          # Environment variables template
 └── README.md             # Main repository index and hackathon brief
