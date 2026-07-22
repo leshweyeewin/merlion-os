@@ -274,7 +274,29 @@ function initSgHub() {
         return `<div class="skeleton-shimmer"><div class="skeleton-cards">${cards}</div></div>`;
     }
 
+    // Toggles a slim indeterminate progress bar at the top of a pane while it fetches.
+    // The static skeletons show the layout shape; this bar supplies the "actively working"
+    // signal — a single continuous sweep, never a looping flash, so it can't read as lag.
+    function setPaneLoadingBar(paneId, on) {
+        const pane = document.getElementById(paneId);
+        if (!pane) return;
+        let bar = pane.querySelector(":scope > .hub-loading-bar");
+        if (on) {
+            if (!bar) {
+                bar = document.createElement("div");
+                bar.className = "hub-loading-bar";
+                bar.setAttribute("role", "progressbar");
+                bar.setAttribute("aria-label", "Loading live data");
+                bar.innerHTML = '<div class="hub-loading-bar-fill"></div>';
+                pane.prepend(bar);
+            }
+        } else if (bar) {
+            bar.remove();
+        }
+    }
+
     function showPaneLoader(paneId) {
+        setPaneLoadingBar(paneId, true);
         if (paneId === "hub-transport-pane" || paneId === "hub-gov-transit-pane") {
             mrtEventsContent.innerHTML = skeletonRows(3);
             if (transportContent) transportContent.innerHTML = skeletonCardGrid(9);
@@ -398,6 +420,8 @@ function initSgHub() {
         } catch (err) {
             console.error("Failed to load pane " + paneId, err);
             showPaneError(paneId);
+        } finally {
+            setPaneLoadingBar(paneId, false);
         }
     }
 
@@ -1792,7 +1816,7 @@ function initSgHub() {
         if (loadedSgHubPanes["hub-occ-wages"]) return;
         const container = document.getElementById("hub-occ-wages-content");
         if (!container) return;
-        container.innerHTML = "<p style='color: var(--text-subtle); margin:0; font-style: italic;'><i class='fa-solid fa-circle-notch fa-spin'></i> Loading MOM occupational wage tables (500+ job titles)...</p>";
+        container.innerHTML = skeletonRows(4, ["tall", "full", "long", "medium"]);
         try {
             occWagesData = await fetchJsonWithRetry("/api/sg-hub/wages");
             renderOccWagesPane(occWagesData);
@@ -2333,7 +2357,7 @@ function initSgHub() {
             return;
         }
 
-        jobsContent.innerHTML = `<p style='color: var(--text-subtle); margin:0;'><i class='fa-solid fa-circle-notch fa-spin'></i> Loading ${sector} sector statistics...</p>`;
+        jobsContent.innerHTML = skeletonRows(3, ["tall", "long", "medium"]);
 
         try {
             const data = await fetchJsonWithRetry(`/api/sg-hub/jobs?sector=${sector}`);

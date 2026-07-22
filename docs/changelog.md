@@ -17,6 +17,9 @@ Scraper-backed panels (ICA, IRAS, HDB Newsroom, Telegram feeds) now return a `da
 **🧩 Front-end modularization**
 The former ~3.9k-line `static/app.js` is split into six focused modules under `static/js/` (`utils`, `tax`, `persona`, `portals`, `chat`, `hub`), loaded in dependency order — same behaviour, far more maintainable.
 
+**✨ Considered loading states**
+Reworked the loading indicators so a fetch reads as *working* rather than *lagging*. SG Hub panes now pair static grey skeleton blocks with a slim indeterminate top progress bar (a single continuous sweep) while a pane loads — the earlier looping skeleton shimmer, which read as flicker, is gone. The Co-Pilot's typing indicator is now a shimmering status line that names the real step in flight ("Searching the knowledge base", "Reading gov.sg pages", "Searching the web") from the streamed tool-`log` events, replacing the bouncing-dots animation. The chat's per-stage status is honest because that pipeline genuinely runs those tools; the single-fetch Hub panes deliberately use the neutral bar rather than a per-step checklist, so no progress step is signalled that doesn't actually happen client-side. Honors `prefers-reduced-motion`.
+
 **🧪 Testing**
 Suite grown to **136 Python + 6 JavaScript tests**, adding coverage for the RAG retrieval layer (corpus shape, cosine math, ranking, thresholding, graceful degradation — with a mocked embedder so CI needs no embedding API), the freshness-status helper, and the persona instruction builder.
 

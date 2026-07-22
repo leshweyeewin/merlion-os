@@ -159,7 +159,28 @@ document.addEventListener("DOMContentLoaded", () => {
         scrollToBottom();
     }
 
-    // Render typing status indicator
+    // Maps a backend tool name (from the streamed `log` events) to a human status label.
+    // Every label reflects a real step the Co-Pilot is executing right now — no fabricated
+    // progress. Unknown tools fall back to a generic "Consulting live sources…".
+    const TOOL_STATUS_LABELS = {
+        search_knowledge_base: "Searching the knowledge base",
+        search_singapore_government: "Searching the gov directory",
+        scrape_government_page: "Reading gov.sg pages",
+        google_search_grounding: "Searching the web"
+    };
+
+    function toolStatusLabel(tool) {
+        return TOOL_STATUS_LABELS[tool] || "Consulting live sources";
+    }
+
+    // Updates the status text inside the live typing indicator (if it's still showing).
+    function setTypingStatus(text) {
+        const el = document.querySelector("#typing-indicator .typing-status-text");
+        if (el) el.textContent = text;
+    }
+
+    // Render typing status indicator. Starts as "Thinking…" and gets updated in-place by
+    // setTypingStatus() as real tool `log` events arrive, then dissolves on the first token.
     function showTypingIndicator() {
         const indicator = document.createElement("div");
         indicator.className = "message bot-message typing-container";
@@ -167,10 +188,8 @@ document.addEventListener("DOMContentLoaded", () => {
         indicator.innerHTML = `
             <div class="message-avatar"><i class="fa-solid fa-landmark"></i></div>
             <div class="message-content">
-                <div class="typing-indicator">
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
+                <div class="typing-status">
+                    <span class="typing-status-text">Thinking</span>
                 </div>
             </div>
         `;
@@ -270,6 +289,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
 
                     if (event.type === "log") {
+                        // Reflect the tool the Co-Pilot is running as a live status line in the
+                        // chat bubble (in addition to the detailed Operations Terminal entry below).
+                        setTypingStatus(toolStatusLabel(event.tool));
+
                         // Tool execution log — render to Operations Terminal
                         let logType = "system", tagLabel = "integration";
                         if (event.tool === "search_singapore_government") {

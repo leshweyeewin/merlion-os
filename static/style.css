@@ -375,9 +375,7 @@ body {
 .skeleton-line {
     height: 12px;
     border-radius: 6px;
-    background: linear-gradient(90deg, var(--bg-muted) 25%, var(--border) 50%, var(--bg-muted) 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
+    background: color-mix(in srgb, var(--bg-muted) 88%, var(--text-subtle));
 }
 
 .skeleton-line.short  { width: 40%; }
@@ -385,11 +383,6 @@ body {
 .skeleton-line.long   { width: 90%; }
 .skeleton-line.full   { width: 100%; }
 .skeleton-line.tall   { height: 18px; }
-
-@keyframes shimmer {
-    0%   { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-}
 
 /* Card-style skeleton for weather / MRT grid */
 .skeleton-cards {
@@ -406,6 +399,43 @@ body {
     display: flex;
     flex-direction: column;
     gap: 8px;
+}
+
+/* Indeterminate top progress bar shown while a Hub pane is fetching. One smooth,
+   continuous sweep reads as "working" — unlike a looping shimmer, which reads as jank. */
+.hub-loading-bar {
+    position: relative;
+    height: 3px;
+    width: 100%;
+    background: var(--bg-muted);
+    border-radius: 2px;
+    overflow: hidden;
+    margin: 0 0 14px;
+}
+
+.hub-loading-bar-fill {
+    position: absolute;
+    top: 0;
+    left: -35%;
+    height: 100%;
+    width: 35%;
+    background: var(--primary);
+    border-radius: 2px;
+    animation: hub-bar-slide 1.05s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes hub-bar-slide {
+    0%   { left: -35%; }
+    100% { left: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hub-loading-bar-fill {
+        animation: none;
+        left: 0;
+        width: 100%;
+        opacity: 0.4;
+    }
 }
 
 /* ── Item 7: Bookmark (star) button on portal cards ────────────────────────── */
@@ -1161,23 +1191,44 @@ body {
     font-weight: 600;
 }
 
-.typing-indicator {
+/* Live status line shown while the Co-Pilot runs tools (RAG retrieval, gov-directory
+   search, page scraping). Each label is driven by a real `log` event streamed from the
+   backend — never a fabricated step. The text softly shimmers to signal "working"; a
+   single gentle sweep across the meaningful label, not a looping dot animation. */
+.typing-status {
     display: flex;
-    gap: 4px;
-    padding: 6px 8px;
     align-items: center;
+    padding: 6px 8px;
 }
 
-.typing-dot {
-    width: 6px;
-    height: 6px;
-    background-color: var(--text-muted);
-    border-radius: 50%;
-    animation: typingBounce 1.4s infinite ease-in-out both;
+.typing-status .typing-status-text {
+    font-size: 12.5px;
+    font-style: italic;
+    background: linear-gradient(
+        90deg,
+        var(--text-muted) 35%,
+        var(--text-main) 50%,
+        var(--text-muted) 65%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: status-shimmer 2.2s ease-in-out infinite;
 }
 
-.typing-dot:nth-child(2) { animation-delay: 0.2s; }
-.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes status-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .typing-status .typing-status-text {
+        animation: none;
+        background: none;
+        color: var(--text-muted);
+    }
+}
 
 .suggestions-container {
     padding: 0 18px 10px;
@@ -1335,11 +1386,6 @@ body {
 @keyframes messageEntry {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes typingBounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-3px); }
 }
 
 @media(max-width: 500px) {
