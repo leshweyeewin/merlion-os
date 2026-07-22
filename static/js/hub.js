@@ -126,28 +126,71 @@ function initSgHub() {
     const hubSubTabButtons = document.querySelectorAll(".hub-sub-tab-btn");
     const hubSubPanes = document.querySelectorAll(".hub-sub-pane");
 
+    // Accessibility: expose the sub-tab bar as an ARIA tablist with a roving
+    // tabindex + arrow-key navigation. This is semantics + keyboard support only —
+    // the bar keeps its flex-wrap:wrap layout (tabs reflow onto a second row on
+    // narrow viewports rather than scrolling horizontally).
+    const hubSubTabList = document.querySelector(".hub-sub-tabs");
+    if (hubSubTabList) {
+        hubSubTabList.setAttribute("role", "tablist");
+        hubSubTabList.setAttribute("aria-label", "SG Hub sections");
+    }
     hubSubTabButtons.forEach(btn => {
-        btn.addEventListener("click", () => {
-            // Reset active style class
-            hubSubTabButtons.forEach(b => {
-                b.classList.remove("active-hub-sub-tab");
-            });
-            // Apply active class
-            btn.classList.add("active-hub-sub-tab");
-
-            const targetPaneId = btn.getAttribute("data-hub-sub-tab");
-            hubSubPanes.forEach(pane => {
-                if (pane.id === targetPaneId) {
-                    pane.classList.remove("hidden");
-                } else {
-                    pane.classList.add("hidden");
-                }
-            });
-
-            // Dynamically load the selected pane data
-            loadSgHubPaneData(targetPaneId);
-        });
+        const paneId = btn.getAttribute("data-hub-sub-tab");
+        const isActive = btn.classList.contains("active-hub-sub-tab");
+        btn.setAttribute("role", "tab");
+        btn.id = "tabbtn-" + paneId;
+        btn.setAttribute("aria-controls", paneId);
+        btn.setAttribute("aria-selected", isActive ? "true" : "false");
+        btn.setAttribute("tabindex", isActive ? "0" : "-1");
+        const pane = document.getElementById(paneId);
+        if (pane) {
+            pane.setAttribute("role", "tabpanel");
+            pane.setAttribute("aria-labelledby", btn.id);
+            pane.setAttribute("tabindex", "0");
+        }
     });
+
+    function activateHubSubTab(btn, { focus = false } = {}) {
+        hubSubTabButtons.forEach(b => {
+            const on = b === btn;
+            b.classList.toggle("active-hub-sub-tab", on);
+            b.setAttribute("aria-selected", on ? "true" : "false");
+            b.setAttribute("tabindex", on ? "0" : "-1");
+        });
+
+        const targetPaneId = btn.getAttribute("data-hub-sub-tab");
+        hubSubPanes.forEach(pane => {
+            pane.classList.toggle("hidden", pane.id !== targetPaneId);
+        });
+
+        if (focus) btn.focus();
+
+        // Dynamically load the selected pane data
+        loadSgHubPaneData(targetPaneId);
+    }
+
+    hubSubTabButtons.forEach(btn => {
+        btn.addEventListener("click", () => activateHubSubTab(btn));
+    });
+
+    // ArrowLeft/ArrowRight cycle (wrapping), Home/End jump to first/last —
+    // moving focus and activating the tab in one step (automatic activation).
+    if (hubSubTabList) {
+        hubSubTabList.addEventListener("keydown", (e) => {
+            if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+            const tabs = Array.from(hubSubTabButtons);
+            const currentIdx = tabs.indexOf(document.activeElement);
+            if (currentIdx === -1) return;
+            e.preventDefault();
+            let nextIdx;
+            if (e.key === "Home") nextIdx = 0;
+            else if (e.key === "End") nextIdx = tabs.length - 1;
+            else if (e.key === "ArrowLeft") nextIdx = (currentIdx - 1 + tabs.length) % tabs.length;
+            else nextIdx = (currentIdx + 1) % tabs.length;
+            activateHubSubTab(tabs[nextIdx], { focus: true });
+        });
+    }
 
     // Main page tab switcher
     mainTabButtons.forEach(btn => {
@@ -322,7 +365,22 @@ function initSgHub() {
             hdbLaunchesContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load BTO listings.</p>";
             hdbNewsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load portal news.</p>";
         } else if (paneId === "hub-jobs-pane") {
-            jobsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load employment statistics.</p>";
+            // The MOM/BigQuery-backed jobs feed is the slowest source (cold starts,
+            // upstream 429s), so a persistent failure here is the most likely one a
+            // user actually hits. Give them a retry affordance instead of a dead-end
+            // message — clearing the loaded flag lets loadSgHubPaneData re-fetch.
+            jobsContent.innerHTML = `
+                <p style="color: var(--text-error); margin: 0 0 10px;">⚠️ Failed to load employment statistics.</p>
+                <button type="button" id="hub-jobs-retry-btn" style="background: var(--primary); color: #ffffff; font-weight: 700; border: none; padding: 7px 14px; border-radius: 6px; font-size: 12px; cursor: pointer;">
+                    <i class="fa-solid fa-rotate-right"></i> Retry
+                </button>`;
+            const jobsRetryBtn = document.getElementById("hub-jobs-retry-btn");
+            if (jobsRetryBtn) {
+                jobsRetryBtn.addEventListener("click", () => {
+                    loadedSgHubPanes["hub-jobs-pane"] = false;
+                    loadSgHubPaneData("hub-jobs-pane");
+                });
+            }
             const retrenchmentHeadlineEl = document.getElementById("retrenchment-headline");
             const retrenchmentDetailsEl = document.getElementById("retrenchment-details");
             if (retrenchmentHeadlineEl) retrenchmentHeadlineEl.textContent = "N/A";
@@ -890,11 +948,18 @@ function initSgHub() {
                     : uvVal <= 7 ? '#f97316'
                         : uvVal <= 10 ? '#ef4444'
                             : '#991b1b';
+        // NEA only publishes the UV index during daylight hours (~07:00–19:00 SGT).
+        // A missing reading is almost always "after dark" rather than a broken feed,
+        // so explain the N/A instead of leaving it bare and looking like a data gap.
+        const uvSub = uvVal == null
+            ? `<div style="font-size: 9px; font-weight: 600; color: var(--text-muted); margin-top: 3px; line-height: 1.3;" title="NEA publishes the UV index during daylight hours only (about 07:00–19:00 SGT).">Not published overnight</div>`
+            : '';
         const uvTile = `
             <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 10px; padding: 12px 10px; text-align:center; min-width:100px; flex: 1;">
                 <div style="font-size: 22px; margin-bottom: 4px;">☀️</div>
                 <div style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">UV Index</div>
                 <div style="font-size: 14px; font-weight: 700; color: ${uvColor};">${uvLabel}</div>
+                ${uvSub}
             </div>`;
 
         const currentConditionsTiles = [
