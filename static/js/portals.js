@@ -303,10 +303,26 @@ function initPortalReordering() {
         clearSwapTarget();
     });
 
+    const sortAzBtn = document.getElementById("sort-alphabetical-btn");
+    if (sortAzBtn) {
+        sortAzBtn.addEventListener("click", () => {
+            const cards = Array.from(grid.querySelectorAll(".service-card"));
+            cards.sort((a, b) => {
+                const nameA = (a.querySelector("h3")?.textContent || a.dataset.agency).trim();
+                const nameB = (b.querySelector("h3")?.textContent || b.dataset.agency).trim();
+                return nameA.localeCompare(nameB);
+            });
+            cards.forEach(card => grid.appendChild(card));
+            saveOrder();
+            window.dispatchEvent(new CustomEvent("portals-reordered"));
+        });
+    }
+
     if (resetBtn) {
         resetBtn.addEventListener("click", () => {
             localStorage.removeItem(STORAGE_KEY);
             applyOrder(defaultOrder);
+            window.dispatchEvent(new CustomEvent("portals-reordered"));
         });
     }
 
@@ -571,6 +587,12 @@ function initPortalVisibility() {
         document.addEventListener("click", (e) => {
             if (!dropdown.contains(e.target) && !manageBtn.contains(e.target)) {
                 dropdown.classList.add("hidden");
+            }
+        });
+
+        window.addEventListener("portals-reordered", () => {
+            if (dropdown && !dropdown.classList.contains("hidden")) {
+                renderDropdown();
             }
         });
     }
