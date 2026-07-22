@@ -21,6 +21,11 @@ const PERSONAS = [
         desc: "32, just naturalised, renting in Punggol, tech sector.",
         greeting: "Welcome, new citizen! I can help you through the Singapore Journey, your first tax filing, CPF setup, and finding a first home. Ask me anything.",
         agencies: ["ica", "sgjourney", "cpf", "iras", "hdb", "skillsfuture"],
+        hubTabs: [
+            { tab: "hub-hdb-pane", reason: "Buying your first home" },
+            { tab: "hub-tax-pane", reason: "Your first income-tax filing" },
+            { tab: "hub-jobs-pane", reason: "Tech job market & wages" },
+        ],
         context: {
             label: "a new Singapore citizen",
             age: 32,
@@ -37,6 +42,11 @@ const PERSONAS = [
         desc: "35, new baby, HDB owner in Sengkang, healthcare sector.",
         greeting: "Hi! I can help with Baby Bonus, MediSave for delivery, preschool registration, and family grants. What would you like to sort out first?",
         agencies: ["msf", "moe", "hdb", "cpf", "healthhub", "hpb"],
+        hubTabs: [
+            { tab: "hub-hdb-pane", reason: "Upgrading for a growing family" },
+            { tab: "hub-tax-pane", reason: "Parenthood tax reliefs" },
+            { tab: "hub-community-pane", reason: "Family deals & meetups" },
+        ],
         context: {
             label: "a parent in a young family",
             age: 35,
@@ -53,6 +63,11 @@ const PERSONAS = [
         desc: "24, first job hunt, living in Jurong, finance sector.",
         greeting: "Hey! I can help you find jobs and career programmes, understand your first CPF contributions, and use your SkillsFuture credit. Where do we start?",
         agencies: ["mom", "wsg", "skillsfuture", "cpf", "iras"],
+        hubTabs: [
+            { tab: "hub-jobs-pane", reason: "Where the jobs are hiring" },
+            { tab: "hub-community-pane", reason: "Budget deals & meetups" },
+            { tab: "hub-tax-pane", reason: "Your first income-tax filing" },
+        ],
         context: {
             label: "a fresh graduate",
             age: 24,
@@ -69,6 +84,11 @@ const PERSONAS = [
         desc: "64, planning CPF payouts, AMK, fully-paid flat.",
         greeting: "Welcome! I can help you understand CPF LIFE payouts, healthcare subsidies, MediShield Life, and community support schemes. What can I look up for you?",
         agencies: ["cpf", "moh", "healthhub", "hpb", "cdc"],
+        hubTabs: [
+            { tab: "hub-tax-pane", reason: "CPF & wealth planning" },
+            { tab: "hub-env-pane", reason: "Daily weather & air quality" },
+            { tab: "hub-gov-transit-pane", reason: "Health & scam advisories" },
+        ],
         context: {
             label: "a resident planning retirement",
             age: 64,
@@ -152,6 +172,7 @@ function applyPersona(key, silent) {
     }
 
     renderPersonaPortalBanner(persona);
+    renderPersonaHubBanner(persona);
     updateChatWelcome(persona);
 }
 
@@ -188,6 +209,57 @@ function renderPersonaPortalBanner(persona) {
     banner.querySelectorAll(".persona-chip").forEach(chip => {
         chip.addEventListener("click", () => focusPortalCard(chip.getAttribute("data-agency-target")));
     });
+}
+
+// Personalizes the SG Hub itself (not just chat + portal cards): a banner of "recommended
+// dashboards for this life-stage" whose chips jump straight to the relevant hub sub-tab. Fully
+// deterministic — no live AI/network call — so it stays reliable during a live demo.
+function renderPersonaHubBanner(persona) {
+    const banner = document.getElementById("persona-hub-banner");
+    if (!banner) return;
+    if (!persona || persona.key === "guest" || !(persona.hubTabs && persona.hubTabs.length)) {
+        banner.classList.add("hidden");
+        banner.innerHTML = "";
+        return;
+    }
+
+    const chips = persona.hubTabs.map(({ tab, reason }) => {
+        const tabBtn = document.querySelector(`.hub-sub-tab-btn[data-hub-sub-tab="${tab}"]`);
+        if (!tabBtn) return "";
+        const name = tabBtn.textContent.trim();
+        return `<button type="button" class="persona-chip" data-hub-target="${escapeHTML(tab)}" title="${escapeHTML(reason)}">
+            <i class="fa-solid fa-arrow-right-long" style="font-size:10px; color:var(--primary);"></i>${escapeHTML(name)}</button>`;
+    }).join("");
+
+    banner.innerHTML = `
+        <div class="ppb-top">
+            <span class="ppb-title">${persona.emoji} Recommended dashboards for ${escapeHTML(persona.label)}
+                <span class="ppb-demo-tag" title="Demo profile only — no real SingPass or identity data is used">Demo</span>
+            </span>
+            <button type="button" class="ppb-clear" id="phb-clear-btn"><i class="fa-solid fa-xmark"></i> Clear</button>
+        </div>
+        <div class="ppb-sub">The live data views that matter most for this life-stage:</div>
+        <div class="ppb-chips">${chips || '<span style="font-size:12px;color:var(--text-muted);">No matching dashboards.</span>'}</div>`;
+    banner.classList.remove("hidden");
+
+    const clearBtn = document.getElementById("phb-clear-btn");
+    if (clearBtn) clearBtn.addEventListener("click", () => applyPersona("guest"));
+    banner.querySelectorAll(".persona-chip").forEach(chip => {
+        chip.addEventListener("click", () => focusHubTab(chip.getAttribute("data-hub-target")));
+    });
+}
+
+// Switches to the SG Hub main tab (if needed), opens the given hub sub-tab, and pulses a brief
+// highlight on its tab button so the recommended dashboard is obvious.
+function focusHubTab(tabId) {
+    const hubBtn = document.getElementById("main-tab-hub-btn");
+    if (hubBtn && !hubBtn.classList.contains("active-main-tab")) hubBtn.click();
+    const tabBtn = document.querySelector(`.hub-sub-tab-btn[data-hub-sub-tab="${tabId}"]`);
+    if (!tabBtn) return;
+    tabBtn.click();
+    tabBtn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    tabBtn.classList.add("persona-highlight");
+    setTimeout(() => tabBtn.classList.remove("persona-highlight"), 1800);
 }
 
 // Scrolls a service card into view and pulses a highlight ring — switches to the SG Portals

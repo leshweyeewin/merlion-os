@@ -1854,3 +1854,10 @@ body {
     box-shadow: 0 0 0 2px var(--primary), var(--shadow-md);
     transition: box-shadow 0.2s ease;
 }
+
+/* Transient highlight on a SG Hub sub-tab when a persona "recommended dashboard" chip is clicked */
+.hub-sub-tab-btn.persona-highlight {
+    box-shadow: 0 0 0 2px var(--primary);
+    border-radius: 6px;
+    transition: box-shadow 0.2s ease;
+}
