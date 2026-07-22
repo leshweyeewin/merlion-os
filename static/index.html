@@ -12,7 +12,7 @@
     <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Style Sheet -->
-    <link rel="stylesheet" href="style.css?v=insight5">
+    <link rel="stylesheet" href="style.css?v=insight6">
     <!-- Leaflet JS & CSS for Interactive Maps -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -73,6 +73,8 @@
 
             <!-- Portal Pane -->
             <div id="portals-pane" class="main-pane">
+                <!-- Personalized demo banner — populated by JS when a demo persona is active -->
+                <div class="persona-portal-banner hidden" id="persona-portal-banner"></div>
                 <!-- Intent-based search: everyday phrases route to the right agency, no gov jargon needed -->
                 <div class="portal-search-wrap">
                     <div class="portal-search-box">
@@ -1690,6 +1692,15 @@
             <div class="widget-viewport">
                 <!-- Assistant Pane -->
                 <div class="widget-pane" id="assistant-pane">
+                    <!-- Demo persona selector — no real identity data; tailors Co-Pilot guidance to a life-stage -->
+                    <div class="persona-bar" id="persona-bar">
+                        <button type="button" class="persona-select-btn" id="persona-select-btn" aria-haspopup="listbox" aria-expanded="false">
+                            <i class="fa-solid fa-user-gear"></i>
+                            <span class="persona-select-label" id="persona-select-label">Try as: Guest</span>
+                            <i class="fa-solid fa-chevron-down persona-caret"></i>
+                        </button>
+                        <div class="persona-menu hidden" id="persona-menu" role="listbox" aria-label="Choose a demo profile"></div>
+                    </div>
                     <div class="messages-container" id="chat-messages">
                         <div class="message bot-message">
                             <div class="message-avatar"><i class="fa-solid fa-landmark"></i></div>
@@ -1784,7 +1795,12 @@
             wrap.textContent = initials;
         }
     </script>
-    <!-- Script File -->
-    <script src="app.js?v=insight8"></script>
+    <!-- Front-end modules (load order = dependency order; all share global scope) -->
+    <script src="js/utils.js?v=insight10"></script>
+    <script src="js/tax.js?v=insight10"></script>
+    <script src="js/persona.js?v=insight10"></script>
+    <script src="js/portals.js?v=insight10"></script>
+    <script src="js/chat.js?v=insight10"></script>
+    <script src="js/hub.js?v=insight10"></script>
 </body>
 </html>

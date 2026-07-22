@@ -1,9 +1,8 @@
-// tests/test_tax_calculator.js — calculateSingaporeTax() in static/app.js
+// tests/test_tax_calculator.js — calculateSingaporeTax() in static/js/tax.js
 // ---------------------------------------------------------------------------
-// Loads the real app.js into a sandboxed VM context (with a no-op `document` stub, since the
-// file's only top-level DOM calls are two `document.addEventListener("DOMContentLoaded", ...)`
-// registrations we never fire) so these tests exercise the actual client-side tax function
-// instead of a reimplementation that could silently drift from it.
+// Loads the real tax.js module into a sandboxed VM context so these tests exercise the actual
+// client-side tax function instead of a reimplementation that could silently drift from it.
+// (tax.js has no top-level DOM calls, but the document stub is kept as a harmless safeguard.)
 
 const { test } = require("node:test");
 const assert = require("node:assert");
@@ -11,8 +10,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const appJsPath = path.join(__dirname, "..", "static", "app.js");
-const src = fs.readFileSync(appJsPath, "utf-8");
+const taxJsPath = path.join(__dirname, "..", "static", "js", "tax.js");
+const src = fs.readFileSync(taxJsPath, "utf-8");
 
 const sandbox = { document: { addEventListener: () => {} }, console };
 vm.createContext(sandbox);

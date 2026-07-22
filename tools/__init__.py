@@ -13,6 +13,8 @@ from tools.core import (
     _cache_get,
     _cache_set,
     _sgt_now,
+    _sgt_stamp,
+    make_feed_status,
     _annual_dataset_is_stale,
     _DISK_CACHE_DIR,
     _disk_cache_load,
@@ -29,6 +31,8 @@ from tools.civic import (
     query_supplementary_civic_utilities,
     fetch_ica_media_releases,
     fetch_iras_due_dates,
+    get_ica_status,
+    get_iras_status,
 )
 
 # ── Search & scraping tools ───────────────────────────────────────────────────
@@ -75,6 +79,7 @@ from tools.housing import (
     query_hdb_bto_launches_and_grants,
     query_hdb_resale_price_trends,
     scrape_hdb_news,
+    get_hdb_news_status,
 )
 
 # ── Transport: COE ────────────────────────────────────────────────────────────
@@ -111,6 +116,7 @@ from tools.chat import (
 __all__ = [
     # core
     "_data_gov_sg_headers", "_cache_synced_at", "_cache_get", "_cache_set", "_sgt_now",
+    "_sgt_stamp", "make_feed_status",
     "_annual_dataset_is_stale", "_DISK_CACHE_DIR", "_disk_cache_load", "_disk_cache_save",
     # civic
     "GOV_DIRECTORY",
@@ -118,6 +124,7 @@ __all__ = [
     "query_iras_tax_and_cpf_ledgers", "query_welfare_and_skills_credits",
     "query_supplementary_civic_utilities",
     "fetch_ica_media_releases", "fetch_iras_due_dates",
+    "get_ica_status", "get_iras_status",
     # search
     "search_singapore_government", "scrape_government_page", "call_tool_robustly",
     "GOV_CHANNELS", "COMMUNITY_CHANNELS",
@@ -135,7 +142,7 @@ __all__ = [
     # housing
     "compute_hdb_resale_stats", "compute_hdb_resale_history", "compute_resale_mix_shift_reason",
     "query_hdb_bto_launches_and_grants", "query_hdb_resale_price_trends",
-    "scrape_hdb_news",
+    "scrape_hdb_news", "get_hdb_news_status",
     # transport
     "compute_coe_premium_history", "get_coe_synced_at",
     "compute_coe_bidding_stats", "compute_coe_movement_reason",

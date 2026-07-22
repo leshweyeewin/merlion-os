@@ -6,7 +6,7 @@ and reject invalid ones — without making any live Gemini API calls.
 """
 import pytest
 from pydantic import ValidationError
-from tools.chat import ChatRequest, ChatResponse, ToolLog, ChatMessage
+from tools.chat import ChatRequest, ChatResponse, ToolLog, ChatMessage, PersonaContext, _persona_instruction
 
 
 # ── ChatRequest ───────────────────────────────────────────────────────────────
@@ -15,6 +15,40 @@ def test_chat_request_minimal_valid():
     req = ChatRequest(message="What is the CPF contribution rate?")
     assert req.message == "What is the CPF contribution rate?"
     assert req.history == []
+    assert req.persona is None
+
+
+# ── PersonaContext & _persona_instruction ─────────────────────────────────────
+
+def test_chat_request_accepts_persona():
+    req = ChatRequest(
+        message="What grants can I get?",
+        persona=PersonaContext(label="a new citizen", age=32, town="Punggol", sector="technology"),
+    )
+    assert req.persona.age == 32
+    assert req.persona.town == "Punggol"
+
+
+def test_persona_instruction_none_is_empty():
+    # Guests (no persona) must not alter the system prompt at all.
+    assert _persona_instruction(None) == ""
+
+
+def test_persona_instruction_empty_persona_is_empty():
+    # A persona object with no populated fields yields no instruction block.
+    assert _persona_instruction(PersonaContext()) == ""
+
+
+def test_persona_instruction_includes_facts_and_demo_disclaimer():
+    text = _persona_instruction(
+        PersonaContext(label="a young family", age=35, town="Sengkang", sector="healthcare")
+    )
+    assert "age 35" in text
+    assert "Sengkang" in text
+    assert "healthcare" in text
+    # Must stay framed as demo data, never presented as verified identity.
+    assert "demo mode" in text.lower()
+    assert "not invent additional personal details" in text.lower()
 
 
 def test_chat_request_with_history():

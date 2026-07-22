@@ -9,7 +9,7 @@ MerlionOS is built with robust security protections to govern the AI agent and w
 - **No Internal Error Leakage:** Every `/api/sg-hub/*` endpoint's error handling runs through a shared `_sg_hub_route` decorator that logs the full exception server-side but returns only a generic message to the client — raw exception text (stack traces, library error strings) never reaches an HTTP response body.
 
 ## Performance Engineering
-- **GZip everywhere:** every API and static response over 1KB is compressed (the ~130KB Occupational Wages payload and ~100KB `app.js` ship ~5-6x smaller).
+- **GZip everywhere:** every API and static response over 1KB is compressed (the ~130KB Occupational Wages payload and the ~100KB front-end JS modules in `static/js/` ship ~5-6x smaller).
 - **TTL caches matched to data cadence:** each dataset is cached server-side for as long as its publishing rhythm allows (6h for quarterly/monthly feeds, 24h for annual surveys), so repeat panel loads are served in ~0.2s.
 - **Startup pre-warm + disk snapshot:** the heaviest pipeline (MOM Excel download + parse across two survey years) is warmed in a background thread at boot with its candidate-year probes fetched concurrently, and the parsed payload is snapshotted to a local `.data_cache/` JSON — server restarts within the TTL skip the Excel downloads entirely.
 - **Parallel upstream fetches:** `/api/sg-hub/jobs` runs its sector, retrenchment, and history fetches concurrently (with a lock deduping the shared vacancy CSV download), so the pane loads in the time of the slowest fetch rather than the sum of all five.

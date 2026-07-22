@@ -23,8 +23,8 @@ jobs:
       - name: Lint Python (pyflakes — unused imports/vars, undefined names)
         run: pyflakes server.py tools mcp_server.py tests
 
-      - name: Check static/app.js syntax
-        run: node --check static/app.js
+      - name: Check front-end module syntax
+        run: for f in static/js/*.js; do node --check "$f"; done
 
       - name: Run JS unit tests (tax calculator)
         run: node --test tests/*.js

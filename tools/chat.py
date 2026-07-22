@@ -99,10 +99,23 @@ class UploadedFile(BaseModel):
     base64: str
     mime_type: str
 
+class PersonaContext(BaseModel):
+    """Optional demo persona the citizen has selected in the UI. Purely a demo-mode aid — no
+    real SingPass/identity data is involved — so the Co-Pilot can tailor phrasing and priorities
+    to a life-stage (e.g. new citizen, young family, retiree) instead of answering generically."""
+    label: str | None = None
+    age: int | None = None
+    life_stage: str | None = None
+    housing: str | None = None
+    town: str | None = None
+    sector: str | None = None
+    notes: str | None = None
+
 class ChatRequest(BaseModel):
     message: str
     history: list[ChatMessage] = []
     file: UploadedFile | None = None
+    persona: PersonaContext | None = None
 
 
 class ToolLog(BaseModel):
@@ -118,6 +131,40 @@ class ChatResponse(BaseModel):
     response: str
     logs: list[ToolLog]
     citations: list[Citation] = []
+
+
+def _persona_instruction(persona: "PersonaContext | None") -> str:
+    """Turns a selected demo persona into an extra system-instruction block so the model tailors
+    guidance to the citizen's life-stage. Returns '' when no persona is set, so guests are
+    unaffected. Explicitly framed as a *demo* profile with no real identity data, and instructs
+    the model not to invent personal facts beyond what's given."""
+    if not persona:
+        return ""
+    facts = []
+    if persona.age is not None:
+        facts.append(f"age {persona.age}")
+    if persona.life_stage:
+        facts.append(persona.life_stage)
+    if persona.housing:
+        facts.append(persona.housing)
+    if persona.town:
+        facts.append(f"living in {persona.town}")
+    if persona.sector:
+        facts.append(f"working in the {persona.sector} sector")
+    if persona.notes:
+        facts.append(persona.notes)
+    if not facts:
+        return ""
+    profile = "; ".join(facts)
+    label = persona.label or "this resident"
+    return (
+        "\n\nCITIZEN PROFILE (demo mode — a persona chosen in the UI, NOT verified identity data):\n"
+        f"You are assisting {label} — {profile}. "
+        "Tailor your answer to this person's situation where it is genuinely relevant: prioritise the "
+        "schemes, deadlines, grants and agencies that matter most to their life-stage, and briefly note "
+        "why an item applies to them. Do NOT invent additional personal details beyond those listed, and "
+        "do not assume eligibility you cannot confirm — point them to the official check where it matters."
+    )
 
 
 def _build_contents(history: list, user_prompt: str, file: UploadedFile | None) -> list:
@@ -161,9 +208,9 @@ def _execute_tool_call(tool_name: str, args: dict) -> str:
         return f"Error: Failed to execute tool '{tool_name}' due to an internal execution error ({type(exc).__name__})."
 
 
-def _grounding_config() -> "types.GenerateContentConfig":
+def _grounding_config(persona: "PersonaContext | None" = None) -> "types.GenerateContentConfig":
     return types.GenerateContentConfig(
-        system_instruction=GROUNDING_SYSTEM_INSTRUCTION,
+        system_instruction=GROUNDING_SYSTEM_INSTRUCTION + _persona_instruction(persona),
         tools=[types.Tool(google_search=types.GoogleSearch())],
         temperature=0.1,
     )
@@ -181,10 +228,12 @@ def _collect_citations(grounding_metadata, seen_uris: set) -> list:
     return found
 
 
-async def run_chat_loop(user_prompt: str, history: list, file: UploadedFile | None = None) -> tuple[str, list, list]:
+async def run_chat_loop(user_prompt: str, history: list, file: UploadedFile | None = None,
+                        persona: "PersonaContext | None" = None) -> tuple[str, list, list]:
     available_tools = list(TOOL_MAP.values())
     logs = []
     contents = _build_contents(history, user_prompt, file)
+    system_instruction = SYSTEM_INSTRUCTION + _persona_instruction(persona)
 
     try:
         current_contents = list(contents)
@@ -194,7 +243,7 @@ async def run_chat_loop(user_prompt: str, history: list, file: UploadedFile | No
                 model='gemini-2.5-flash',
                 contents=current_contents,
                 config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_INSTRUCTION,
+                    system_instruction=system_instruction,
                     tools=available_tools,
                     temperature=0.1,
                     automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
@@ -235,7 +284,7 @@ async def run_chat_loop(user_prompt: str, history: list, file: UploadedFile | No
             model='gemini-2.5-flash',
             contents=current_contents,
             config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_INSTRUCTION,
+                system_instruction=system_instruction,
                 temperature=0.1
             )
         )
@@ -249,7 +298,7 @@ async def run_chat_loop(user_prompt: str, history: list, file: UploadedFile | No
                 fallback_response = await _get_client().aio.models.generate_content(
                     model="gemini-3.1-flash-lite",
                     contents=contents,
-                    config=_grounding_config(),
+                    config=_grounding_config(persona),
                 )
                 fallback_text = fallback_response.text or "Could not retrieve grounded search results."
 
@@ -276,7 +325,8 @@ async def run_chat_loop(user_prompt: str, history: list, file: UploadedFile | No
         raise
 
 
-async def run_chat_stream(user_prompt: str, history: list, file: UploadedFile | None = None):
+async def run_chat_stream(user_prompt: str, history: list, file: UploadedFile | None = None,
+                          persona: "PersonaContext | None" = None):
     """Async generator version of run_chat_loop.
 
     Yields SSE-formatted lines:
@@ -290,6 +340,7 @@ async def run_chat_stream(user_prompt: str, history: list, file: UploadedFile | 
     """
     available_tools = list(TOOL_MAP.values())
     contents = _build_contents(history, user_prompt, file)
+    system_instruction = SYSTEM_INSTRUCTION + _persona_instruction(persona)
 
     try:
         current_contents = list(contents)
@@ -299,7 +350,7 @@ async def run_chat_stream(user_prompt: str, history: list, file: UploadedFile | 
                 model='gemini-2.5-flash',
                 contents=current_contents,
                 config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_INSTRUCTION,
+                    system_instruction=system_instruction,
                     tools=available_tools,
                     temperature=0.1,
                     automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
@@ -342,7 +393,7 @@ async def run_chat_stream(user_prompt: str, history: list, file: UploadedFile | 
             model='gemini-2.5-flash',
             contents=current_contents,
             config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_INSTRUCTION,
+                system_instruction=system_instruction,
                 tools=available_tools,
                 temperature=0.1,
             )
@@ -370,7 +421,7 @@ async def run_chat_stream(user_prompt: str, history: list, file: UploadedFile | 
                 async for chunk in await _get_client().aio.models.generate_content_stream(
                     model="gemini-3.1-flash-lite",
                     contents=contents,
-                    config=_grounding_config(),
+                    config=_grounding_config(persona),
                 ):
                     if chunk.text:
                         token_payload = json.dumps({"type": "token", "text": chunk.text})

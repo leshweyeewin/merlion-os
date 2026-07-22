@@ -56,7 +56,7 @@ def test_chat_rejects_oversized_message(client):
 
 
 def test_chat_happy_path(client, monkeypatch):
-    async def fake_run_chat_loop(user_prompt, history, file=None):
+    async def fake_run_chat_loop(user_prompt, history, file=None, persona=None):
         return "Test response", [], []
     monkeypatch.setattr(server, "run_chat_loop", fake_run_chat_loop)
 
@@ -69,7 +69,7 @@ def test_chat_happy_path(client, monkeypatch):
 
 
 def test_chat_maps_quota_errors_to_429(client, monkeypatch):
-    async def fake_run_chat_loop(user_prompt, history, file=None):
+    async def fake_run_chat_loop(user_prompt, history, file=None, persona=None):
         raise RuntimeError("429 quota exceeded")
     monkeypatch.setattr(server, "run_chat_loop", fake_run_chat_loop)
 
@@ -78,7 +78,7 @@ def test_chat_maps_quota_errors_to_429(client, monkeypatch):
 
 
 def test_chat_rate_limit_blocks_after_threshold(client, monkeypatch):
-    async def fake_run_chat_loop(user_prompt, history, file=None):
+    async def fake_run_chat_loop(user_prompt, history, file=None, persona=None):
         return "ok", [], []
     monkeypatch.setattr(server, "run_chat_loop", fake_run_chat_loop)
 

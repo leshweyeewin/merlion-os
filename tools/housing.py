@@ -18,9 +18,16 @@ from tools.core import (
     _disk_cache_load,
     _disk_cache_save,
     _forecast_next_linear,
+    make_feed_status,
 )
 
 logger = logging.getLogger("merlion-os-housing")
+
+# Freshness status for the HDB newsroom scraper, read by /api/sg-hub/hdb to badge fallbacks.
+_hdb_news_status = make_feed_status(True)
+
+def get_hdb_news_status() -> dict:
+    return _hdb_news_status
 
 _HDB_NEWS_URL = "https://www.hdb.gov.sg/hdb-pulse/news"
 _HDB_BASE = "https://www.hdb.gov.sg"
@@ -513,6 +520,7 @@ def query_hdb_resale_price_trends(context_query: str = "general") -> str:
 def scrape_hdb_news() -> list:
     """Live-scrape HDB newsroom by parsing the embedded __NEXT_DATA__ JSON which contains
     exact article paths and published dates — avoids any URL guessing."""
+    global _hdb_news_status
     from bs4 import BeautifulSoup
     from datetime import datetime, timezone, timedelta
     HDB_BASE = "https://www.hdb.gov.sg"
@@ -574,9 +582,11 @@ def scrape_hdb_news() -> list:
                     results.append({"date": item["date"], "title": item["title"], "link": item["link"]})
                 
                 print(f"  \033[32m✔\033[0m [HDB News Scraper] Returning {len(results)} latest news articles with real embedded URLs.")
+                _hdb_news_status = make_feed_status(True)
                 return results
     except Exception as e:
         logger.warning(f"Error scraping HDB news: {e}")
-    
-    # Return empty list or basic fallback on failure
+
+    # Return empty list on failure — the pane shows an empty-state note, badged as offline.
+    _hdb_news_status = make_feed_status(False, note="HDB Newsroom unreachable — no live releases to show")
     return []

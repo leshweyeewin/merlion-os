@@ -9,9 +9,20 @@ the government search tool.
 import logging
 import requests
 from bs4 import BeautifulSoup
-from tools.core import _cache_get, _cache_set
+from tools.core import _cache_get, _cache_set, make_feed_status
 
 logger = logging.getLogger("merlion-os-civic")
+
+# Freshness status for the two scraper-backed civic feeds, updated on each real fetch and read
+# by the /api/sg-hub endpoints so the UI can badge a fallback instead of showing it as live.
+_ica_status = make_feed_status(True)
+_iras_status = make_feed_status(True)
+
+def get_ica_status() -> dict:
+    return _ica_status
+
+def get_iras_status() -> dict:
+    return _iras_status
 
 def query_immigration_and_identity(context_query: str) -> str:
     """Tool: Handles ICA services including citizenship status, passport renewal, and MyICA appointments.
@@ -471,6 +482,7 @@ def fetch_ica_media_releases() -> list:
     Fetches the latest media releases and checkpoint advisories directly from the ICA Newsroom.
     Cached for 5 minutes.
     """
+    global _ica_status
     cached = _cache_get(_ica_cache, _ICA_CACHE_TTL_SECONDS)
     if cached is not None:
         return cached
@@ -514,10 +526,12 @@ def fetch_ica_media_releases() -> list:
                 })
             
             _cache_set(_ica_cache, news_items)
+            _ica_status = make_feed_status(True)
             return news_items
     except Exception as e:
         logger.warning(f"Error fetching ICA media releases: {e}")
-    
+
+    _ica_status = make_feed_status(False, note="ICA Newsroom unreachable — showing a recent sample")
     fallback_data = [
         {
             "title": "Heavy departure traffic at Woodlands Checkpoint due to tailback from Malaysia.",
@@ -551,6 +565,7 @@ def fetch_iras_due_dates() -> list:
     """
     Scrapes the official IRAS due dates page.
     """
+    global _iras_status
     cached = _cache_get(_tax_cache, _TAX_CACHE_TTL_SECONDS)
     if cached is not None:
         return cached
@@ -595,10 +610,12 @@ def fetch_iras_due_dates() -> list:
                     })
             if due_dates:
                 _cache_set(_tax_cache, due_dates)
+                _iras_status = make_feed_status(True)
                 return due_dates
     except Exception as e:
         logger.warning(f"Error scraping IRAS due dates: {e}")
-    
+
+    _iras_status = make_feed_status(False, note="IRAS due-dates page unreachable — showing the standard filing calendar")
     fallback_data = [
         {"date": "01 Mar 2026", "category": "Auto-Inclusion/ E-Submission", "label": "Submit Self-Employment Income Records", "link": "https://www.iras.gov.sg"},
         {"date": "01 Mar 2026", "category": "Auto-Inclusion/ E-Submission", "label": "Submit Employment Income Records", "link": "https://www.iras.gov.sg"},

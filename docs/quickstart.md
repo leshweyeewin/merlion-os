@@ -59,7 +59,7 @@ The test suite consists of **92 unit tests** spanning both Python and Node.js te
 pip install -r requirements-dev.txt
 pyflakes server.py tools mcp_server.py tests  # Lint: unused imports, undefined names
 pytest tests/ -v            # Python tests: routes, caching, structured stats, "why" explanations, security, forecasting, models
-node --check static/app.js  # JavaScript syntax check
+for f in static/js/*.js; do node --check "$f"; done  # JavaScript syntax check
 node --test tests/*.js      # JavaScript tests: progressive tax calculator
 ```
 All four checks run on every push/PR in CI (`.github/workflows/ci.yml`).
@@ -87,7 +87,7 @@ merlion-os/
 │   └── security_and_performance.md  # Hardening, caching, and safety strategy
 ├── static/               # Frontend assets (HTML, CSS, JS, and Logos)
 │   ├── logos/            # Local statutory agency SVG/PNG logos
-│   ├── app.js            # Frontend logic and UI rendering (Leaflet integration)
+│   ├── js/               # Frontend modules: utils, tax, persona, portals, chat, hub
 │   ├── index.html        # Main dashboard structure
 │   └── style.css         # Custom layout, animations, and dark mode rules
 ├── tests/                # Unit tests run locally and in CI (92 tests total)

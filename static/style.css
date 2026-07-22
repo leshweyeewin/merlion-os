@@ -1713,3 +1713,144 @@ body {
     cursor: help;
     white-space: nowrap;
 }
+
+/* ── Demo persona selector (Co-Pilot) ───────────────────────────────────── */
+.persona-bar {
+    position: relative;
+    padding: 8px 12px 0;
+    flex-shrink: 0;
+}
+.persona-select-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-muted);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-main);
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+    font-family: var(--font-primary);
+}
+.persona-select-btn:hover { border-color: var(--border-hover); }
+.persona-select-btn .persona-caret { font-size: 10px; color: var(--text-muted); }
+.persona-select-btn.persona-active {
+    background: var(--primary-soft);
+    border-color: var(--primary);
+    color: var(--primary-dark);
+}
+.persona-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 12px;
+    z-index: 40;
+    min-width: 260px;
+    max-width: calc(100% - 24px);
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
+    padding: 6px;
+    max-height: 320px;
+    overflow-y: auto;
+}
+.persona-menu-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 10px;
+    cursor: pointer;
+    font-family: var(--font-primary);
+    color: var(--text-main);
+    transition: background 0.12s ease;
+}
+.persona-menu-item:hover { background: var(--bg-muted); }
+.persona-menu-item.selected { background: var(--primary-soft); }
+.persona-menu-item .persona-emoji { font-size: 18px; line-height: 1.2; flex-shrink: 0; }
+.persona-menu-item .persona-item-label { font-size: 13px; font-weight: 700; }
+.persona-menu-item .persona-item-desc { font-size: 11.5px; color: var(--text-muted); line-height: 1.35; margin-top: 2px; }
+
+/* ── Personalized portal banner ─────────────────────────────────────────── */
+.persona-portal-banner {
+    background: linear-gradient(135deg, var(--primary-soft), var(--bg-muted));
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--primary);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+}
+.persona-portal-banner .ppb-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: space-between;
+}
+.persona-portal-banner .ppb-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text-main);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.persona-portal-banner .ppb-demo-tag {
+    font-size: 9.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--primary-dark);
+    background: #ffffff;
+    border: 1px solid var(--primary);
+    border-radius: 4px;
+    padding: 1px 6px;
+}
+.persona-portal-banner .ppb-clear {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.persona-portal-banner .ppb-clear:hover { color: var(--text-main); }
+.persona-portal-banner .ppb-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 6px 0 10px;
+    line-height: 1.4;
+}
+.persona-portal-banner .ppb-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.persona-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-main);
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    font-family: var(--font-primary);
+}
+.persona-chip:hover { border-color: var(--primary); box-shadow: var(--shadow-sm); }
+
+/* Transient highlight applied to a card when its persona chip is clicked */
+.service-card.persona-highlight {
+    box-shadow: 0 0 0 2px var(--primary), var(--shadow-md);
+    transition: box-shadow 0.2s ease;
+}

@@ -71,6 +71,10 @@ from tools import (
     fetch_pub_flood_alerts,
     fetch_ica_media_releases,
     fetch_iras_due_dates,
+    get_ica_status,
+    get_iras_status,
+    get_hdb_news_status,
+    make_feed_status,
     GOV_CHANNELS,
     COMMUNITY_CHANNELS,
     scrape_one_telegram_channel,
@@ -94,7 +98,7 @@ async def lifespan(app: FastAPI):
     import logging
 
     _SUPPRESS_PATHS = {"/favicon.ico", "/merlion-icon.png"}
-    _SUPPRESS_PREFIXES = ("/logos/", "/style.css", "/app.js")
+    _SUPPRESS_PREFIXES = ("/logos/", "/style.css", "/js/")
 
     class LogFilter(logging.Filter):
         def filter(self, record):
@@ -103,7 +107,7 @@ async def lifespan(app: FastAPI):
                 if path in _SUPPRESS_PATHS or path.startswith(_SUPPRESS_PREFIXES):
                     return False
             msg = record.getMessage()
-            if any(s in msg for s in ("/logos/", "/favicon.ico", "/style.css", "/app.js", "/merlion-icon.png")):
+            if any(s in msg for s in ("/logos/", "/favicon.ico", "/style.css", "/js/", "/merlion-icon.png")):
                 return False
             return True
 
@@ -168,7 +172,7 @@ async def chat_endpoint(request: ChatRequest):
 
     try:
         history_list = [{"role": h.role, "content": h.content} for h in request.history]
-        response_text, logs, citations = await run_chat_loop(user_prompt, history_list, file=request.file)
+        response_text, logs, citations = await run_chat_loop(user_prompt, history_list, file=request.file, persona=request.persona)
         return ChatResponse(
             response=response_text,
             logs=[ToolLog(tool=l["tool"], arguments=l["arguments"], result=l["result"]) for l in logs],
@@ -209,7 +213,7 @@ async def chat_stream_endpoint(request: ChatRequest):
     history_list = [{"role": h.role, "content": h.content} for h in request.history]
 
     return StreamingResponse(
-        run_chat_stream(user_prompt, history_list, file=request.file),
+        run_chat_stream(user_prompt, history_list, file=request.file, persona=request.persona),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -220,6 +224,17 @@ async def chat_stream_endpoint(request: ChatRequest):
 
 _weather_cache = {"data": None, "fetched_at": 0}
 _WEATHER_CACHE_TTL_SECONDS = 3 * 60  # NEA's unauthenticated real-time APIs have a tight burst rate limit
+
+def _feed_status_from_scrape(has_events: bool, used_fallback: bool, source_label: str) -> dict:
+    """Freshness marker for the aggregated Telegram feeds (gov / community), which scrape many
+    channels in parallel rather than through a single cached fetch. 'Live' when the 24h window
+    returned posts; degrades to a fallback badge when we had to widen to latest-posts or when
+    every channel came back empty (t.me often stalls locally — see [[local-network-flaky]])."""
+    if has_events and not used_fallback:
+        return make_feed_status(True)
+    if has_events and used_fallback:
+        return make_feed_status(False, note=f"No {source_label} posts in the last 24h — showing latest available")
+    return make_feed_status(False, note=f"{source_label.capitalize()} unreachable — no recent posts to show")
 
 def _sg_hub_route(label: str):
     """Shared error handling for the /api/sg-hub/* panel endpoints: logs the full exception
@@ -246,6 +261,7 @@ async def get_sg_hub_tax():
     due_dates = await anyio.to_thread.run_sync(fetch_iras_due_dates)
     return {
         "due_dates": due_dates,
+        "data_status": get_iras_status(),
         "limits": {
             "cpf_sa_rstu_max": 8000,
             "srs_citizen_pr_max": 15300,
@@ -290,7 +306,8 @@ async def get_sg_hub_hdb():
     except Exception as e:
         logger.warning(f"HDB resale history skipped: {type(e).__name__}: {e}")
 
-    return {"hdb": hdb_text, "hdb_news": hdb_news, "resale": resale, "resale_history": resale_history}
+    return {"hdb": hdb_text, "hdb_news": hdb_news, "hdb_news_status": get_hdb_news_status(),
+            "resale": resale, "resale_history": resale_history}
 
 @app.get("/api/sg-hub/jobs")
 @_sg_hub_route("Jobs data")
@@ -446,6 +463,7 @@ async def get_sg_hub_transit(lat: float | None = None, lon: float | None = None)
         "coe": coe,
         "coe_history": coe_history,
         "ica_news": ica_news,
+        "ica_status": get_ica_status(),
     }
 
 
@@ -476,8 +494,10 @@ async def get_sg_hub_gov_updates():
             tg.start_soon(fetch_gov_channel, ch)
         tg.start_soon(fetch_flood_data)
 
+    used_fallback = False
     # Fallback for Official Gov Alerts
     if not gov_events:
+        used_fallback = True
         print("\033[31m[Telegram Scraper Service] No recent gov alerts in 24h, triggering fallback alerts...\033[0m")
         gov_fallbacks = ["HealthHubSG", "scamshieldalert", "govsg"]
 
@@ -496,6 +516,7 @@ async def get_sg_hub_gov_updates():
     return {
         "gov_events": gov_events,
         "flood_alerts": flood_alerts,
+        "data_status": _feed_status_from_scrape(bool(gov_events), used_fallback, "gov channels"),
     }
 
 @app.get("/api/sg-hub/community")
@@ -514,8 +535,10 @@ async def get_sg_hub_community():
         for ch in COMMUNITY_CHANNELS:
             tg.start_soon(fetch_community_channel, ch)
 
+    used_fallback = False
     # Fallback for Kiasu SG Deals
     if not community_events:
+        used_fallback = True
         print("\033[31m[Telegram Scraper Service] No recent community posts in 24h, pulling fallbacks...\033[0m")
         community_fallbacks = ["goodlobang", "kiasufoodies", "confirmgood", "allsgpromo"]
 
@@ -530,7 +553,10 @@ async def get_sg_hub_community():
                 tg.start_soon(fetch_comm_fallback, channel)
 
     community_events.sort(key=lambda x: x.get("iso_date", ""), reverse=True)
-    return {"community_events": community_events}
+    return {
+        "community_events": community_events,
+        "data_status": _feed_status_from_scrape(bool(community_events), used_fallback, "community channels"),
+    }
 
 # Mount static folder (create if not exists)
 os.makedirs("static", exist_ok=True)

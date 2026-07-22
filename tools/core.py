@@ -48,6 +48,27 @@ def _sgt_now():
     from datetime import datetime, timezone, timedelta
     return datetime.now(timezone(timedelta(hours=8)))
 
+def _sgt_stamp(ts: float | None = None) -> str:
+    """Human-readable SGT timestamp for an epoch time (defaults to now). Used by the
+    scraper freshness-status helper so panels can show when data was last actually fetched."""
+    from datetime import datetime, timezone, timedelta
+    when = datetime.fromtimestamp(ts, tz=timezone(timedelta(hours=8))) if ts else _sgt_now()
+    return when.strftime("%d %b %Y, %I:%M %p") + " (SGT)"
+
+def make_feed_status(is_live: bool, synced_at: str | None = None, note: str | None = None) -> dict:
+    """Standard freshness marker for scraper-backed dashboard panels (ICA, IRAS, HDB news,
+    Telegram feeds). The frontend reads this to show a 'Live' vs 'Showing last known data'
+    badge instead of silently presenting a hardcoded/cached fallback as if it were live.
+
+    is_live=False means the live source failed and the panel is serving a cached snapshot or
+    a built-in sample, so the demo degrades visibly-but-gracefully rather than showing an empty
+    card or a stale figure with no warning. See [[local-network-flaky]] for why fallbacks exist."""
+    return {
+        "is_live": is_live,
+        "synced_at": synced_at or _sgt_stamp(),
+        "note": note or ("Live" if is_live else "Showing last known data — live source unavailable"),
+    }
+
 def _forecast_next_linear(values: list):
     """6-point ordinary least-squares forecast of the next value in a series — shared by the
     COE premium (tools/transport.py) and HDB resale price (tools/housing.py) trend charts, which

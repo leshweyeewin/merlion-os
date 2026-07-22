@@ -9,7 +9,7 @@ either helper would silently affect every one of those caches at once.
 """
 import time
 
-from tools.core import _cache_get, _cache_set, _cache_synced_at
+from tools.core import _cache_get, _cache_set, _cache_synced_at, make_feed_status
 
 
 def test_cache_get_returns_none_when_empty():
@@ -46,3 +46,25 @@ def test_cache_set_with_explicit_fetched_at_preserves_original_timestamp():
     _cache_set(cache, "from-disk", fetched_at=original_ts)
     assert cache["fetched_at"] == original_ts
     assert _cache_synced_at(cache) is not None
+
+
+# ── make_feed_status (scraper freshness badges) ───────────────────────────────
+
+def test_make_feed_status_live_defaults_to_live_note():
+    status = make_feed_status(True)
+    assert status["is_live"] is True
+    assert status["note"] == "Live"
+    assert status["synced_at"]  # non-empty SGT timestamp
+
+
+def test_make_feed_status_fallback_carries_custom_note():
+    status = make_feed_status(False, note="ICA Newsroom unreachable — showing a recent sample")
+    assert status["is_live"] is False
+    assert "unreachable" in status["note"]
+
+
+def test_make_feed_status_fallback_has_default_note():
+    # Even without a custom note, a fallback must never be silently presented as live.
+    status = make_feed_status(False)
+    assert status["is_live"] is False
+    assert status["note"] and status["note"] != "Live"

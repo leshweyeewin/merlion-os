@@ -14,7 +14,7 @@ _BLOCKED_SCHEMES = re.compile(r'^\s*(javascript|data|vbscript)\s*:', re.IGNORECA
 
 
 def safe_url(url: str) -> str:
-    """Mirror of the JS safeURL() helper in app.js."""
+    """Mirror of the JS safeURL() helper in static/js/utils.js."""
     if not url or _BLOCKED_SCHEMES.match(url):
         return "#"
     return url.replace('"', "%22").replace("'", "%27")
@@ -23,7 +23,7 @@ def safe_url(url: str) -> str:
 # ── Replicate the JS escapeHTML logic ──
 
 def escape_html(text: str) -> str:
-    """Mirror of the JS escapeHTML() helper in app.js."""
+    """Mirror of the JS escapeHTML() helper in static/js/utils.js."""
     return (
         text
         .replace("&", "&amp;")
