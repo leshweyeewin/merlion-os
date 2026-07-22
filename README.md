@@ -78,12 +78,12 @@ graph TD
    - Deterministic causal reasoning built entirely from data the app already fetches (no extra AI calls, no generated narrative): the Job Market panel cross-references the Hiring Pressure Index against the CAGR trend-break to distinguish genuine hiring demand from vacancy churn; COE Bidding compares quota vs. bid-volume to explain whether a premium move was a supply story, a demand story, or both; HDB Resale compares each flat type's own YoY move against the islandwide figure to flag a mix-shift vs. a broad-based price change. All three stay silent rather than force a guess when the signal is ambiguous.
 9. **Structured-Data Architecture**:
    - Job vacancy, retrenchment, and COE bidding stats used to be computed once as Gemini-formatted text that the server then re-parsed with fragile line-splits for the dashboard. These now compute structured dicts consumed directly by the dashboard, with thin formatting wrappers rendering the same data into text for the chat/MCP tool — eliminating an entire class of "a wording tweak silently breaks the UI" bugs.
-10. **Automated Deploy Pipeline, CI Lint Gate & 142-Test Suite**:
-    - Automated Google Cloud Run build & deploy CI/CD pipeline (`deploy.yml`) triggered on branch push. CI runs a `pyflakes` lint gate (unused imports, undefined names) plus **136 Python + 6 JavaScript unit tests** (routes, caching, structured stats, "why" explanations, RAG retrieval, XSS/`safeURL`, pydantic structures, OLS forecasts, allowlists) on every push.
+10. **Automated Deploy Pipeline, CI Lint Gate & 147-Test Suite**:
+    - Automated Google Cloud Run build & deploy CI/CD pipeline (`deploy.yml`) triggered on branch push. CI runs a `pyflakes` lint gate (unused imports, undefined names) plus **141 Python + 6 JavaScript unit tests** (routes, caching, the shared data.gov.sg fetch/cache loader, structured stats, "why" explanations, RAG retrieval, XSS/`safeURL`, pydantic structures, OLS forecasts, allowlists) on every push.
 11. **Chat Rate Limiting**:
     - Per-IP request caps (8/min, in-memory sliding window) on `/api/chat` and `/api/chat/stream`, so a single client can't drain the shared Gemini free-tier quota on the public demo link.
 12. **Intent-Based Portal Search & Plain-English Glossary**:
-    - A top-of-grid search box matches everyday phrasing ("top up CPF", "change company address") against a per-agency synonym map, not just each card's official name — plus quick-task chips and clickable suggestions that route to a live SG Hub panel when one answers the query better than a static portal link. Separately, ~26 government acronyms/jargon terms rendered anywhere in SG Hub get a dashed-underline tooltip (hover on desktop, tap on mobile) explaining them in plain English, applied automatically to newly-loaded panel content via a `MutationObserver`.
+    - A top-of-grid search box matches everyday phrasing ("top up CPF", "change company address") against a per-agency synonym map, not just each card's official name — plus quick-task chips and clickable suggestions that route to a live SG Hub panel when one answers the query better than a static portal link. A **Sort A–Z** toolbar button re-orders the whole grid alphabetically by agency name (persisted like a manual drag-reorder), as a one-click alternative to hunting through a custom layout. Separately, ~26 government acronyms/jargon terms rendered anywhere in SG Hub get a dashed-underline tooltip (hover on desktop, tap on mobile) explaining them in plain English, applied automatically to newly-loaded panel content via a `MutationObserver`.
 13. **Mobile Responsiveness**:
     - Dedicated breakpoints reflow the portal grid, directory toolbar, onboarding banner, header, and hub dashboard cards for narrow screens, with tap-based interaction (search chips, glossary/chart tooltips) replacing hover where a touchscreen has no hover state.
 14. **RAG Civic Knowledge Base**:
@@ -91,9 +91,13 @@ graph TD
 15. **Demo Personalization (Personas)**:
     - A demo persona selector (New citizen / Young family / Fresh graduate / Retiree — no real SingPass or identity data) tailors the experience across three surfaces: the Co-Pilot receives life-stage context so answers are prioritised for that person, the SG Portals grid surfaces a "Personalized for X" banner of the most relevant agencies, and the SG Hub shows a "Recommended dashboards" banner jumping to the data views that matter for that life-stage. Fully deterministic, persisted in `localStorage`.
 16. **Live-Data Freshness Badges & Fetch Resilience**:
-    - Scraper-backed panels (ICA, IRAS, HDB Newsroom, Telegram feeds) return a `data_status` marker so the UI shows a green **"Live"** pill on success and an amber **"Showing last known data"** pill when a source falls back to cache/sample — a flaky upstream degrades visibly rather than silently. SG Hub tab fetches also auto-retry with exponential backoff (2 retries) before surfacing an error, smoothing first-load flakiness while the server pre-warms.
+    - Scraper-backed panels (ICA, IRAS, HDB Newsroom, Telegram feeds) return a `data_status` marker so the UI shows a green **"Live"** pill on success and an amber **"Showing last known data"** pill when a source falls back to cache/sample — a flaky upstream degrades visibly rather than silently. SG Hub tab fetches also auto-retry with exponential backoff (2 retries) before surfacing an error, smoothing first-load flakiness while the server pre-warms. When a fetch still fails, the Jobs pane (the slowest, BigQuery/MOM-backed source) renders an inline **Retry** button rather than a dead-end message. On the server side, when a live download fails, the expired disk snapshot that's served in its place is re-cached as *fresh* — so a slow, failing upstream isn't re-hit on every subsequent request (including the sibling fetches within the same endpoint) until its TTL lapses.
 17. **Modular Front-End**:
     - The former ~3.9k-line `static/app.js` is split into six focused modules under `static/js/` (`utils`, `tax`, `persona`, `portals`, `chat`, `hub`), loaded in dependency order — improving readability and maintainability with no behavioural change.
+18. **Keyboard-Accessible SG Hub Tabs**:
+    - The SG Hub sub-tab bar is exposed as a proper ARIA `tablist` with a roving `tabindex` and full keyboard navigation: `←`/`→` cycle through sections (wrapping), `Home`/`End` jump to the first/last, and each pane is wired up as a labelled `tabpanel`. Semantics and keyboard support only — the bar keeps its existing `flex-wrap` layout, reflowing onto a second row on narrow viewports rather than scrolling.
+19. **Concurrent Fetches & Response Caching**:
+    - The HDB pane loads its three independent sources — BTO/grant tables, the newsroom scrape, and the resale dataset — concurrently in an `anyio` task group, so the pane appears in the time of the slowest source instead of their sum. Repeat clicks and sector-tab switches on the Jobs pane are served from a short (5-min) per-sector response cache over rows that are already cached upstream, making them instant instead of recomputing each time; the slow HDB newsroom scrape gets its own 30-min cache. Data-fetch plumbing is centralised: all four data.gov.sg dataset downloads share one `_fetch_datagovsg_csv_rows` helper, and the three with a disk-snapshot tier share one `_cached_rows` memory→disk→network loader (`tools/core.py`), each covered directly by tests.
 
 
 ---
@@ -133,7 +137,7 @@ python server.py
 Open **`http://127.0.0.1:8000/`** in your browser.
 
 ### 3. Run Tests
-Ensure dependencies are installed, then run the lint gate and the python/javascript test suites (136 Python + 6 JavaScript tests):
+Ensure dependencies are installed, then run the lint gate and the python/javascript test suites (141 Python + 6 JavaScript tests):
 ```bash
 pip install -r requirements-dev.txt
 pyflakes server.py tools mcp_server.py tests

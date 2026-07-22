@@ -8,10 +8,9 @@ and the sector meta map.
 
 import threading as _threading
 from tools.core import (
-    _data_gov_sg_headers,
     _cache_synced_at,
-    _cache_get,
-    _cache_set,
+    _cached_rows,
+    _fetch_datagovsg_csv_rows,
     _disk_cache_load,
     _disk_cache_save,
 )
@@ -73,49 +72,14 @@ def _fetch_latest_years_totals_from_bigquery(industries: list, n_years: int = 6)
     }
 
 def _fetch_job_vacancy_rows() -> list:
-    """Downloads and caches the data.gov.sg MOM job vacancy dataset (CSV: year, industry, occupation, job_vacancy)."""
-    import time
-    import csv
-    import io
-    import requests
-
-    with _job_vacancy_fetch_lock:
-        cached = _cache_get(_job_vacancy_cache, _JOB_VACANCY_CACHE_TTL_SECONDS, key="rows")
-        if cached is not None:
-            return cached
-
-        disk_rows, disk_ts = _disk_cache_load("job_vacancy_rows", _JOB_VACANCY_CACHE_TTL_SECONDS)
-        if disk_rows is not None:
-            _cache_set(_job_vacancy_cache, disk_rows, key="rows", fetched_at=disk_ts)
-            return disk_rows
-
-        try:
-            poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{_JOB_VACANCY_DATASET_ID}/poll-download"
-            print(f"  [data.gov.sg] HTTP GET {poll_url}")
-            r = requests.get(poll_url, headers=_data_gov_sg_headers(), timeout=10)
-            r.raise_for_status()
-            download_url = r.json()["data"]["url"]
-
-            r_csv = requests.get(download_url, timeout=15)
-            r_csv.raise_for_status()
-            rows = list(csv.DictReader(io.StringIO(r_csv.text)))
-        except Exception as e:
-            # Annual data: an expired-but-present disk snapshot beats failing (e.g. a 429
-            # from data.gov.sg's rate limiter) — serve it and let a later request refresh.
-            stale_rows, stale_ts = _disk_cache_load("job_vacancy_rows", float("inf"))
-            if stale_rows is not None:
-                print(f"  [data.gov.sg] job vacancy fetch failed ({type(e).__name__}) — serving expired disk snapshot")
-                # Cache the fallback as fresh so we don't re-attempt the slow failing download on
-                # every request — including each of the sibling sector queries in the same /jobs
-                # call. A later request after the TTL elapses will retry the live fetch.
-                _cache_set(_job_vacancy_cache, stale_rows, key="rows", fetched_at=time.time())
-                return stale_rows
-            raise
-
-        now = time.time()
-        _cache_set(_job_vacancy_cache, rows, key="rows", fetched_at=now)
-        _disk_cache_save("job_vacancy_rows", rows, now)
-        return rows
+    """Downloads and caches the data.gov.sg MOM job vacancy dataset (CSV: year, industry, occupation, job_vacancy).
+    Annual data — the lock dedupes the cold-cache download across the 4 sector queries that run
+    concurrently; on a failed live fetch _cached_rows serves an expired disk snapshot (see there)."""
+    return _cached_rows(
+        _job_vacancy_cache, "job_vacancy_rows", _JOB_VACANCY_CACHE_TTL_SECONDS,
+        lambda: _fetch_datagovsg_csv_rows(_JOB_VACANCY_DATASET_ID),
+        lock=_job_vacancy_fetch_lock, label="job vacancy",
+    )
 
 def _sector_vacancy_totals(rows: list, industries: list, years: list) -> dict:
     """Sums job_vacancy across occupation groups for the given industries, per year."""
@@ -437,48 +401,14 @@ _RETRENCHMENT_CACHE_TTL_SECONDS = 6 * 60 * 60  # quarterly data — no need to r
 _retrenchment_fetch_lock = _threading.Lock()  # advisory card + history chart fetch concurrently — dedupe the cold download
 
 def _fetch_retrenchment_rows() -> list:
-    """Downloads and caches the data.gov.sg MOM retrenchment dataset (CSV: quarter, industry, retrench)."""
-    import time
-    import csv
-    import io
-    import requests
-
-    with _retrenchment_fetch_lock:
-        cached = _cache_get(_retrenchment_cache, _RETRENCHMENT_CACHE_TTL_SECONDS, key="rows")
-        if cached is not None:
-            return cached
-
-        disk_rows, disk_ts = _disk_cache_load("retrenchment_rows", _RETRENCHMENT_CACHE_TTL_SECONDS)
-        if disk_rows is not None:
-            _cache_set(_retrenchment_cache, disk_rows, key="rows", fetched_at=disk_ts)
-            return disk_rows
-
-        try:
-            poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{_RETRENCHMENT_DATASET_ID}/poll-download"
-            print(f"  [data.gov.sg] HTTP GET {poll_url}")
-            r = requests.get(poll_url, headers=_data_gov_sg_headers(), timeout=10)
-            r.raise_for_status()
-            download_url = r.json()["data"]["url"]
-
-            r_csv = requests.get(download_url, timeout=15)
-            r_csv.raise_for_status()
-            rows = list(csv.DictReader(io.StringIO(r_csv.text)))
-        except Exception as e:
-            # Quarterly data: serve an expired disk snapshot over failing outright (e.g. a
-            # 429 from data.gov.sg's rate limiter); a later request will refresh it.
-            stale_rows, stale_ts = _disk_cache_load("retrenchment_rows", float("inf"))
-            if stale_rows is not None:
-                print(f"  [data.gov.sg] retrenchment fetch failed ({type(e).__name__}) — serving expired disk snapshot")
-                # Cache the fallback as fresh so repeat requests don't re-hit the slow failing
-                # download; a later request after the TTL elapses will retry the live fetch.
-                _cache_set(_retrenchment_cache, stale_rows, key="rows", fetched_at=time.time())
-                return stale_rows
-            raise
-
-        now = time.time()
-        _cache_set(_retrenchment_cache, rows, key="rows", fetched_at=now)
-        _disk_cache_save("retrenchment_rows", rows, now)
-        return rows
+    """Downloads and caches the data.gov.sg MOM retrenchment dataset (CSV: quarter, industry, retrench).
+    Quarterly data — the lock dedupes the cold download shared by the advisory card and the
+    history chart; a failed live fetch falls back to an expired disk snapshot (see _cached_rows)."""
+    return _cached_rows(
+        _retrenchment_cache, "retrenchment_rows", _RETRENCHMENT_CACHE_TTL_SECONDS,
+        lambda: _fetch_datagovsg_csv_rows(_RETRENCHMENT_DATASET_ID),
+        lock=_retrenchment_fetch_lock, label="retrenchment",
+    )
 
 _SECTOR_DIVERGENCE_MIN_GAP_PTS = 5.0  # pp gap between leader/laggard YoY change before it's worth explaining
 _SECTOR_DIVERGENCE_PRESSURE_RATIO = 1.3  # one sector's pressure ratio must be this many times the other's to call it "meaningfully" different

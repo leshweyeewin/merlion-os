@@ -25,6 +25,69 @@ def _cache_set(cache: dict, value, key: str = "data", fetched_at: float | None =
     cache[key] = value
     cache["fetched_at"] = fetched_at if fetched_at is not None else time.time()
 
+def _fetch_datagovsg_csv_rows(dataset_id: str, csv_timeout: int = 15) -> list:
+    """poll-download → CSV DictReader for a data.gov.sg dataset, returning the parsed rows.
+    This two-step handshake (poll for a signed download URL, then GET the CSV) was copy-pasted
+    into every dataset fetch (job vacancy, retrenchment, HDB resale, COE); they differed only by
+    dataset id and the CSV read timeout. Raises on any HTTP error — callers decide whether to
+    fall back to a cached snapshot (see _cached_rows) or propagate."""
+    import csv
+    import io
+    import requests
+    poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{dataset_id}/poll-download"
+    print(f"  [data.gov.sg] HTTP GET {poll_url}")
+    r = requests.get(poll_url, headers=_data_gov_sg_headers(), timeout=10)
+    r.raise_for_status()
+    download_url = r.json()["data"]["url"]
+    r_csv = requests.get(download_url, timeout=csv_timeout)
+    r_csv.raise_for_status()
+    return list(csv.DictReader(io.StringIO(r_csv.text)))
+
+def _cached_rows(cache: dict, disk_name: str, ttl_seconds: float, fetch_fn, *,
+                 lock=None, label: str | None = None) -> list:
+    """Memory → disk → network row loader with an expired-snapshot fallback, shared by the
+    data.gov.sg dataset fetches (job vacancy, retrenchment, HDB resale) that each hand-rolled
+    this exact skeleton. `fetch_fn()` performs the live fetch and returns fresh rows; only that
+    step varied between the call sites, so it's the one thing passed in (SRP: this function owns
+    caching, fetch_fn owns fetching).
+
+    Tiers, in order: return the in-memory "rows" cache if fresh; else a fresh-enough disk
+    snapshot (seeded into memory at the snapshot's own timestamp); else the live fetch. If the
+    live fetch raises, serve an expired disk snapshot when one exists — cached as fresh
+    (fetched_at=now) so a slow, failing upstream isn't re-hit on every request until the TTL
+    lapses — otherwise re-raise. `lock` (optional) serialises concurrent fetches; `label`
+    (defaults to disk_name) names the source in the fallback log line."""
+    def _load() -> list:
+        cached = _cache_get(cache, ttl_seconds, key="rows")
+        if cached is not None:
+            return cached
+
+        disk_rows, disk_ts = _disk_cache_load(disk_name, ttl_seconds)
+        if disk_rows is not None:
+            _cache_set(cache, disk_rows, key="rows", fetched_at=disk_ts)
+            return disk_rows
+
+        try:
+            rows = fetch_fn()
+        except Exception as e:
+            stale_rows, _ = _disk_cache_load(disk_name, float("inf"))
+            if stale_rows is not None:
+                print(f"  [data.gov.sg] {label or disk_name} fetch failed "
+                      f"({type(e).__name__}) — serving expired disk snapshot")
+                _cache_set(cache, stale_rows, key="rows", fetched_at=time.time())
+                return stale_rows
+            raise
+
+        now = time.time()
+        _cache_set(cache, rows, key="rows", fetched_at=now)
+        _disk_cache_save(disk_name, rows, now)
+        return rows
+
+    if lock is not None:
+        with lock:
+            return _load()
+    return _load()
+
 def _data_gov_sg_headers() -> dict:
     """x-api-key header for data.gov.sg calls, if DATA_GOV_SG_API_KEY is configured.
     Optional everywhere it's used — data.gov.sg APIs work unauthenticated too, just at a

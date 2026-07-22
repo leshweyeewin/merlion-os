@@ -7,16 +7,14 @@ CPF Enhanced Housing Grant (EHG) calculation, and HDB resale price stats.
 
 import logging
 import requests
-import time
 import json
 
 from tools.core import (
-    _data_gov_sg_headers,
     _cache_synced_at,
     _cache_get,
     _cache_set,
-    _disk_cache_load,
-    _disk_cache_save,
+    _cached_rows,
+    _fetch_datagovsg_csv_rows,
     _forecast_next_linear,
     make_feed_status,
 )
@@ -278,49 +276,15 @@ def query_hdb_bto_launches_and_grants(context_query: str = "general") -> str:
 # ── HDB Resale ────────────────────────────────────────────────────────────────
 
 def _fetch_hdb_resale_rows() -> list:
-    """Downloads and caches the data.gov.sg HDB resale flat price dataset (CSV: month, town, flat_type, ..., resale_price)."""
-    import csv
-    import io
-
-    cached = _cache_get(_hdb_resale_cache, _HDB_RESALE_CACHE_TTL_SECONDS, key="rows")
-    if cached is not None:
-        return cached
-
-    disk_rows, disk_ts = _disk_cache_load("hdb_resale_rows", _HDB_RESALE_CACHE_TTL_SECONDS)
-    if disk_rows is not None:
-        _cache_set(_hdb_resale_cache, disk_rows, key="rows", fetched_at=disk_ts)
-        return disk_rows
-
-    try:
-        poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{_HDB_RESALE_DATASET_ID}/poll-download"
-        print(f"  [data.gov.sg] HTTP GET {poll_url}")
-        r = requests.get(poll_url, headers=_data_gov_sg_headers(), timeout=10)
-        r.raise_for_status()
-        download_url = r.json()["data"]["url"]
-
-        # The largest dataset the app downloads (~20MB of transactions since 2017) — give the
-        # S3 transfer a generous per-read timeout so slow connections stream it successfully.
-        r_csv = requests.get(download_url, timeout=60)
-        r_csv.raise_for_status()
-        rows = list(csv.DictReader(io.StringIO(r_csv.text)))
-    except Exception as e:
-        # Monthly data: an expired-but-present disk snapshot beats failing (e.g. an S3
-        # timeout or a 429 from data.gov.sg) — serve it and let a later request refresh.
-        stale_rows, stale_ts = _disk_cache_load("hdb_resale_rows", float("inf"))
-        if stale_rows is not None:
-            print(f"  [data.gov.sg] HDB resale fetch failed ({type(e).__name__}) — serving expired disk snapshot")
-            # Cache the fallback as fresh (fetched_at=now, not the snapshot's old timestamp), so we
-            # don't re-attempt the slow failing download on every single request — including the
-            # second call within this same endpoint (compute_hdb_resale_history). A later request
-            # after the TTL elapses will retry the live fetch.
-            _cache_set(_hdb_resale_cache, stale_rows, key="rows", fetched_at=time.time())
-            return stale_rows
-        raise
-
-    now = time.time()
-    _cache_set(_hdb_resale_cache, rows, key="rows", fetched_at=now)
-    _disk_cache_save("hdb_resale_rows", rows, now)
-    return rows
+    """Downloads and caches the data.gov.sg HDB resale flat price dataset (CSV: month, town, flat_type, ..., resale_price).
+    The largest download the app makes (~20MB of transactions since 2017), so the CSV read gets a
+    generous 60s timeout; on failure _cached_rows serves an expired disk snapshot cached as fresh,
+    which also spares the second read in this same endpoint (compute_hdb_resale_history)."""
+    return _cached_rows(
+        _hdb_resale_cache, "hdb_resale_rows", _HDB_RESALE_CACHE_TTL_SECONDS,
+        lambda: _fetch_datagovsg_csv_rows(_HDB_RESALE_DATASET_ID, csv_timeout=60),
+        label="HDB resale",
+    )
 
 _RESALE_MIX_SHIFT_MIN_TXNS = 5       # per flat-type/month minimum transactions for a stable median
 _RESALE_MIX_SHIFT_MIN_TYPES = 3      # minimum flat types with usable data before saying anything

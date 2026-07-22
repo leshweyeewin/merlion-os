@@ -8,7 +8,7 @@ import os
 import math
 import logging
 import requests
-from tools.core import _data_gov_sg_headers, _cache_synced_at, _cache_get, _cache_set, _forecast_next_linear
+from tools.core import _fetch_datagovsg_csv_rows, _cache_synced_at, _cache_get, _cache_set, _forecast_next_linear
 
 logger = logging.getLogger("merlion-os-transport")
 
@@ -28,25 +28,14 @@ def get_coe_synced_at() -> str | None:
     return _cache_synced_at(_coe_cache)
 
 def _fetch_coe_rows() -> list:
-    """Downloads and caches the data.gov.sg LTA COE bidding dataset (CSV: month, bidding_no, vehicle_class, quota, bids_success, bids_received, premium)."""
-    import csv
-    import io
-    import requests
-
+    """Downloads and caches the data.gov.sg LTA COE bidding dataset (CSV: month, bidding_no, vehicle_class, quota, bids_success, bids_received, premium).
+    Memory-cached only (no disk snapshot) — a smaller, more frequently refreshed dataset than the
+    annual/monthly ones, so a cold miss just re-fetches rather than falling back to disk."""
     cached = _cache_get(_coe_cache, _COE_CACHE_TTL_SECONDS, key="rows")
     if cached is not None:
         return cached
 
-    poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{_COE_DATASET_ID}/poll-download"
-    print(f"  [data.gov.sg] HTTP GET {poll_url}")
-    r = requests.get(poll_url, headers=_data_gov_sg_headers(), timeout=10)
-    r.raise_for_status()
-    download_url = r.json()["data"]["url"]
-
-    r_csv = requests.get(download_url, timeout=15)
-    r_csv.raise_for_status()
-    rows = list(csv.DictReader(io.StringIO(r_csv.text)))
-
+    rows = _fetch_datagovsg_csv_rows(_COE_DATASET_ID)
     _cache_set(_coe_cache, rows, key="rows")
     return rows
 

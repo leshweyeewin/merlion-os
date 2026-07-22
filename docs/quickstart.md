@@ -90,7 +90,7 @@ merlion-os/
 │   ├── js/               # Frontend modules: utils, tax, persona, portals, chat, hub
 │   ├── index.html        # Main dashboard structure
 │   └── style.css         # Custom layout, animations, and dark mode rules
-├── tests/                # Unit tests run locally and in CI (136 Python + 6 JS)
+├── tests/                # Unit tests run locally and in CI (141 Python + 6 JS)
 │   ├── test_cache_helpers.py            # Shared TTL-cache helper (_cache_get/_cache_set) tests
 │   ├── test_chat_models.py              # Pydantic request/response schema tests
 │   ├── test_forecast.py                 # COE/HDB shared forecast math

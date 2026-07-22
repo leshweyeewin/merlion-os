@@ -7,7 +7,6 @@ by server.py's dedicated /api/sg-hub/weather endpoint.
 """
 
 import os
-import time
 import math
 import logging
 import requests
