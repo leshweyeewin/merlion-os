@@ -76,11 +76,6 @@ function initPortalSearch() {
         { terms: "weather rain forecast psi haze air uv temperature humidity", label: "🌤️ Live weather, PSI & UV index", pane: "hub-env-pane" },
     ];
 
-    const QUICK_TASKS = [
-        "Renew passport", "File income tax", "Top up CPF", "CDC vouchers",
-        "Apply for BTO", "Road tax & COE", "Register a company", "Find courses", "Check NS status",
-    ];
-
     const searchIndex = Array.from(grid.querySelectorAll(".service-card")).map(card => ({
         card,
         text: [
@@ -160,21 +155,9 @@ function initPortalSearch() {
         }
     }
 
-    QUICK_TASKS.forEach(task => {
-        const chip = document.createElement("button");
-        chip.type = "button";
-        chip.className = "quick-task-chip";
-        chip.textContent = task;
-        chip.addEventListener("click", () => {
-            const active = chip.classList.contains("active-chip");
-            chipsEl.querySelectorAll(".quick-task-chip").forEach(c => c.classList.remove("active-chip"));
-            input.value = active ? "" : task;
-            if (!active) chip.classList.add("active-chip");
-            applySearch(input.value);
-        });
-        chipsEl.appendChild(chip);
-    });
-
+    // The quick-task chips inside #quick-task-chips are rendered per-persona by persona.js
+    // (renderPersonaQuickTasks); the input/clear handlers below still manage their active state
+    // via a live querySelectorAll, so they work regardless of which persona rendered them.
     let searchTimer = null;
     input.addEventListener("input", () => {
         chipsEl.querySelectorAll(".quick-task-chip").forEach(c => c.classList.remove("active-chip"));
@@ -188,6 +171,8 @@ function initPortalSearch() {
         applySearch("");
         input.focus();
     });
+
+    window.applyPortalSearch = applySearch;
 }
 
 function initPortalReordering() {

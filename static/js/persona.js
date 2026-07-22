@@ -13,6 +13,16 @@ const PERSONAS = [
         emoji: "👤",
         label: "Guest",
         desc: "No personalization — browse everything.",
+        quickTasks: ["Renew passport", "File income tax", "Top up CPF", "CDC vouchers", "Apply for BTO", "Road tax & COE", "Register a company", "Find courses", "Check NS status"],
+        chatPrompts: [
+            { label: "BTO vs Resale", query: "What's the difference between a BTO and a resale flat, and what CPF housing grants can I get?" },
+            { label: "SG Journey", query: "What are the requirements for the Singapore Journey onboarding?" },
+            { label: "ELD Voting", query: "How do I check my electoral voting status with ELD?" },
+            { label: "Climate Vouchers", query: "What are the Climate Vouchers and how do I claim them from gov.sg?" },
+            { label: "Weather/PSI", query: "Check live weather forecast and air quality PSI index" },
+            { label: "Job Vacancies", query: "Analyse tech industry job vacancies, YoY trend, and next-year forecast" },
+            { label: "AI Job Wages", query: "Which new AI job titles appeared in Singapore's occupational wage tables this year, and what do they pay?" }
+        ]
     },
     {
         key: "new-citizen",
@@ -21,6 +31,13 @@ const PERSONAS = [
         desc: "32, just naturalised, renting in Punggol, tech sector.",
         greeting: "Welcome, new citizen! I can help you through the Singapore Journey, your first tax filing, CPF setup, and finding a first home. Ask me anything.",
         agencies: ["ica", "sgjourney", "cpf", "iras", "hdb", "skillsfuture"],
+        quickTasks: ["Singapore Journey", "Renew passport", "Apply for BTO", "First tax filing", "Top up CPF", "SkillsFuture courses"],
+        chatPrompts: [
+            { label: "SG Journey", query: "What are the key steps and requirements to complete the Singapore Journey onboarding?" },
+            { label: "First BTO", query: "What HDB housing grants and eligibility rules apply to newly naturalised Singapore citizens?" },
+            { label: "First Tax", query: "How do I set up GIRO or pay income tax for the first time with IRAS?" },
+            { label: "Passport", query: "How do I apply for a Singapore passport and IC with ICA?" }
+        ],
         hubTabs: [
             { tab: "hub-hdb-pane", reason: "Buying your first home" },
             { tab: "hub-tax-pane", reason: "Your first income-tax filing" },
@@ -42,6 +59,13 @@ const PERSONAS = [
         desc: "35, new baby, HDB owner in Sengkang, healthcare sector.",
         greeting: "Hi! I can help with Baby Bonus, MediSave for delivery, preschool registration, and family grants. What would you like to sort out first?",
         agencies: ["msf", "moe", "hdb", "cpf", "healthhub", "hpb"],
+        quickTasks: ["Baby Bonus", "Childcare grants", "Primary school reg", "MediSave for delivery", "BTO upgrading", "CDC vouchers"],
+        chatPrompts: [
+            { label: "Baby Bonus", query: "What are the cash gifts and Child Development Account (CDA) matching benefits under the Baby Bonus scheme?" },
+            { label: "Preschool Reg", query: "How do I register for ECDA preschools and claim childcare subsidies?" },
+            { label: "Parent Tax Reliefs", query: "What parenthood tax reliefs and Working Mother's Child Relief (WMCR) am I eligible for?" },
+            { label: "MediSave Delivery", query: "Can I use MediSave for maternity expenses and hospital delivery charges?" }
+        ],
         hubTabs: [
             { tab: "hub-hdb-pane", reason: "Upgrading for a growing family" },
             { tab: "hub-tax-pane", reason: "Parenthood tax reliefs" },
@@ -63,6 +87,13 @@ const PERSONAS = [
         desc: "24, first job hunt, living in Jurong, finance sector.",
         greeting: "Hey! I can help you find jobs and career programmes, understand your first CPF contributions, and use your SkillsFuture credit. Where do we start?",
         agencies: ["mom", "wsg", "skillsfuture", "cpf", "iras"],
+        quickTasks: ["Find jobs", "SkillsFuture credits", "Career conversion", "First tax filing", "CPF OA rates", "CDC vouchers"],
+        chatPrompts: [
+            { label: "Job Search", query: "What WSG career coaching and MyCareersFuture job programmes are available for fresh graduates?" },
+            { label: "SkillsFuture", query: "How do I claim my $500 SkillsFuture Credit for professional training courses?" },
+            { label: "First CPF", query: "How are CPF Ordinary, Special, and MediSave contributions allocated for a first job?" },
+            { label: "First Tax", query: "Do fresh graduates earning under $20,000 need to file income tax with IRAS?" }
+        ],
         hubTabs: [
             { tab: "hub-jobs-pane", reason: "Where the jobs are hiring" },
             { tab: "hub-community-pane", reason: "Budget deals & meetups" },
@@ -84,6 +115,13 @@ const PERSONAS = [
         desc: "64, planning CPF payouts, AMK, fully-paid flat.",
         greeting: "Welcome! I can help you understand CPF LIFE payouts, healthcare subsidies, MediShield Life, and community support schemes. What can I look up for you?",
         agencies: ["cpf", "moh", "healthhub", "hpb", "cdc"],
+        quickTasks: ["CPF LIFE payouts", "HealthHub appts", "Silver housing bonus", "Pioneer subsidies", "MediShield Life", "CDC vouchers"],
+        chatPrompts: [
+            { label: "CPF LIFE", query: "When can I start CPF LIFE payouts and what are the Standard vs Escalating payout plans?" },
+            { label: "Silver Housing", query: "How does the Silver Housing Bonus work when right-sizing to a smaller HDB flat?" },
+            { label: "Healthcare Subsidies", query: "What polyclinic and MediShield Life subsidies apply to Pioneer and Merdeka Generation seniors?" },
+            { label: "Active Ageing", query: "What subsidized senior activities and fitness programmes are offered by ActiveSG and PA?" }
+        ],
         hubTabs: [
             { tab: "hub-tax-pane", reason: "CPF & wealth planning" },
             { tab: "hub-env-pane", reason: "Daily weather & air quality" },
@@ -174,6 +212,8 @@ function applyPersona(key, silent) {
     renderPersonaPortalBanner(persona);
     renderPersonaHubBanner(persona);
     updateChatWelcome(persona);
+    renderPersonaQuickTasks(persona);
+    renderPersonaChatPrompts(persona);
 }
 
 function renderPersonaPortalBanner(persona) {
@@ -288,5 +328,57 @@ function updateChatWelcome(persona) {
         firstBot.innerHTML = `<p>Welcome, Citizen. I am <strong>MerlionOS</strong>, your unified Singapore government assistant.</p>
             <p>Ask me anything — e.g. <em>"What are the HDB grant limits?"</em> or <em>"How much SkillsFuture credit do I have?"</em> — and I'll look it up across all relevant agencies.</p>`;
     }
+}
+
+function renderPersonaQuickTasks(persona) {
+    const chipsEl = document.getElementById("quick-task-chips");
+    const input = document.getElementById("portal-search-input");
+    if (!chipsEl || !input) return;
+
+    const tasks = (persona && persona.quickTasks && persona.quickTasks.length)
+        ? persona.quickTasks
+        : PERSONAS[0].quickTasks;
+
+    chipsEl.innerHTML = "";
+    tasks.forEach(task => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "quick-task-chip";
+        chip.textContent = task;
+        chip.addEventListener("click", () => {
+            const active = chip.classList.contains("active-chip");
+            chipsEl.querySelectorAll(".quick-task-chip").forEach(c => c.classList.remove("active-chip"));
+            input.value = active ? "" : task;
+            if (!active) chip.classList.add("active-chip");
+            if (typeof window.applyPortalSearch === "function") {
+                window.applyPortalSearch(input.value);
+            }
+        });
+        chipsEl.appendChild(chip);
+    });
+}
+
+function renderPersonaChatPrompts(persona) {
+    const container = document.querySelector(".suggestions-container");
+    if (!container) return;
+
+    const prompts = (persona && persona.chatPrompts && persona.chatPrompts.length)
+        ? persona.chatPrompts
+        : PERSONAS[0].chatPrompts;
+
+    container.innerHTML = prompts.map(p => `
+        <button class="suggestion-chip" data-query="${escapeHTML(p.query)}">
+            ${escapeHTML(p.label)}
+        </button>
+    `).join("");
+
+    container.querySelectorAll(".suggestion-chip").forEach(chip => {
+        chip.addEventListener("click", () => {
+            const query = chip.getAttribute("data-query");
+            if (typeof window.sendCoPilotMessage === "function") {
+                window.sendCoPilotMessage(query);
+            }
+        });
+    });
 }
 

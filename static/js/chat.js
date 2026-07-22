@@ -13,7 +13,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const userInput = document.getElementById("user-input");
     const chatMessages = document.getElementById("chat-messages");
     const logsContainer = document.getElementById("logs-container");
-    const suggestionChips = document.querySelectorAll(".suggestion-chip");
 
     // Collapsible Chat Widget DOM elements
     const chatTrigger = document.getElementById("chat-trigger");
@@ -422,12 +421,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
 
-    // Preset suggestion pills listener
-    suggestionChips.forEach(chip => {
-        chip.addEventListener("click", () => {
-            sendMessage(chip.getAttribute("data-query"));
-        });
-    });
+    // Preset suggestion pills are rendered and bound by persona.js (renderPersonaChatPrompts),
+    // which owns them so they can be swapped per persona — expose sendMessage for it to call.
+    window.sendCoPilotMessage = sendMessage;
 
     // Multimodal document upload bindings (Item 9)
     let activeUpload = null;
