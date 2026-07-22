@@ -299,16 +299,35 @@ async def get_sg_hub_weather():
 @_sg_hub_route("HDB data")
 async def get_sg_hub_hdb():
     print("\n\033[94m[MerlionOS Orchestrator] --- Fetching HDB & BTO Portal Data Selected ---\033[0m")
-    print("\033[93m[HDB Scraping Engine] Querying upcoming BTO launches and CPF grant tables...\033[0m")
-    hdb_text = await anyio.to_thread.run_sync(query_hdb_bto_launches_and_grants, "general")
-    print("\033[93m[HDB Scraping Engine] Found BTO locations: Kallang, Queenstown, Woodlands, Yishun.\033[0m")
 
-    hdb_news = await anyio.to_thread.run_sync(scrape_hdb_news)
-    print(f"\033[93m[HDB Scraping Engine] Successfully fetched {len(hdb_news)} live HDB news articles.\033[0m")
+    # The BTO grant tables, the newsroom scrape, and the resale dataset are independent, so fetch
+    # them concurrently — the pane loads in the time of the slowest one instead of the sum. The
+    # resale-price history is derived from the rows compute_hdb_resale_stats just warmed, so it
+    # runs after that group (a warm-cache read, not a second download).
+    hdb_text = None
+    hdb_news = None
+    resale = None
 
-    print("\033[93m[data.gov.sg] Fetching HDB resale flat price dataset...\033[0m")
-    resale = await anyio.to_thread.run_sync(compute_hdb_resale_stats)
-    print("\033[93m[data.gov.sg] HDB resale price fetch complete.\033[0m")
+    async def fetch_bto():
+        nonlocal hdb_text
+        print("\033[93m[HDB Scraping Engine] Querying upcoming BTO launches and CPF grant tables...\033[0m")
+        hdb_text = await anyio.to_thread.run_sync(query_hdb_bto_launches_and_grants, "general")
+
+    async def fetch_news():
+        nonlocal hdb_news
+        hdb_news = await anyio.to_thread.run_sync(scrape_hdb_news)
+        print(f"\033[93m[HDB Scraping Engine] Successfully fetched {len(hdb_news)} HDB news articles.\033[0m")
+
+    async def fetch_resale():
+        nonlocal resale
+        print("\033[93m[data.gov.sg] Fetching HDB resale flat price dataset...\033[0m")
+        resale = await anyio.to_thread.run_sync(compute_hdb_resale_stats)
+        print("\033[93m[data.gov.sg] HDB resale price fetch complete.\033[0m")
+
+    async with anyio.create_task_group() as tg:
+        tg.start_soon(fetch_bto)
+        tg.start_soon(fetch_news)
+        tg.start_soon(fetch_resale)
 
     # Derived from the rows the stats call just cached — degrades to None, never the pane.
     resale_history = None
@@ -320,10 +339,22 @@ async def get_sg_hub_hdb():
     return {"hdb": hdb_text, "hdb_news": hdb_news, "hdb_news_status": get_hdb_news_status(),
             "resale": resale, "resale_history": resale_history}
 
+_jobs_response_cache: dict[str, dict] = defaultdict(lambda: {"data": None, "fetched_at": 0})
+_JOBS_RESPONSE_CACHE_TTL_SECONDS = 5 * 60  # underlying rows are cached 6h; this skips the per-click recompute
+
 @app.get("/api/sg-hub/jobs")
 @_sg_hub_route("Jobs data")
 async def get_sg_hub_jobs(sector: str = "all"):
     print("\n\033[94m[MerlionOS Orchestrator] --- Fetching Job Market Analysis Selected ---\033[0m")
+
+    # The response is a deterministic transform of rows that are themselves cached upstream, so a
+    # short per-sector response cache makes repeat clicks / sector-tab switches instant instead of
+    # re-running the stat computation each time.
+    sector_cache = _jobs_response_cache[sector]
+    cached = _cache_get(sector_cache, _JOBS_RESPONSE_CACHE_TTL_SECONDS)
+    if cached is not None:
+        print(f"\033[33m[Job Market] Served '{sector}' from response cache.\033[0m")
+        return cached
 
     sectors_to_query = ["tech", "finance", "healthcare", "general"] if sector == "all" else [sector]
 
@@ -375,7 +406,9 @@ async def get_sg_hub_jobs(sector: str = "all"):
     }
     print("\033[33m[data.gov.sg] Retrenchment fetch complete.\033[0m")
 
-    return {"jobs": job_sectors, "retrenchment": retrenchment, "history": history}
+    response = {"jobs": job_sectors, "retrenchment": retrenchment, "history": history}
+    _cache_set(sector_cache, response)
+    return response
 
 @app.get("/api/sg-hub/wages")
 @_sg_hub_route("Occupational Wages data")

@@ -26,6 +26,11 @@ logger = logging.getLogger("merlion-os-housing")
 # Freshness status for the HDB newsroom scraper, read by /api/sg-hub/hdb to badge fallbacks.
 _hdb_news_status = make_feed_status(True)
 
+# The newsroom scrape is a live GET + BeautifulSoup parse of hdb.gov.sg with a 10s timeout — by
+# far the slowest part of the HDB pane, and HDB only posts a few times a week, so cache it.
+_hdb_news_cache = {"data": None, "fetched_at": 0}
+_HDB_NEWS_CACHE_TTL_SECONDS = 30 * 60  # 30 min — newsroom updates a few times a week, not intraday
+
 def get_hdb_news_status() -> dict:
     return _hdb_news_status
 
@@ -304,7 +309,11 @@ def _fetch_hdb_resale_rows() -> list:
         stale_rows, stale_ts = _disk_cache_load("hdb_resale_rows", float("inf"))
         if stale_rows is not None:
             print(f"  [data.gov.sg] HDB resale fetch failed ({type(e).__name__}) — serving expired disk snapshot")
-            _cache_set(_hdb_resale_cache, stale_rows, key="rows", fetched_at=stale_ts)
+            # Cache the fallback as fresh (fetched_at=now, not the snapshot's old timestamp), so we
+            # don't re-attempt the slow failing download on every single request — including the
+            # second call within this same endpoint (compute_hdb_resale_history). A later request
+            # after the TTL elapses will retry the live fetch.
+            _cache_set(_hdb_resale_cache, stale_rows, key="rows", fetched_at=time.time())
             return stale_rows
         raise
 
@@ -523,6 +532,12 @@ def scrape_hdb_news() -> list:
     global _hdb_news_status
     from bs4 import BeautifulSoup
     from datetime import datetime, timezone, timedelta
+
+    cached = _cache_get(_hdb_news_cache, _HDB_NEWS_CACHE_TTL_SECONDS)
+    if cached is not None:
+        print(f"  \033[90m[HDB News Scraper] Serving {len(cached)} cached articles.\033[0m")
+        return cached
+
     HDB_BASE = "https://www.hdb.gov.sg"
     url = f"{HDB_BASE}/hdb-pulse/news"
     headers = {
@@ -583,6 +598,7 @@ def scrape_hdb_news() -> list:
                 
                 print(f"  \033[32m✔\033[0m [HDB News Scraper] Returning {len(results)} latest news articles with real embedded URLs.")
                 _hdb_news_status = make_feed_status(True)
+                _cache_set(_hdb_news_cache, results)
                 return results
     except Exception as e:
         logger.warning(f"Error scraping HDB news: {e}")

@@ -105,7 +105,10 @@ def _fetch_job_vacancy_rows() -> list:
             stale_rows, stale_ts = _disk_cache_load("job_vacancy_rows", float("inf"))
             if stale_rows is not None:
                 print(f"  [data.gov.sg] job vacancy fetch failed ({type(e).__name__}) — serving expired disk snapshot")
-                _cache_set(_job_vacancy_cache, stale_rows, key="rows", fetched_at=stale_ts)
+                # Cache the fallback as fresh so we don't re-attempt the slow failing download on
+                # every request — including each of the sibling sector queries in the same /jobs
+                # call. A later request after the TTL elapses will retry the live fetch.
+                _cache_set(_job_vacancy_cache, stale_rows, key="rows", fetched_at=time.time())
                 return stale_rows
             raise
 
@@ -466,7 +469,9 @@ def _fetch_retrenchment_rows() -> list:
             stale_rows, stale_ts = _disk_cache_load("retrenchment_rows", float("inf"))
             if stale_rows is not None:
                 print(f"  [data.gov.sg] retrenchment fetch failed ({type(e).__name__}) — serving expired disk snapshot")
-                _cache_set(_retrenchment_cache, stale_rows, key="rows", fetched_at=stale_ts)
+                # Cache the fallback as fresh so repeat requests don't re-hit the slow failing
+                # download; a later request after the TTL elapses will retry the live fetch.
+                _cache_set(_retrenchment_cache, stale_rows, key="rows", fetched_at=time.time())
                 return stale_rows
             raise
 

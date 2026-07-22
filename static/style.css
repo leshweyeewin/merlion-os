@@ -441,18 +441,23 @@ body {
 /* ── Item 7: Bookmark (star) button on portal cards ────────────────────────── */
 .bookmark-btn {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: 8px;
+    left: 36px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: transparent;
     border: none;
     cursor: pointer;
     color: var(--text-subtle);
-    font-size: 14px;
-    padding: 4px;
+    font-size: 13px;
+    padding: 0;
     border-radius: 4px;
-    line-height: 1;
-    transition: color 0.2s, transform 0.15s;
-    opacity: 0;
+    transition: opacity 0.2s, color 0.2s, background-color 0.2s;
+    opacity: 0.5;
+    z-index: 2;
 }
 
 .service-card:hover .bookmark-btn,
@@ -465,7 +470,8 @@ body {
 }
 
 .bookmark-btn:hover {
-    transform: scale(1.25);
+    color: #f59e0b;
+    background: var(--bg-muted);
 }
 
 /* ── Item 7: My Matters pinned section ─────────────────────────────────────── */

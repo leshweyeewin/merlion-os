@@ -469,6 +469,7 @@ function initPortalVisibility() {
         btn.className = "hide-portal-btn";
         btn.title = "Hide this portal";
         btn.innerHTML = `<i class="fa-solid fa-eye-slash"></i>`;
+        btn.addEventListener("mousedown", (e) => e.stopPropagation());
         btn.addEventListener("click", (e) => {
             e.stopPropagation();
             hidePortal(card.dataset.agency);
@@ -509,6 +510,22 @@ function initPortalVisibility() {
                 const btnRect = manageBtn.getBoundingClientRect();
                 const topPos = btnRect.bottom + 8;
                 dropdown.style.top = topPos + "px";
+                // Horizontal anchor: on mobile keep the full-width panel with side gutters
+                // (CSS handles this); on desktop anchor it under the button, right-aligned,
+                // and a touch wider so more of each portal row is readable.
+                if (window.innerWidth <= 600) {
+                    dropdown.style.left = "";
+                    dropdown.style.right = "";
+                    dropdown.style.width = "";
+                    dropdown.style.maxWidth = "";
+                } else {
+                    const panelWidth = 480;
+                    const left = Math.max(14, btnRect.right - panelWidth);
+                    dropdown.style.left = left + "px";
+                    dropdown.style.right = "auto";
+                    dropdown.style.width = panelWidth + "px";
+                    dropdown.style.maxWidth = "none";
+                }
                 // Cap height so the dropdown never overlaps the fixed Co-Pilot button
                 // (button is bottom:24px, ~48px tall → reserve 80px from the bottom)
                 const safeBottom = 80;
@@ -702,6 +719,7 @@ function initPortalBookmarks() {
         btn.type = "button";
         btn.className = "bookmark-btn";
         btn.innerHTML = `<i class="fa-solid fa-star"></i>`;
+        btn.addEventListener("mousedown", (e) => e.stopPropagation());
         btn.addEventListener("click", (e) => {
             e.stopPropagation();
             toggleBookmark(agency);
