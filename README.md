@@ -69,7 +69,7 @@ graph TD
 4. **Google Search Grounding & Clickable Citations**:
    - Safe failover layer: if the primary Gemini API quota is hit (429), it falls back to `gemini-3.1-flash-lite` with Google Search Grounding. The response parses the grounding metadata to render clickable link pills (e.g. `[1] moh.gov.sg`) below the message bubble.
 5. **Interactive Dashboards & Predictive Analytics**:
-   - Integrates linear regression modules directly in Python to analyze and forecast HDB resale and COE premium trends. Maps key Singapore regions using Leaflet.js and displays live NEA weather popups.
+   - Integrates linear regression modules directly in Python to analyze and forecast HDB resale and COE premium trends. Plots live taxi availability near the user on an interactive Leaflet.js map (the "Around You" feature); NEA weather is shown as a live PSI gauge with 6-region forecast cards.
 6. **Operations Transparency Terminal**:
    - Live-streams raw BigQuery SQL, BeautifulSoup scraper networks, HTTP response status codes, and crawler logs directly to an active log terminal widget in the frontend.
 7. **Considered Loading States & Bookmarks**:
