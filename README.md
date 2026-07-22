@@ -17,7 +17,7 @@ Singapore's digital public service landscape is highly advanced but fragmented a
 
 ### The Solution
 MerlionOS aggregates this entire ecosystem into a single-pane-of-glass daily utility portal:
-1. **Intelligent Co-Pilot**: Conversational agent that routes queries to 10+ backend tools to answer complex citizen questions.
+1. **Intelligent Co-Pilot**: Conversational agent that routes queries to 15 backend tools — including a retrieval-augmented civic knowledge base — to answer complex citizen questions, optionally tailored to a chosen demo persona.
 2. **Live Data Dashboard (SG Hub)**: Consolidated parameters showing real-time MRT statuses (LTA DataMall), air quality/weather forecasts (NEA API), BTO launches (HDB press releases), and community deals.
 3. **Operations Terminal**: Full transparency logs streaming raw SQL queries, crawler requests, and backend execution statuses in real time.
 
@@ -43,6 +43,7 @@ graph TD
         Tools -->|SQL Query| BQ[(Google BigQuery MOM Employment)]
         Tools -->|Live JSON APIs| APIS[LTA DataMall / NEA Weather / PUB Flood]
         Tools -->|BeautifulSoup4 Scrapers| Scrapers[ELD / HDB / IRAS / ICA / Telegram]
+        Tools -->|RAG retrieval| KB[Civic Knowledge Base<br/>Gemini embeddings + cosine]
         Scrapers -->|Strict Domain Validation| Validate{gov.sg / trusted?}
         Validate -->|Yes| Fetch[Secure Parse]
         Validate -->|No/Auth| Block[Blocked Redirect/Singpass Bypass]
@@ -77,14 +78,22 @@ graph TD
    - Deterministic causal reasoning built entirely from data the app already fetches (no extra AI calls, no generated narrative): the Job Market panel cross-references the Hiring Pressure Index against the CAGR trend-break to distinguish genuine hiring demand from vacancy churn; COE Bidding compares quota vs. bid-volume to explain whether a premium move was a supply story, a demand story, or both; HDB Resale compares each flat type's own YoY move against the islandwide figure to flag a mix-shift vs. a broad-based price change. All three stay silent rather than force a guess when the signal is ambiguous.
 9. **Structured-Data Architecture**:
    - Job vacancy, retrenchment, and COE bidding stats used to be computed once as Gemini-formatted text that the server then re-parsed with fragile line-splits for the dashboard. These now compute structured dicts consumed directly by the dashboard, with thin formatting wrappers rendering the same data into text for the chat/MCP tool — eliminating an entire class of "a wording tweak silently breaks the UI" bugs.
-10. **Automated Deploy Pipeline, CI Lint Gate & 92-Test Suite**:
-    - Automated Google Cloud Run build & deploy CI/CD pipeline (`deploy.yml`) triggered on branch push. CI runs a `pyflakes` lint gate (unused imports, undefined names) plus **92 unit tests** (routes, caching, structured stats, "why" explanations, XSS/`safeURL`, pydantic structures, OLS forecasts, allowlists) on every push.
+10. **Automated Deploy Pipeline, CI Lint Gate & 142-Test Suite**:
+    - Automated Google Cloud Run build & deploy CI/CD pipeline (`deploy.yml`) triggered on branch push. CI runs a `pyflakes` lint gate (unused imports, undefined names) plus **136 Python + 6 JavaScript unit tests** (routes, caching, structured stats, "why" explanations, RAG retrieval, XSS/`safeURL`, pydantic structures, OLS forecasts, allowlists) on every push.
 11. **Chat Rate Limiting**:
     - Per-IP request caps (8/min, in-memory sliding window) on `/api/chat` and `/api/chat/stream`, so a single client can't drain the shared Gemini free-tier quota on the public demo link.
 12. **Intent-Based Portal Search & Plain-English Glossary**:
     - A top-of-grid search box matches everyday phrasing ("top up CPF", "change company address") against a per-agency synonym map, not just each card's official name — plus quick-task chips and clickable suggestions that route to a live SG Hub panel when one answers the query better than a static portal link. Separately, ~26 government acronyms/jargon terms rendered anywhere in SG Hub get a dashed-underline tooltip (hover on desktop, tap on mobile) explaining them in plain English, applied automatically to newly-loaded panel content via a `MutationObserver`.
 13. **Mobile Responsiveness**:
     - Dedicated breakpoints reflow the portal grid, directory toolbar, onboarding banner, header, and hub dashboard cards for narrow screens, with tap-based interaction (search chips, glossary/chart tooltips) replacing hover where a touchscreen has no hover state.
+14. **RAG Civic Knowledge Base**:
+    - A retrieval-augmented tool (`tools/knowledge.py`) grounds open-ended policy/eligibility questions the 14 agency tools don't specifically cover (e.g. "BTO vs resale", "how CPF LIFE works", "who must file income tax"). A curated 42-chunk corpus of authoritative civic facts is embedded with Gemini `gemini-embedding-001` (768-dim, retrieval task types), cached to `.data_cache/` by a corpus fingerprint, and retrieved via pure-Python cosine similarity. Registered in the tool loop as `search_knowledge_base`, so the agent retrieves-then-cites official source URLs instead of relying on parametric memory — and degrades gracefully if the embedding API is unavailable.
+15. **Demo Personalization (Personas)**:
+    - A demo persona selector (New citizen / Young family / Fresh graduate / Retiree — no real SingPass or identity data) tailors the experience across three surfaces: the Co-Pilot receives life-stage context so answers are prioritised for that person, the SG Portals grid surfaces a "Personalized for X" banner of the most relevant agencies, and the SG Hub shows a "Recommended dashboards" banner jumping to the data views that matter for that life-stage. Fully deterministic, persisted in `localStorage`.
+16. **Live-Data Freshness Badges & Fetch Resilience**:
+    - Scraper-backed panels (ICA, IRAS, HDB Newsroom, Telegram feeds) return a `data_status` marker so the UI shows a green **"Live"** pill on success and an amber **"Showing last known data"** pill when a source falls back to cache/sample — a flaky upstream degrades visibly rather than silently. SG Hub tab fetches also auto-retry with exponential backoff (2 retries) before surfacing an error, smoothing first-load flakiness while the server pre-warms.
+17. **Modular Front-End**:
+    - The former ~3.9k-line `static/app.js` is split into six focused modules under `static/js/` (`utils`, `tax`, `persona`, `portals`, `chat`, `hub`), loaded in dependency order — improving readability and maintainability with no behavioural change.
 
 
 ---

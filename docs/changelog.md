@@ -2,7 +2,25 @@
 
 The document above always reflects the **latest** release. This section records what changed between versions.
 
-## Version 3 — current
+## Version 4 — current
+A refinement cycle addressing weaknesses surfaced in post-submission review — grounding, personalization, demo resilience, and front-end maintainability. What's new or changed:
+
+**📚 New: RAG civic knowledge base**
+A retrieval-augmented tool (`tools/knowledge.py`) grounds open-ended policy/eligibility questions the 14 agency tools don't specifically cover (e.g. BTO vs resale, how CPF LIFE works, who must file income tax). A curated 42-chunk corpus of authoritative civic facts — each tagged with an official source URL — is embedded with Gemini `gemini-embedding-001` (768-dim, RETRIEVAL_DOCUMENT/RETRIEVAL_QUERY task types), cached to `.data_cache/` by a corpus fingerprint (re-embeds only when the text changes), and retrieved via pure-Python cosine similarity. Registered as `search_knowledge_base` in the chat tool loop and the MCP server, so the agent retrieves-then-cites official sources instead of relying on parametric memory. Degrades gracefully (empty/notice, never raises) if the embedding API is unavailable.
+
+**🧑‍🤝‍🧑 New: demo personalization (personas)**
+A demo persona selector (New citizen / Young family / Fresh graduate / Retiree — no real SingPass or identity data) tailors the experience across three surfaces: the Co-Pilot receives life-stage context so answers are prioritised for that person, the SG Portals grid surfaces a "Personalized for X" banner of the most relevant agencies, and the SG Hub shows a "Recommended dashboards" banner jumping to the relevant data views. Fully deterministic and persisted in `localStorage`.
+
+**🟢 New: live-data freshness badges & fetch resilience**
+Scraper-backed panels (ICA, IRAS, HDB Newsroom, Telegram feeds) now return a `data_status` marker so the UI shows a green "Live" pill on success and an amber "Showing last known data" pill when a source falls back to cache/sample — a flaky upstream degrades visibly rather than silently. SG Hub tab fetches also auto-retry with exponential backoff (2 retries) before surfacing an error state.
+
+**🧩 Front-end modularization**
+The former ~3.9k-line `static/app.js` is split into six focused modules under `static/js/` (`utils`, `tax`, `persona`, `portals`, `chat`, `hub`), loaded in dependency order — same behaviour, far more maintainable.
+
+**🧪 Testing**
+Suite grown to **136 Python + 6 JavaScript tests**, adding coverage for the RAG retrieval layer (corpus shape, cosine math, ranking, thresholding, graceful degradation — with a mocked embedder so CI needs no embedding API), the freshness-status helper, and the persona instruction builder.
+
+## Version 3
 A hardening/refactor cycle on top of Version 2's feature set — no new dashboard panels, but a real architecture and reliability pass driven by a code-quality audit. What's new or changed:
 
 **🔍 New: rule-based "why" explanations**
