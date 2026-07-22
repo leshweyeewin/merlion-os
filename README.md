@@ -124,7 +124,7 @@ python server.py
 Open **`http://127.0.0.1:8000/`** in your browser.
 
 ### 3. Run Tests
-Ensure dependencies are installed, then run the lint gate and the python/javascript test suites (92 tests total):
+Ensure dependencies are installed, then run the lint gate and the python/javascript test suites (136 Python + 6 JavaScript tests):
 ```bash
 pip install -r requirements-dev.txt
 pyflakes server.py tools mcp_server.py tests

@@ -103,6 +103,16 @@ from tools.wages import (
     query_occupational_wage_insights,
 )
 
+# ── RAG knowledge base ────────────────────────────────────────────────────────
+from tools.knowledge import (
+    KNOWLEDGE_BASE,
+    corpus_size,
+    retrieve,
+    search_knowledge_base,
+    ensure_corpus_embedded,
+    prewarm_knowledge_base,
+)
+
 # ── Chat orchestration ────────────────────────────────────────────────────────
 from tools.chat import (
     run_chat_loop,
@@ -153,6 +163,9 @@ __all__ = [
     "compute_occupational_wage_insights",
     "compute_tech_wage_growth_reason",
     "query_occupational_wage_insights",
+    # knowledge base (RAG)
+    "KNOWLEDGE_BASE", "corpus_size", "retrieve", "search_knowledge_base",
+    "ensure_corpus_embedded", "prewarm_knowledge_base",
     # chat
     "run_chat_loop",
     "run_chat_stream",

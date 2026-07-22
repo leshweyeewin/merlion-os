@@ -90,7 +90,7 @@ merlion-os/
 │   ├── js/               # Frontend modules: utils, tax, persona, portals, chat, hub
 │   ├── index.html        # Main dashboard structure
 │   └── style.css         # Custom layout, animations, and dark mode rules
-├── tests/                # Unit tests run locally and in CI (92 tests total)
+├── tests/                # Unit tests run locally and in CI (136 Python + 6 JS)
 │   ├── test_cache_helpers.py            # Shared TTL-cache helper (_cache_get/_cache_set) tests
 │   ├── test_chat_models.py              # Pydantic request/response schema tests
 │   ├── test_forecast.py                 # COE/HDB shared forecast math
@@ -110,6 +110,7 @@ merlion-os/
 │   ├── fetch_logos.py    # Standard logo updater/fetcher script
 │   ├── housing.py        # HDB BTO and resale price forecaster
 │   ├── jobs.py           # BigQuery / data.gov.sg wage statistics
+│   ├── knowledge.py      # RAG civic knowledge base (Gemini embeddings + cosine retrieval)
 │   ├── search.py         # Telegram search scrapers
 │   ├── transport.py      # LTA train alerts, taxi, and COE premium forecaster
 │   └── wages.py          # Occupational wages analytic helper

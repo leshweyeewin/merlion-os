@@ -18,7 +18,8 @@ from tools import (
     query_singapore_retrenchment_advisory,
     query_coe_bidding_results,
     query_hdb_resale_price_trends,
-    query_occupational_wage_insights
+    query_occupational_wage_insights,
+    search_knowledge_base
 )
 
 # Initialize FastMCP Server
@@ -94,6 +95,11 @@ def mcp_query_hdb_resale_price_trends(context_query: str = "general") -> str:
 def mcp_query_occupational_wage_insights(context_query: str = "general") -> str:
     """Looks up Singapore's real per-job-title wages (MOM Occupational Wage Survey, 500+ detailed occupations) with year-on-year increment rates, newly created (AI-era) job titles, and 25th-75th percentile ranges."""
     return query_occupational_wage_insights(context_query)
+
+@mcp.tool(name="search_knowledge_base")
+def mcp_search_knowledge_base(context_query: str) -> str:
+    """Retrieves grounded, cited guidance from MerlionOS's curated Singapore civic knowledge base (RAG) for general policy, scheme, or eligibility questions — e.g. BTO vs resale flats, how CPF LIFE works, who must file income tax. Returns the most relevant chunks with their official source URLs."""
+    return search_knowledge_base(context_query)
 
 if __name__ == "__main__":
     mcp.run()

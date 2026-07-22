@@ -75,6 +75,7 @@ from tools import (
     get_iras_status,
     get_hdb_news_status,
     make_feed_status,
+    prewarm_knowledge_base,
     GOV_CHANNELS,
     COMMUNITY_CHANNELS,
     scrape_one_telegram_channel,
@@ -120,7 +121,17 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             print(f"\033[31m[MOM OWS] Startup pre-warm skipped ({type(e).__name__}: {e}) — will fetch lazily on first request.\033[0m")
 
+    def _warm_kb():
+        # Embed the RAG knowledge base ahead of the first chat query (cached to disk after the
+        # first run, so subsequent boots are instant). Best-effort — non-fatal if the embedding
+        # API is unavailable; search_knowledge_base then embeds lazily or degrades gracefully.
+        try:
+            prewarm_knowledge_base()
+        except Exception as e:
+            print(f"\033[31m[kb] Startup pre-warm skipped ({type(e).__name__}: {e}).\033[0m")
+
     threading.Thread(target=_warm, daemon=True, name="ows-prewarm").start()
+    threading.Thread(target=_warm_kb, daemon=True, name="kb-prewarm").start()
     yield
 
 # Initialize FastAPI app

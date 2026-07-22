@@ -30,6 +30,7 @@ from tools import (
     query_coe_bidding_results,
     query_hdb_resale_price_trends,
     query_occupational_wage_insights,
+    search_knowledge_base,
 )
 
 logger = logging.getLogger("merlion-os-chat")
@@ -59,15 +60,22 @@ TOOL_MAP = {
     "query_singapore_retrenchment_advisory": query_singapore_retrenchment_advisory,
     "query_coe_bidding_results": query_coe_bidding_results,
     "query_hdb_resale_price_trends": query_hdb_resale_price_trends,
-    "query_occupational_wage_insights": query_occupational_wage_insights
+    "query_occupational_wage_insights": query_occupational_wage_insights,
+    "search_knowledge_base": search_knowledge_base
 }
 
 SYSTEM_INSTRUCTION = (
     "You are MerlionOS, the unified public sector AI coordination brain for Singapore Citizens. "
     "Your task is to parse citizen requests and route them to the correct agency tool functions or scrape official .gov.sg web pages. "
     "Always aggregate multiple tools if a query spans financial, civic, and lifestyle domains simultaneously. "
-    "If the information is not present in predefined tools, search the Singapore Government directory with search_singapore_government "
+    "For general policy, scheme, or eligibility questions that no specific agency tool answers directly "
+    "(e.g. how CPF LIFE works, the difference between BTO and resale flats, who must file income tax), "
+    "call search_knowledge_base FIRST to retrieve grounded, cited guidance from the curated Singapore civic "
+    "knowledge base, and cite the source URLs it returns. "
+    "If the information is still not present, search the Singapore Government directory with search_singapore_government "
     "and then scrape the resulting URL using scrape_government_page to get the answer. "
+    "Prefer retrieved/official sources over your own memory, and do not assert specific figures (fees, rates, "
+    "amounts) unless a tool or the knowledge base provides them. "
     "Highlight concrete, actionable requirements (like deadlines, fees, or eligibility criteria) and provide the source URL links.\n\n"
     "AUTH PORTAL SAFETY RULE:\n"
     "Never output a clickable link or raw URL for SingPass, CorpPass, or any login/signin/authentication page, "
