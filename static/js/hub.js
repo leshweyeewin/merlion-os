@@ -333,6 +333,28 @@ function initSgHub() {
     // Updates tab fetches Telegram broadcasts + PUB flood alerts only (/api/sg-hub/gov-updates).
     // Each tab loads its own data so neither waits on the other's (slower) sources.
 
+    // Fetches JSON with a couple of automatic retries (exponential backoff) on network errors or
+    // non-OK responses. Smooths first-load flakiness — the server may still be pre-warming the
+    // OWS cache, or an upstream gov API may briefly refuse a connection — so a transient hiccup
+    // silently recovers instead of dropping the user on an error state. On persistent failure the
+    // caller's catch still runs (which then shows the error state / stale-data badge as before).
+    async function fetchJsonWithRetry(url, { retries = 2, baseDelay = 400 } = {}) {
+        let lastErr;
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+                return await res.json();
+            } catch (err) {
+                lastErr = err;
+                if (attempt < retries) {
+                    await new Promise(r => setTimeout(r, baseDelay * Math.pow(2, attempt)));
+                }
+            }
+        }
+        throw lastErr;
+    }
+
     async function loadSgHubPaneData(paneId) {
         if (loadedSgHubPanes[paneId]) return;
 
@@ -354,9 +376,7 @@ function initSgHub() {
         showPaneLoader(paneId);
 
         try {
-            const res = await fetch(endpoint);
-            if (!res.ok) throw new Error("API error fetching pane " + paneId);
-            const data = await res.json();
+            const data = await fetchJsonWithRetry(endpoint);
 
             if (paneId === "hub-transport-pane") {
                 renderTransitPane(data);
@@ -1774,9 +1794,7 @@ function initSgHub() {
         if (!container) return;
         container.innerHTML = "<p style='color: var(--text-subtle); margin:0; font-style: italic;'><i class='fa-solid fa-circle-notch fa-spin'></i> Loading MOM occupational wage tables (500+ job titles)...</p>";
         try {
-            const res = await fetch("/api/sg-hub/wages");
-            if (!res.ok) throw new Error("API error fetching occupational wages");
-            occWagesData = await res.json();
+            occWagesData = await fetchJsonWithRetry("/api/sg-hub/wages");
             renderOccWagesPane(occWagesData);
             loadedSgHubPanes["hub-occ-wages"] = true;
         } catch (err) {
@@ -2318,9 +2336,7 @@ function initSgHub() {
         jobsContent.innerHTML = `<p style='color: var(--text-subtle); margin:0;'><i class='fa-solid fa-circle-notch fa-spin'></i> Loading ${sector} sector statistics...</p>`;
 
         try {
-            const res = await fetch(`/api/sg-hub/jobs?sector=${sector}`);
-            if (!res.ok) throw new Error("API error fetching job sector " + sector);
-            const data = await res.json();
+            const data = await fetchJsonWithRetry(`/api/sg-hub/jobs?sector=${sector}`);
 
             if (!sgHubJobsData) sgHubJobsData = {};
             sgHubJobsData[sector] = data.jobs[sector];
