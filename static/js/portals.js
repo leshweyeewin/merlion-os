@@ -669,12 +669,16 @@ function initPortalBookmarks() {
     function renderMattersGrid() {
         mattersGrid.innerHTML = "";
         const bookmarks = loadBookmarks();
+        mattersSection.classList.remove("hidden");
+
         if (bookmarks.length === 0) {
-            mattersSection.classList.add("hidden");
+            mattersGrid.innerHTML = `
+                <div style="grid-column: 1 / -1; background: var(--bg-muted); border: 1px dashed var(--border); border-radius: 10px; padding: 16px; text-align: center; color: var(--text-muted); font-size: 13px; margin: 4px 0;">
+                    <i class="fa-solid fa-star" style="color: #f59e0b; margin-right: 6px;"></i>
+                    <strong>No pinned portals yet</strong> — click the <i class="fa-solid fa-star" style="color:#f59e0b; font-size:12px;"></i> star icon on any portal card below to pin your frequent portals here for 1-click access!
+                </div>`;
             return;
         }
-
-        mattersSection.classList.remove("hidden");
         bookmarks.forEach(agency => {
             const origCard = grid.querySelector(`.service-card[data-agency="${agency}"]`);
             if (!origCard) return;

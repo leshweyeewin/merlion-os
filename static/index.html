@@ -30,9 +30,19 @@
                     <span>Public service directory</span>
                 </div>
             </div>
-            <div class="system-status">
-                <span class="status-indicator online"></span>
-                <span>Active Engine</span>
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <div class="persona-select-wrap" style="position: relative;">
+                    <button type="button" class="persona-select-btn" id="persona-select-btn" aria-haspopup="listbox" aria-expanded="false" title="Switch persona profile to tailor portals, live views, quick tasks & copilot">
+                        <i class="fa-solid fa-user-gear"></i>
+                        <span class="persona-select-label" id="persona-select-label">Try as: Guest</span>
+                        <i class="fa-solid fa-chevron-down persona-caret" aria-hidden="true"></i>
+                    </button>
+                    <div class="persona-menu hidden" id="persona-menu" role="listbox" aria-label="Demo persona profiles" style="right: 0; left: auto;"></div>
+                </div>
+                <div class="system-status">
+                    <span class="status-indicator online"></span>
+                    <span>Active Engine</span>
+                </div>
             </div>
         </header>
 
@@ -1290,7 +1300,7 @@
                 <!-- Sub-panes -->
                 <!-- Transit & Transport Pane -->
                 <div class="hub-sub-pane" id="hub-transport-pane">
-                    <!-- Transit Alerts Card -->
+                    <!-- Panel 1: Transit Delays & Traffic Advisories -->
                     <div class="hub-card" style="margin-bottom: 20px;">
                         <h3>
                             <i class="fa-solid fa-train-subway"></i> Transit Delays &amp; Traffic Advisories
@@ -1301,25 +1311,36 @@
                         </div>
                     </div>
 
-                    <!-- ICA Checkpoint & News Updates Card -->
+                    <!-- Panel 2: 🚕 TAXIS AVAILABLE ISLANDWIDE -->
                     <div class="hub-card" style="margin-bottom: 20px;">
+                        <h3>
+                            <i class="fa-solid fa-taxi"></i> Taxis Available Islandwide
+                        </h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Live taxi availability counts, location-based nearby taxis, and real-time positions map (LTA DataMall).</p>
+                        <div id="hub-taxi-events-content">
+                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading taxi availability data...</p>
+                        </div>
+                    </div>
+
+                    <!-- Panel 3: Transport & Vehicle Costs (COE) -->
+                    <div class="hub-card" style="margin-bottom: 20px;">
+                        <h3>
+                            <i class="fa-solid fa-car"></i> Transport &amp; Vehicle Costs (COE)
+                        </h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Latest COE bidding premiums by vehicle category and multi-year trend analysis (data.gov.sg).</p>
+                        <div id="hub-coe-events-content">
+                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading COE bidding data...</p>
+                        </div>
+                    </div>
+
+                    <!-- Panel 4: ICA Checkpoint & News Updates -->
+                    <div class="hub-card">
                         <h3>
                             <i class="fa-solid fa-passport"></i> ICA Checkpoint &amp; News Updates
                         </h3>
                         <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Real-time advisories, media releases, and checkpoint updates fetched directly from the ICA Newsroom.</p>
                         <div id="hub-ica-events-content">
                             <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading ICA advisories...</p>
-                        </div>
-                    </div>
-
-                    <!-- Transport & Vehicle Costs Card -->
-                    <div class="hub-card">
-                        <h3>
-                            <i class="fa-solid fa-car"></i> Transport &amp; Vehicle Costs
-                        </h3>
-                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Live taxi availability (LTA DataMall) and the latest COE bidding premiums by vehicle category (data.gov.sg).</p>
-                        <div id="hub-transport-content">
-                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading transport data...</p>
                         </div>
                     </div>
                 </div>

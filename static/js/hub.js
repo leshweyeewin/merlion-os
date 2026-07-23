@@ -16,6 +16,8 @@ function initSgHub() {
     const communityEventsContent = document.getElementById("hub-community-events-content");
     const mrtEventsContent = document.getElementById("hub-mrt-events-content");
     const icaEventsContent = document.getElementById("hub-ica-events-content");
+    const taxiEventsContent = document.getElementById("hub-taxi-events-content");
+    const coeEventsContent = document.getElementById("hub-coe-events-content");
     const taxDeadlinesContent = document.getElementById("hub-tax-deadlines");
     const calcTaxOptBtn = document.getElementById("calc-tax-opt-btn");
     const taxAssessableIncome = document.getElementById("tax-assessable-income");
@@ -542,7 +544,7 @@ function initSgHub() {
 
         let timelineHtml = "";
         if (data.due_dates && data.due_dates.length > 0) {
-            timelineHtml += `<div style="display:flex; flex-direction:column; gap:10px;">`;
+            timelineHtml += `<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:10px;">`;
             data.due_dates.forEach(item => {
                 const isIIT = item.category.toLowerCase().includes("individual");
                 const borderLeft = isIIT ? "4px solid #ef4444" : "1px solid var(--border)";
@@ -550,15 +552,15 @@ function initSgHub() {
                 const badgeBg = isIIT ? "#fee2e2" : "var(--border)";
                 const badgeColor = isIIT ? "#b91c1c" : "var(--text-main)";
 
-                timelineHtml += `<div style="background:${bg}; border:1px solid var(--border); border-left:${borderLeft}; border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:10px;">
+                timelineHtml += `<div style="background:${bg}; border:1px solid var(--border); border-left:${borderLeft}; border-radius:8px; padding:12px; display:flex; flex-direction:column; justify-content:space-between; gap:10px;">
                     <div style="display:flex; flex-direction:column; gap:4px;">
-                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                            <span style="font-weight:700; color:var(--text-main); font-size:13.5px;">${escapeHTML(item.date)}</span>
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; flex-wrap:wrap;">
+                            <span style="font-weight:800; color:var(--text-main); font-size:13px;"><i class="fa-solid fa-calendar-day" style="color:var(--primary); font-size:11px;"></i> ${escapeHTML(item.date)}</span>
                             <span style="background:${badgeBg}; color:${badgeColor}; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; text-transform:uppercase; letter-spacing:0.5px;">${escapeHTML(item.category)}</span>
                         </div>
-                        <span style="color:var(--text-muted); font-size:12.5px; line-height:1.4;">${escapeHTML(item.label)}</span>
+                        <span style="color:var(--text-muted); font-size:12px; line-height:1.4; margin-top:2px;">${escapeHTML(item.label)}</span>
                     </div>
-                    <a href="${safeURL(item.link)}" target="_blank" style="background:#ffffff; border:1px solid var(--border); padding:6px 12px; border-radius:6px; font-size:12px; color:var(--link); text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:5px; align-self:flex-start;">
+                    <a href="${safeURL(item.link)}" target="_blank" style="background:var(--bg-panel); border:1px solid var(--border); padding:6px 12px; border-radius:6px; font-size:11.5px; color:var(--link); text-decoration:none; font-weight:700; display:inline-flex; align-items:center; gap:5px; align-self:flex-start; margin-top:4px;">
                         File Now <i class="fa-solid fa-up-right-from-square" style="font-size:10px;"></i>
                     </a>
                 </div>`;
@@ -1035,64 +1037,64 @@ function initSgHub() {
     }
 
     function renderTransportPane(taxiAvailability, coe, coeHistory) {
-        if (!transportContent) return;
-
         const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
             <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML((coe && coe.synced_at) || getRetrievalTimestamp())}
         </div>`;
 
-        const taxiHtml = !taxiAvailability
-            ? `<div style="flex: 1; min-width: 180px; background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px; color: var(--text-subtle); font-size: 13px;">
-                🚕 Taxi availability unavailable (LTA DataMall key not configured).
-            </div>`
-            : `<div id="taxi-stat-block" style="flex: 1; min-width: 180px; background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px;">
-                ${islandwideTaxiHtml(taxiAvailability)}
-            </div>`;
+        // --- Render Panel 2: Taxi Availability & Map ---
+        if (taxiEventsContent) {
+            const taxiHtml = !taxiAvailability
+                ? `<div style="background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px; color: var(--text-subtle); font-size: 13px;">
+                    🚕 Taxi availability unavailable (LTA DataMall key not configured).
+                </div>`
+                : `<div id="taxi-stat-block" style="background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px;">
+                    ${islandwideTaxiHtml(taxiAvailability)}
+                </div>`;
 
-        const coeCategoryColors = { 'A': '#2563eb', 'B': '#7c3aed', 'C': '#d97706', 'D': '#059669', 'E': '#dc2626' };
-        const coeCategoriesHtml = (coe && coe.categories && coe.categories.length)
-            ? coe.categories.map(c => `
-                <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; min-width: 130px; flex: 1;">
-                    <span style="background:${coeCategoryColors[c.category] || 'var(--primary)'}; color:#fff; font-size:10px; font-weight:800; padding:2px 7px; border-radius:4px;">CAT ${escapeHTML(c.category)}</span>
-                    <div style="font-size: 15px; font-weight: 700; color: var(--text-main); margin-top: 6px;">${escapeHTML(c.premium)}</div>
-                    <div style="font-size: 10px; color: var(--text-muted);">${escapeHTML(c.label)}</div>
-                    ${c.momentum ? `<div style="font-size: 10px; color: var(--text-muted); margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">📶 ${escapeHTML(c.momentum)}</div>` : ''}
-                    ${c.movement_reason ? `<div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">🔍 ${escapeHTML(c.movement_reason)}</div>` : ''}
-                </div>`).join('')
-            : `<p style="color: var(--text-subtle); margin:0; font-size: 13px;">COE data unavailable.</p>`;
+            const taxiMapHtml = taxiAvailability ? `
+                <div style="margin-top: 14px;">
+                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🗺️ Live Taxi Positions Map — ${taxiAvailability.count.toLocaleString()} available islandwide</div>
+                    <div id="taxi-map" style="height: 280px; border-radius: 10px; border: 1px solid var(--border); position: relative; z-index: 1;"></div>
+                    <div style="font-size: 10.5px; color: var(--text-muted); margin-top: 5px;">Showing up to 500 sampled positions · Source: LTA DataMall · ${escapeHTML(taxiAvailability.retrieved_at)}</div>
+                </div>` : '';
 
-        const hasCoeHistory = coeHistory && coeHistory.exercises && coeHistory.exercises.length > 1;
-        const coeCaption = (coeHistory && coeHistory.insight)
-            ? coeHistory.insight
-            : "Two bidding rounds per month — hover for every category's exact premium.";
-        const coeHistoryHtml = hasCoeHistory ? `
-            <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 2px 0 8px;">📈 COE Premium Trend — Last ${coeHistory.exercises.length} Exercises</div>
-            <div id="coe-trend-chart" style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 4px;"></div>
-            <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;">💡 ${escapeHTML(coeCaption)}</div>
-        ` : '';
+            taxiEventsContent.innerHTML = banner + taxiHtml + taxiMapHtml;
+        }
 
-        const taxiMapHtml = taxiAvailability ? `
-            <div style="margin-bottom: 14px;">
-                <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🗺️ Live Taxi Positions — ${taxiAvailability.count.toLocaleString()} available islandwide</div>
-                <div id="taxi-map" style="height: 280px; border-radius: 10px; border: 1px solid var(--border); position: relative; z-index: 1;"></div>
-                <div style="font-size: 10.5px; color: var(--text-muted); margin-top: 5px;">Showing up to 500 sampled positions · Source: LTA DataMall · ${escapeHTML(taxiAvailability.retrieved_at)}</div>
-            </div>` : '';
+        // --- Render Panel 3: Transport & Vehicle Costs (COE) ---
+        if (coeEventsContent) {
+            const coeCategoryColors = { 'A': '#2563eb', 'B': '#7c3aed', 'C': '#d97706', 'D': '#059669', 'E': '#dc2626' };
+            const coeCategoriesHtml = (coe && coe.categories && coe.categories.length)
+                ? coe.categories.map(c => `
+                    <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; min-width: 130px; flex: 1;">
+                        <span style="background:${coeCategoryColors[c.category] || 'var(--primary)'}; color:#fff; font-size:10px; font-weight:800; padding:2px 7px; border-radius:4px;">CAT ${escapeHTML(c.category)}</span>
+                        <div style="font-size: 15px; font-weight: 700; color: var(--text-main); margin-top: 6px;">${escapeHTML(c.premium)}</div>
+                        <div style="font-size: 10px; color: var(--text-muted);">${escapeHTML(c.label)}</div>
+                        ${c.momentum ? `<div style="font-size: 10px; color: var(--text-muted); margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">📶 ${escapeHTML(c.momentum)}</div>` : ''}
+                        ${c.movement_reason ? `<div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">🔍 ${escapeHTML(c.movement_reason)}</div>` : ''}
+                    </div>`).join('')
+                : `<p style="color: var(--text-subtle); margin:0; font-size: 13px;">COE data unavailable.</p>`;
 
-        transportContent.innerHTML = banner + `
-            <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 16px;">
-                <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 8px;">🚗 COE BIDDING — ${coe ? escapeHTML(coe.exercise) : 'N/A'}</span>
-                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: ${hasCoeHistory ? '14px' : '0'};">
-                    ${coeCategoriesHtml}
+            const hasCoeHistory = coeHistory && coeHistory.exercises && coeHistory.exercises.length > 1;
+            const coeCaption = (coeHistory && coeHistory.insight)
+                ? coeHistory.insight
+                : "Two bidding rounds per month — hover for every category's exact premium.";
+            const coeHistoryHtml = hasCoeHistory ? `
+                <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 8px;">📈 COE Premium Trend — Last ${coeHistory.exercises.length} Exercises</div>
+                <div id="coe-trend-chart" style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 4px;"></div>
+                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;">💡 ${escapeHTML(coeCaption)}</div>
+            ` : '';
+
+            coeEventsContent.innerHTML = banner + `
+                <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px;">
+                    <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 8px;">🚗 COE BIDDING — ${coe ? escapeHTML(coe.exercise) : 'N/A'}</span>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        ${coeCategoriesHtml}
+                    </div>
+                    ${coeHistoryHtml}
                 </div>
-                ${coeHistoryHtml}
-            </div>
-            <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px;">
-                <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: ${taxiMapHtml ? '14px' : '0'};">
-                    ${taxiHtml}
-                </div>
-                ${taxiMapHtml}
-            </div>
-        `;
+            `;
+        }
 
         if (hasCoeHistory) {
             renderLineChart(document.getElementById("coe-trend-chart"), {

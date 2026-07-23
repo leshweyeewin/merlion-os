@@ -151,16 +151,16 @@ function getActivePersona() {
 }
 
 function initPersona() {
-    const btn = document.getElementById("persona-select-btn");
-    const menu = document.getElementById("persona-menu");
-    if (!btn || !menu) return;
+    const btns = Array.from(document.querySelectorAll(".persona-select-btn"));
+    const menus = Array.from(document.querySelectorAll(".persona-menu"));
+    if (!btns.length || !menus.length) return;
 
     try {
         const saved = localStorage.getItem(PERSONA_STORAGE_KEY);
         if (saved && _getPersonaByKey(saved).key === saved) _activePersonaKey = saved;
     } catch (e) { /* localStorage may be unavailable */ }
 
-    menu.innerHTML = PERSONAS.map(p => `
+    const menuItemsHtml = PERSONAS.map(p => `
         <button type="button" class="persona-menu-item${p.key === _activePersonaKey ? " selected" : ""}" role="option" data-persona="${p.key}" aria-selected="${p.key === _activePersonaKey}">
             <span class="persona-emoji" aria-hidden="true">${p.emoji}</span>
             <span>
@@ -169,20 +169,42 @@ function initPersona() {
             </span>
         </button>`).join("");
 
-    const closeMenu = () => { menu.classList.add("hidden"); btn.setAttribute("aria-expanded", "false"); };
-    const openMenu = () => { menu.classList.remove("hidden"); btn.setAttribute("aria-expanded", "true"); };
+    menus.forEach(menu => {
+        menu.innerHTML = menuItemsHtml;
+    });
 
-    btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        menu.classList.contains("hidden") ? openMenu() : closeMenu();
+    const closeAllMenus = () => {
+        menus.forEach(m => m.classList.add("hidden"));
+        btns.forEach(b => b.setAttribute("aria-expanded", "false"));
+    };
+
+    btns.forEach(btn => {
+        const wrap = btn.closest(".persona-select-wrap") || btn.parentElement;
+        const menu = wrap ? wrap.querySelector(".persona-menu") : menus[0];
+        if (!menu) return;
+
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const willOpen = menu.classList.contains("hidden");
+            closeAllMenus();
+            if (willOpen) {
+                menu.classList.remove("hidden");
+                btn.setAttribute("aria-expanded", "true");
+            }
+        });
     });
+
     document.addEventListener("click", (e) => {
-        if (!menu.contains(e.target) && e.target !== btn) closeMenu();
+        const isClickInside = menus.some(m => m.contains(e.target)) || btns.some(b => b.contains(e.target));
+        if (!isClickInside) closeAllMenus();
     });
-    menu.querySelectorAll(".persona-menu-item").forEach(item => {
-        item.addEventListener("click", () => {
-            applyPersona(item.getAttribute("data-persona"));
-            closeMenu();
+
+    menus.forEach(menu => {
+        menu.querySelectorAll(".persona-menu-item").forEach(item => {
+            item.addEventListener("click", () => {
+                applyPersona(item.getAttribute("data-persona"));
+                closeAllMenus();
+            });
         });
     });
 
@@ -194,20 +216,21 @@ function applyPersona(key, silent) {
     try { localStorage.setItem(PERSONA_STORAGE_KEY, _activePersonaKey); } catch (e) { /* ignore */ }
 
     const persona = _getPersonaByKey(_activePersonaKey);
-    const btn = document.getElementById("persona-select-btn");
-    const label = document.getElementById("persona-select-label");
-    const menu = document.getElementById("persona-menu");
+    const btns = Array.from(document.querySelectorAll(".persona-select-btn"));
+    const labels = Array.from(document.querySelectorAll(".persona-select-label"));
+    const menus = Array.from(document.querySelectorAll(".persona-menu"));
     const isGuest = persona.key === "guest";
 
-    if (label) label.textContent = `Try as: ${persona.label}`;
-    if (btn) btn.classList.toggle("persona-active", !isGuest);
-    if (menu) {
+    labels.forEach(lbl => { lbl.textContent = `Try as: ${persona.label}`; });
+    btns.forEach(btn => { btn.classList.toggle("persona-active", !isGuest); });
+
+    menus.forEach(menu => {
         menu.querySelectorAll(".persona-menu-item").forEach(item => {
             const sel = item.getAttribute("data-persona") === _activePersonaKey;
             item.classList.toggle("selected", sel);
             item.setAttribute("aria-selected", sel);
         });
-    }
+    });
 
     renderPersonaPortalBanner(persona);
     renderPersonaHubBanner(persona);
