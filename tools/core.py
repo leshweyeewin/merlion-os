@@ -56,27 +56,52 @@ def _cached_rows(cache: dict, disk_name: str, ttl_seconds: float, fetch_fn, *,
     live fetch raises, serve an expired disk snapshot when one exists — cached as fresh
     (fetched_at=now) so a slow, failing upstream isn't re-hit on every request until the TTL
     lapses — otherwise re-raise. `lock` (optional) serialises concurrent fetches; `label`
-    (defaults to disk_name) names the source in the fallback log line."""
+    (defaults to disk_name) names the source in the fallback log line.
+
+    An empty result (an HTTP-200 but header-only/truncated CSV → []) is never a valid dataset
+    here, so it's treated like a fetch failure: it never overwrites a good disk snapshot, and an
+    existing expired snapshot is preferred over serving nothing. For the same reason an empty
+    snapshot is ignored everywhere (fresh tier and stale fallback), never short-circuiting a
+    live fetch."""
+    def _stale_snapshot():
+        """Newest disk snapshot regardless of age, or None — an empty snapshot counts as none."""
+        rows, _ = _disk_cache_load(disk_name, float("inf"))
+        return rows if rows else None
+
     def _load() -> list:
         cached = _cache_get(cache, ttl_seconds, key="rows")
         if cached is not None:
             return cached
 
         disk_rows, disk_ts = _disk_cache_load(disk_name, ttl_seconds)
-        if disk_rows is not None:
+        if disk_rows:  # skip an empty snapshot — it's never a valid dataset, keep looking
             _cache_set(cache, disk_rows, key="rows", fetched_at=disk_ts)
             return disk_rows
 
         try:
             rows = fetch_fn()
         except Exception as e:
-            stale_rows, _ = _disk_cache_load(disk_name, float("inf"))
+            stale_rows = _stale_snapshot()
             if stale_rows is not None:
                 print(f"  [data.gov.sg] {label or disk_name} fetch failed "
                       f"({type(e).__name__}) — serving expired disk snapshot")
                 _cache_set(cache, stale_rows, key="rows", fetched_at=time.time())
                 return stale_rows
             raise
+
+        if not rows:
+            # 200-with-empty-body: prefer an existing snapshot over overwriting it with nothing,
+            # and never persist the empty result to disk (it would clobber the good fallback).
+            stale_rows = _stale_snapshot()
+            if stale_rows is not None:
+                print(f"  [data.gov.sg] {label or disk_name} returned no rows "
+                      f"— serving expired disk snapshot instead of caching empty")
+                _cache_set(cache, stale_rows, key="rows", fetched_at=time.time())
+                return stale_rows
+            # No snapshot to fall back to: memory-cache the empty result so a genuinely-empty
+            # upstream isn't re-hit every request, but leave disk untouched.
+            _cache_set(cache, rows, key="rows", fetched_at=time.time())
+            return rows
 
         now = time.time()
         _cache_set(cache, rows, key="rows", fetched_at=now)

@@ -64,6 +64,31 @@ def test_stale_snapshot_served_and_recached_as_fresh_on_fetch_failure(tmp_path, 
     assert cache["fetched_at"] >= before
 
 
+def test_empty_fetch_does_not_clobber_good_disk_snapshot(tmp_path, monkeypatch):
+    """A 200-with-empty-body (truncated/header-only CSV → []) must not overwrite the last-known-good
+    snapshot; the expired snapshot is served instead and the disk copy is left intact."""
+    monkeypatch.setattr(core, "_DISK_CACHE_DIR", str(tmp_path))
+    core._disk_cache_save("ds", [{"good": True}], 0.0)  # expired for the ttl=1 below
+    cache = _fresh_cache()
+
+    assert _cached_rows(cache, "ds", 1, lambda: []) == [{"good": True}]
+    # Disk snapshot untouched — a later request can still fall back to real data.
+    disk_rows, _ = core._disk_cache_load("ds", float("inf"))
+    assert disk_rows == [{"good": True}]
+
+
+def test_empty_fetch_with_no_snapshot_returns_empty_without_persisting(tmp_path, monkeypatch):
+    """With nothing to fall back to, an empty result is returned and memory-cached (so upstream
+    isn't re-hit every request) but never written to disk as a bogus 'good' snapshot."""
+    monkeypatch.setattr(core, "_DISK_CACHE_DIR", str(tmp_path))
+    cache = _fresh_cache()
+
+    assert _cached_rows(cache, "ds", 999, lambda: []) == []
+    # No disk snapshot was created from the empty result.
+    disk_rows, _ = core._disk_cache_load("ds", float("inf"))
+    assert disk_rows is None
+
+
 def test_reraises_when_fetch_fails_and_no_snapshot_exists(tmp_path, monkeypatch):
     monkeypatch.setattr(core, "_DISK_CACHE_DIR", str(tmp_path))
     cache = _fresh_cache()
