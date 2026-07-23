@@ -42,6 +42,17 @@ jobs:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ env.REGION }}
           image: asia-southeast1-docker.pkg.dev/${{ env.PROJECT_ID }}/merlion-os-repo/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          # Runtime config. GCP_PROJECT_ID is non-secret; the API keys are mounted from GCP
+          # Secret Manager (secrets: `lta-key`, `gemini-key`, `datagovsg-key`), NOT GitHub
+          # secrets. Declaring them here means every CI deploy re-mounts them, so a deploy can
+          # never silently drop a manually-added secret. The runtime service account needs
+          # roles/secretmanager.secretAccessor on each secret.
+          env_vars: |
+            GCP_PROJECT_ID=${{ env.PROJECT_ID }}
+          secrets: |
+            LTA_DATAMALL_API_KEY=lta-key:latest
+            GEMINI_API_KEY=gemini-key:latest
+            DATA_GOV_SG_API_KEY=datagovsg-key:latest
           flags: |
             --allow-unauthenticated
             --min-instances=1
