@@ -89,6 +89,8 @@ body {
     min-width: 0;
 }
 
+
+
 .app-mark {
     width: 40px;
     height: 40px;
@@ -441,8 +443,8 @@ body {
 /* ── Item 7: Bookmark (star) button on portal cards ────────────────────────── */
 .bookmark-btn {
     position: absolute;
-    top: 8px;
-    left: 36px;
+    bottom: 12px;
+    right: 8px;
     width: 26px;
     height: 26px;
     display: flex;
@@ -456,7 +458,7 @@ body {
     padding: 0;
     border-radius: 4px;
     transition: opacity 0.2s, color 0.2s, background-color 0.2s;
-    opacity: 0.5;
+    opacity: 0.45;
     z-index: 2;
 }
 
@@ -570,8 +572,8 @@ body {
 
 .hide-portal-btn {
     position: absolute;
-    top: 8px;
-    left: 8px;
+    bottom: 12px;
+    right: 36px;
     width: 26px;
     height: 26px;
     display: flex;
@@ -579,13 +581,17 @@ body {
     justify-content: center;
     color: var(--text-subtle);
     font-size: 12px;
-    opacity: 0.5;
+    opacity: 0.45;
     cursor: pointer;
     background: none;
     border: none;
     padding: 0;
     transition: opacity 0.2s, color 0.2s, background-color 0.2s;
     border-radius: 4px;
+}
+
+.service-card:hover .hide-portal-btn {
+    opacity: 1;
 }
 
 .hide-portal-btn:hover {
@@ -634,13 +640,13 @@ body {
 }
 
 .hidden-portals-dropdown {
-    position: fixed;
-    top: auto;
-    left: 14px;
-    right: 14px;
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    left: auto;
     z-index: 200;
-    width: auto;
-    max-width: 420px;
+    width: 480px;
+    max-width: calc(100vw - 28px);
     background: var(--bg-panel);
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -648,7 +654,6 @@ body {
     padding: 10px;
     display: flex;
     flex-direction: column;
-    /* JS overrides this on open; the fallback leaves room above the fixed Co-Pilot button */
     max-height: calc(100dvh - 160px);
     overflow-y: auto;
 }
@@ -656,6 +661,23 @@ body {
 .hidden-portals-dropdown.hidden {
     display: none;
 }
+
+/* On narrow phones the absolute-positioned panel can clip off the left edge
+   of the screen. Switch to fixed so it anchors to the viewport directly,
+   and cap the height above the Co-Pilot FAB (bottom:18px + ~48px = 66px). */
+@media (max-width: 600px) {
+    .hidden-portals-dropdown {
+        position: fixed;
+        top: auto; /* JS or CSS calc will handle top via the toolbar offset */
+        left: 14px;
+        right: 14px;
+        width: auto;
+        max-width: none;
+        /* Reserve ~90px at bottom for the Co-Pilot FAB */
+        max-height: calc(100dvh - 90px - 80px);
+    }
+}
+
 
 .hidden-portals-empty {
     font-size: 13px;
@@ -882,32 +904,52 @@ body {
     bottom: 24px;
     right: 24px;
     z-index: 1000;
-    background: var(--primary);
-    border: 1px solid var(--primary-dark);
-    padding: 13px 20px;
-    border-radius: 8px;
-    font-weight: 700;
-    font-size: 14px;
-    color: #ffffff;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: none;
     cursor: pointer;
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15), 0 1px 4px rgba(0,0,0,0.10);
     display: flex;
     align-items: center;
-    gap: 10px;
-    transition: background-color 0.2s, transform 0.2s;
+    justify-content: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.chat-trigger-icon-wrap {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chat-trigger-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    transform: scale(1.35);
 }
 
 .chat-trigger:hover {
-    background: var(--primary-dark);
-    transform: translateY(-1px);
+    transform: translateY(-2px) scale(1.04);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.12);
 }
 
 .pulse-indicator {
-    width: 8px;
-    height: 8px;
-    background-color: #ffffff;
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 11px;
+    height: 11px;
+    background-color: #22c55e;
+    border: 2px solid #ffffff;
     border-radius: 50%;
-    display: inline-block;
+    display: block;
     animation: markerPulse 2s infinite;
 }
 
@@ -962,16 +1004,27 @@ body {
 }
 
 .widget-mark {
-    width: 26px;
-    height: 26px;
-    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: var(--primary);
-    color: #ffffff;
+    background: #ffffff;
+    border: none;
+    color: var(--primary);
     flex-shrink: 0;
+    overflow: hidden;
 }
+
+.widget-mark-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    transform: scale(1.35);
+}
+
 
 .widget-title span {
     font-size: 12px;
@@ -1438,7 +1491,8 @@ body {
     .chat-trigger {
         right: 16px;
         bottom: 18px;
-        max-width: calc(100% - 32px);
+        width: 54px;
+        height: 54px;
     }
 
     .chat-widget {
@@ -1512,16 +1566,12 @@ body {
         overflow-wrap: anywhere;
     }
 
-    /* Co-Pilot FAB: keep it above content and off the right edge; give the
-       scrolling pane right-side breathing room so nothing hides behind it. */
+    /* Co-Pilot FAB: circle button — keep it above content and off the right edge. */
     .chat-trigger {
         right: 16px;
         bottom: 18px;
-        max-width: calc(100% - 32px);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
     }
+
     .hub-sub-pane {
         padding-right: 4px;
     }

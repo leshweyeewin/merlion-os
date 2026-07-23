@@ -100,14 +100,8 @@
                 <div class="directory-toolbar" style="margin-bottom: 16px;">
                     <span class="reorder-hint"><i class="fa-solid fa-arrows-up-down-left-right"></i> Drag any card to rearrange your portal — hover a card and click the eye icon to hide it.</span>
                     <div class="toolbar-btn-group">
-                        <div class="manage-portals-wrap" style="position: relative; display: inline-block;">
-                            <button type="button" class="reset-layout-btn manage-portals-btn" id="manage-portals-btn">
-                                <i class="fa-solid fa-eye-slash"></i> Manage Portals<span class="hidden-count-badge" id="hidden-portals-count" style="display:none;">0</span>
-                            </button>
-                            <div class="hidden-portals-dropdown hidden" id="hidden-portals-dropdown"></div>
-                        </div>
-                        <button type="button" class="reset-layout-btn" id="sort-alphabetical-btn" title="Sort portals alphabetically by agency name">
-                            <i class="fa-solid fa-arrow-down-a-z"></i> Sort A–Z
+                        <button type="button" class="reset-layout-btn" id="sort-alphabetical-btn" title="Sort portals alphabetically">
+                            <i class="fa-solid fa-arrow-down-a-z" id="sort-icon"></i> Sort
                         </button>
                         <button type="button" class="reset-layout-btn" id="mp-show-all-global">
                             <i class="fa-solid fa-eye"></i> Show all
@@ -118,6 +112,12 @@
                         <button type="button" class="reset-layout-btn" id="reset-layout-btn">
                             <i class="fa-solid fa-rotate-left"></i> Reset layout
                         </button>
+                        <div class="manage-portals-wrap" style="position: relative; display: inline-block;">
+                            <button type="button" class="reset-layout-btn manage-portals-btn" id="manage-portals-btn">
+                                <i class="fa-solid fa-eye-slash"></i> Manage Portals<span class="hidden-count-badge" id="hidden-portals-count" style="display:none;">0</span>
+                            </button>
+                            <div class="hidden-portals-dropdown hidden" id="hidden-portals-dropdown"></div>
+                        </div>
                     </div>
                 </div>
                 
@@ -1685,9 +1685,11 @@
         </main>
 
         <!-- Floating Chat Trigger Button -->
-        <div class="chat-trigger" id="chat-trigger">
-            <span class="pulse-indicator"></span>
-            <i class="fa-solid fa-circle-question"></i> Ask MerlionOS Co-Pilot
+        <div class="chat-trigger" id="chat-trigger" title="Ask MerlionOS Co-Pilot" role="button" aria-label="Open Co-Pilot chat">
+            <div class="chat-trigger-icon-wrap">
+                <img src="/merlion-icon-symbolizing-singapore-nation-on-red-gold-button-vector.jpg" alt="MerlionOS Co-Pilot" class="chat-trigger-logo">
+            </div>
+            <span class="pulse-indicator" aria-hidden="true"></span>
         </div>
 
         <!-- Floating Expandable Chat Panel Widget -->
@@ -1696,7 +1698,7 @@
             <div class="widget-header">
                 <div class="widget-title">
                     <div class="widget-title-row">
-                        <span class="widget-mark" aria-hidden="true"><i class="fa-solid fa-landmark"></i></span>
+                        <span class="widget-mark" aria-hidden="true"><img src="merlion-icon-symbolizing-singapore-nation-on-red-gold-button-vector.jpg" alt="" class="widget-mark-logo"></span>
                         <h3>MerlionOS Co-Pilot</h3>
                     </div>
                     <span>GovAI Coordination Brain</span>

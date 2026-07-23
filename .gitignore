@@ -12,3 +12,7 @@ service-account-key.json
 *-service-account*.json
 *-credentials*.json
 *.serviceaccount.json
+test_bq.py
+test_jobs_concurrent.py
+test_jobs_err.py
+test_jobs.py

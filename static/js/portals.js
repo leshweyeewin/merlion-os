@@ -290,12 +290,22 @@ function initPortalReordering() {
 
     const sortAzBtn = document.getElementById("sort-alphabetical-btn");
     if (sortAzBtn) {
+        let sortAsc = false; // false so first click toggles to true (A→Z)
         sortAzBtn.addEventListener("click", () => {
+            sortAsc = !sortAsc;
+            const icon = document.getElementById("sort-icon");
+            if (icon) {
+                icon.className = sortAsc
+                    ? "fa-solid fa-arrow-down-a-z"
+                    : "fa-solid fa-arrow-down-z-a";
+            }
             const cards = Array.from(grid.querySelectorAll(".service-card"));
             cards.sort((a, b) => {
                 const nameA = (a.querySelector("h3")?.textContent || a.dataset.agency).trim();
                 const nameB = (b.querySelector("h3")?.textContent || b.dataset.agency).trim();
-                return nameA.localeCompare(nameB);
+                return sortAsc
+                    ? nameA.localeCompare(nameB)
+                    : nameB.localeCompare(nameA);
             });
             cards.forEach(card => grid.appendChild(card));
             saveOrder();
@@ -491,30 +501,14 @@ function initPortalVisibility() {
             if (willOpen) {
                 selected.clear();
                 renderDropdown();
-                // Position the fixed dropdown just below the button for all screen sizes
-                const btnRect = manageBtn.getBoundingClientRect();
-                const topPos = btnRect.bottom + 8;
-                dropdown.style.top = topPos + "px";
-                // Horizontal anchor: on mobile keep the full-width panel with side gutters
-                // (CSS handles this); on desktop anchor it under the button, right-aligned,
-                // and a touch wider so more of each portal row is readable.
+                // On mobile the dropdown is position:fixed, so we must set top via JS.
+                // On desktop it's position:absolute with CSS top: calc(100% + 6px).
                 if (window.innerWidth <= 600) {
-                    dropdown.style.left = "";
-                    dropdown.style.right = "";
-                    dropdown.style.width = "";
-                    dropdown.style.maxWidth = "";
+                    const btnRect = manageBtn.getBoundingClientRect();
+                    dropdown.style.top = (btnRect.bottom + 6) + "px";
                 } else {
-                    const panelWidth = 480;
-                    const left = Math.max(14, btnRect.right - panelWidth);
-                    dropdown.style.left = left + "px";
-                    dropdown.style.right = "auto";
-                    dropdown.style.width = panelWidth + "px";
-                    dropdown.style.maxWidth = "none";
+                    dropdown.style.top = "";
                 }
-                // Cap height so the dropdown never overlaps the fixed Co-Pilot button
-                // (button is bottom:24px, ~48px tall → reserve 80px from the bottom)
-                const safeBottom = 80;
-                dropdown.style.maxHeight = Math.max(120, window.innerHeight - topPos - safeBottom) + "px";
             }
             dropdown.classList.toggle("hidden", !willOpen);
         });
@@ -669,16 +663,14 @@ function initPortalBookmarks() {
     function renderMattersGrid() {
         mattersGrid.innerHTML = "";
         const bookmarks = loadBookmarks();
-        mattersSection.classList.remove("hidden");
 
         if (bookmarks.length === 0) {
-            mattersGrid.innerHTML = `
-                <div style="grid-column: 1 / -1; background: var(--bg-muted); border: 1px dashed var(--border); border-radius: 10px; padding: 16px; text-align: center; color: var(--text-muted); font-size: 13px; margin: 4px 0;">
-                    <i class="fa-solid fa-star" style="color: #f59e0b; margin-right: 6px;"></i>
-                    <strong>No pinned portals yet</strong> — click the <i class="fa-solid fa-star" style="color:#f59e0b; font-size:12px;"></i> star icon on any portal card below to pin your frequent portals here for 1-click access!
-                </div>`;
+            mattersSection.classList.add("hidden");
             return;
         }
+
+        mattersSection.classList.remove("hidden");
+
         bookmarks.forEach(agency => {
             const origCard = grid.querySelector(`.service-card[data-agency="${agency}"]`);
             if (!origCard) return;
