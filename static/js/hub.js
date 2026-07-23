@@ -1539,8 +1539,22 @@ function initSgHub() {
 
     function renderCommunityPane(data) {
         const banner = syncBanner(data.data_status);
+        const events = data.community_events || [];
+        const count = events.length;
+
+        // The feed is scoped to the last 24h (server-side); is_live means that 24h window actually
+        // returned posts, otherwise we widened to "latest available". Surface which one, so users
+        // know the deals/meetups below are fresh rather than an undated dump.
+        const within24h = !!(data.data_status && data.data_status.is_live);
+        const windowChip = count ? `<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:2px 0 12px;">
+            <span style="display:inline-flex; align-items:center; gap:6px; background:${within24h ? '#eef6ff' : 'var(--bg-muted)'}; color:${within24h ? '#1d4ed8' : 'var(--text-muted)'}; border:1px solid ${within24h ? '#bfdbfe' : 'var(--border)'}; font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px;">
+                <i class="fa-solid fa-clock"></i> ${within24h ? 'Deals &amp; meetups from the last 24 hours' : 'Latest available — nothing posted in the last 24h'}
+            </span>
+            <span style="font-size:11px; color:var(--text-muted);">${count} post${count === 1 ? '' : 's'}</span>
+        </div>` : '';
+
         let commHtml = "";
-        data.community_events.forEach(evt => {
+        events.forEach(evt => {
             commHtml += `<div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 8px;">
                 <div style="display:flex; justify-content:space-between; margin-bottom: 6px; font-weight:600; flex-wrap:wrap; gap:8px;">
                     <span style="color: var(--link); display:inline-flex; align-items:center; gap:6px;">
@@ -1552,7 +1566,7 @@ function initSgHub() {
                 <div style="color: var(--text-main); line-height:1.45;">${escapeHTML(evt.content)}</div>
             </div>`;
         });
-        communityEventsContent.innerHTML = banner + (commHtml || "<p style='color: var(--text-subtle); margin:0;'>No community updates.</p>");
+        communityEventsContent.innerHTML = banner + windowChip + (commHtml || "<p style='color: var(--text-subtle); margin:0;'>No community updates.</p>");
     }
 
     function renderHdbPane(data) {

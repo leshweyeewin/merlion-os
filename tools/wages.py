@@ -6,6 +6,7 @@ and the full MOM OWS Excel workbook parser (500+ detailed job titles,
 YoY increment ranking, new/discontinued titles, tech role highlighting).
 """
 
+import os
 import re as _occ_re
 from tools.core import (
     _cache_synced_at,
@@ -24,6 +25,24 @@ from tools.core import (
 _OCC_WAGE_XLSX_URL = "https://stats.mom.gov.sg/iMAS_Tables1/Wages/Wages_{year}/mrsd_{year}Wages_table1.xlsx"
 _occ_wage_cache = {"data": None, "fetched_at": 0}
 _OCC_WAGE_CACHE_TTL_SECONDS = 24 * 60 * 60  # annual survey — daily refresh is plenty
+
+# Committed last-resort snapshot shipped inside the image. stats.mom.gov.sg 403-blocks the OWS
+# workbook from datacenter IPs (incl. Cloud Run), and .data_cache/ is dockerignored, so a fresh
+# container has no runtime snapshot to fall back to. This seed guarantees the panel still shows
+# real last-known data (its own baked-in `synced_at` keeps the age honest). Refresh it from a
+# machine that can reach MOM: `cp .data_cache/occ_wages.json data_seed/occ_wages.json`.
+_OCC_WAGE_SEED_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data_seed", "occ_wages.json")
+
+def _load_occ_wage_seed():
+    """Returns the OWS data dict from the committed seed (data_seed/occ_wages.json), or None if
+    it's missing/unreadable. The seed file uses the same {"fetched_at", "data"} shape that
+    _disk_cache_save writes, so only the inner `data` payload is returned."""
+    import json
+    try:
+        with open(_OCC_WAGE_SEED_PATH, "r", encoding="utf-8") as f:
+            return json.load(f).get("data")
+    except (OSError, ValueError):
+        return None
 
 # Detailed-occupation titles counted as "tech/digital" for the sector view. "data entry" is
 # excluded explicitly — it matches \bdata\b but is a clerical role, not a tech one.
@@ -160,6 +179,25 @@ def compute_occupational_wage_insights() -> dict:
         print("  [MOM OWS] Served from disk snapshot (.data_cache/occ_wages.json).")
         return disk_data
 
+    def _serve_stale_or_raise(reason: str) -> dict:
+        """Live MOM fetch produced no usable edition (commonly a 403 from stats.mom.gov.sg's WAF,
+        or a refused connection). Prefer an expired disk snapshot over a dead panel — cached as
+        fresh (fetched_at=now) so repeat requests / the sibling jobs load don't re-hammer the
+        failing upstream until the TTL lapses. The snapshot keeps its own baked-in `synced_at`,
+        so the UI still shows the data's true (older) age. Mirrors tools/core.py::_cached_rows.
+        Falls back to the committed image seed when there's no runtime snapshot (the fresh-
+        container case). Raises only when neither exists."""
+        stale, _ = _disk_cache_load("occ_wages", float("inf"))
+        source = ".data_cache/occ_wages.json"
+        if stale is None:
+            stale = _load_occ_wage_seed()
+            source = "committed seed data_seed/occ_wages.json"
+        if stale is not None:
+            print(f"  [MOM OWS] {reason} — serving {source}, cached as fresh to avoid re-hitting MOM.")
+            _cache_set(_occ_wage_cache, stale, fetched_at=time.time())
+            return stale
+        raise ValueError(reason)
+
     # Discover the latest published edition (survey year runs behind calendar year).
     # The candidate-year probes are independent downloads, so they run concurrently —
     # the cold-cache fetch costs roughly the duration of the single slowest download.
@@ -189,12 +227,12 @@ def compute_occupational_wage_insights() -> dict:
                 year_results[candidate] = parsed
                 break
     if latest_year is None:
-        raise ValueError("No MOM OWS table1 edition reachable on stats.mom.gov.sg (see [MOM OWS] logs above for per-year causes)")
+        return _serve_stale_or_raise("No live MOM OWS table1 edition reachable on stats.mom.gov.sg (see [MOM OWS] logs above for per-year causes)")
     latest = year_results[latest_year]
     prior_year = latest_year - 1
     prior = year_results.get(prior_year) or _safe_fetch_year(prior_year)
     if not prior:
-        raise ValueError(f"Prior-year OWS table1 ({prior_year}) not reachable (see [MOM OWS] logs above)")
+        return _serve_stale_or_raise(f"Prior-year OWS table1 ({prior_year}) not reachable live (see [MOM OWS] logs above)")
 
     # Pair latest-year occupations with prior-year rows: exact name first, then fuzzy rename match.
     new_keys = set(latest) - set(prior)
