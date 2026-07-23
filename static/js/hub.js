@@ -539,33 +539,116 @@ function initSgHub() {
             }
         }
 
-        // --- Render IRAS Due Dates Timeline ---
+        // --- Render IRAS Due Dates Timeline (time-aware: next-up hero → upcoming → passed) ---
+        // The raw feed is ~17 undifferentiated dates spanning the whole year; past and future
+        // look identical and it always spotlighted the 18 Apr individual-tax card even months
+        // after it lapsed. Instead: parse each "DD Mon YYYY", split on today, lead with the
+        // single nearest upcoming deadline + a countdown, list the rest, and tuck the passed
+        // ones behind a collapsed toggle so the section opens on what's actually actionable.
         const banner = syncBanner(data.data_status);
 
         let timelineHtml = "";
         if (data.due_dates && data.due_dates.length > 0) {
-            timelineHtml += `<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:10px;">`;
-            data.due_dates.forEach(item => {
-                const isIIT = item.category.toLowerCase().includes("individual");
-                const borderLeft = isIIT ? "4px solid #ef4444" : "1px solid var(--border)";
-                const bg = isIIT ? "#fef2f2" : "var(--bg-muted)";
-                const badgeBg = isIIT ? "#fee2e2" : "var(--border)";
-                const badgeColor = isIIT ? "#b91c1c" : "var(--text-main)";
+            const CAT_COLORS = {
+                "individual income tax": "#ef4444",
+                "corporate income tax": "#6366f1",
+                "goods and services tax (gst)": "#0ea5e9",
+                "auto-inclusion/ e-submission": "#8b5cf6",
+                "international tax": "#14b8a6",
+                "property tax": "#f59e0b",
+            };
+            const catColor = (c) => CAT_COLORS[(c || "").toLowerCase().trim()] || "var(--text-muted)";
 
-                timelineHtml += `<div style="background:${bg}; border:1px solid var(--border); border-left:${borderLeft}; border-radius:8px; padding:12px; display:flex; flex-direction:column; justify-content:space-between; gap:10px;">
-                    <div style="display:flex; flex-direction:column; gap:4px;">
-                        <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; flex-wrap:wrap;">
-                            <span style="font-weight:800; color:var(--text-main); font-size:13px;"><i class="fa-solid fa-calendar-day" style="color:var(--primary); font-size:11px;"></i> ${escapeHTML(item.date)}</span>
-                            <span style="background:${badgeBg}; color:${badgeColor}; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; text-transform:uppercase; letter-spacing:0.5px;">${escapeHTML(item.category)}</span>
-                        </div>
-                        <span style="color:var(--text-muted); font-size:12px; line-height:1.4; margin-top:2px;">${escapeHTML(item.label)}</span>
+            const MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+            const parseDue = (s) => {
+                const m = /(\d{1,2})\s+([A-Za-z]{3})[a-z]*\s+(\d{4})/.exec(s || "");
+                if (!m || MONTHS[m[2].toLowerCase()] === undefined) return null;
+                return new Date(+m[3], MONTHS[m[2].toLowerCase()], +m[1]);
+            };
+
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const DAY_MS = 86400000;
+            const rows = data.due_dates.map((item, i) => {
+                const d = parseDue(item.date);
+                const days = d ? Math.round((d - today) / DAY_MS) : null;
+                return { item, d, days, i, passed: days !== null && days < 0 };
+            });
+            // chronological; anything unparseable sinks to the end but stays visible
+            rows.sort((a, b) => (a.d && b.d) ? (a.d - b.d) : (a.d ? -1 : b.d ? 1 : a.i - b.i));
+
+            const upcoming = rows.filter(r => !r.passed);
+            const passed = rows.filter(r => r.passed);
+            const nextUp = upcoming.find(r => r.days !== null) || null;
+
+            const countdown = (n) => n === 0 ? "Due today" : n === 1 ? "Due tomorrow" : `In ${n} days`;
+            const urgeColor = (n) => n <= 3 ? "#dc2626" : n <= 14 ? "#d97706" : "#16a34a";
+
+            // Compact row for the upcoming / passed lists.
+            const rowHtml = (r, dim) => {
+                const c = catColor(r.item.category);
+                const pill = r.passed
+                    ? `<span style="background:var(--border); color:var(--text-muted); font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px;">Passed</span>`
+                    : r.days === null ? ""
+                        : `<span style="background:${urgeColor(r.days)}; color:#fff; font-size:10px; font-weight:800; padding:2px 8px; border-radius:20px; white-space:nowrap;">${countdown(r.days)}</span>`;
+                return `<div style="display:flex; align-items:center; gap:12px; background:var(--bg-muted); border:1px solid var(--border); border-left:3px solid ${c}; border-radius:8px; padding:10px 12px;${dim ? " opacity:0.6;" : ""}">
+                    <div style="min-width:80px; display:flex; flex-direction:column; gap:3px;">
+                        <span style="font-weight:800; color:var(--text-main); font-size:12.5px; white-space:nowrap;">${escapeHTML(r.item.date)}</span>
+                        ${pill}
                     </div>
-                    <a href="${safeURL(item.link)}" target="_blank" style="background:var(--bg-panel); border:1px solid var(--border); padding:6px 12px; border-radius:6px; font-size:11.5px; color:var(--link); text-decoration:none; font-weight:700; display:inline-flex; align-items:center; gap:5px; align-self:flex-start; margin-top:4px;">
+                    <div style="flex:1; min-width:0;">
+                        <span style="display:inline-block; color:${c}; font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:2px;">${escapeHTML(r.item.category)}</span>
+                        <div style="color:var(--text-main); font-size:12.5px; line-height:1.35;">${escapeHTML(r.item.label)}</div>
+                    </div>
+                    <a href="${safeURL(r.item.link)}" target="_blank" title="File on IRAS" style="flex-shrink:0; color:var(--link); text-decoration:none; font-size:11.5px; font-weight:700; display:inline-flex; align-items:center; gap:5px; padding:6px 10px; border:1px solid var(--border); border-radius:6px; background:var(--bg-panel);">
+                        File <i class="fa-solid fa-up-right-from-square" style="font-size:9px;"></i>
+                    </a>
+                </div>`;
+            };
+
+            // Hero — the single nearest upcoming deadline, with countdown + primary CTA.
+            let heroHtml = "";
+            if (nextUp) {
+                const c = catColor(nextUp.item.category);
+                heroHtml = `<div style="border:1px solid var(--border); border-left:4px solid ${c}; border-radius:12px; padding:16px 18px; margin-bottom:14px; background:var(--bg-panel);">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+                        <span style="font-size:10px; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted);"><i class="fa-solid fa-bolt" style="color:${c};"></i> Next Deadline</span>
+                        <span style="background:${urgeColor(nextUp.days)}; color:#fff; font-size:12px; font-weight:800; padding:3px 12px; border-radius:20px;">${countdown(nextUp.days)}</span>
+                    </div>
+                    <div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;">
+                        <span style="font-size:22px; font-weight:800; color:var(--text-main);">${escapeHTML(nextUp.item.date)}</span>
+                        <span style="color:${c}; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px;">${escapeHTML(nextUp.item.category)}</span>
+                    </div>
+                    <div style="color:var(--text-main); font-size:14px; line-height:1.4; margin:6px 0 12px;">${escapeHTML(nextUp.item.label)}</div>
+                    <a href="${safeURL(nextUp.item.link)}" target="_blank" style="display:inline-flex; align-items:center; gap:6px; background:var(--primary); color:#fff; font-weight:700; font-size:12.5px; padding:8px 16px; border-radius:8px; text-decoration:none;">
                         File Now <i class="fa-solid fa-up-right-from-square" style="font-size:10px;"></i>
                     </a>
                 </div>`;
-            });
-            timelineHtml += `</div>`;
+            }
+
+            // The remaining upcoming deadlines (hero excluded).
+            const restUpcoming = upcoming.filter(r => r !== nextUp);
+            let upcomingHtml = "";
+            if (restUpcoming.length) {
+                upcomingHtml = `<div style="font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin:4px 0 8px;">${nextUp ? "Also upcoming" : "Upcoming"} · ${restUpcoming.length}</div>
+                    <div style="display:flex; flex-direction:column; gap:8px;">${restUpcoming.map(r => rowHtml(r, false)).join("")}</div>`;
+            } else if (!nextUp) {
+                upcomingHtml = `<p style="color:var(--text-subtle); margin:0; font-style:italic;">All listed YA 2026 deadlines have passed.</p>`;
+            }
+
+            // Passed deadlines — collapsed by default, most-recent first, dimmed.
+            let passedHtml = "";
+            if (passed.length) {
+                const passedRows = passed.slice().reverse().map(r => rowHtml(r, true)).join("");
+                passedHtml = `<details style="margin-top:14px;">
+                    <summary style="cursor:pointer; font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; list-style:none; display:flex; align-items:center; gap:6px; user-select:none;">
+                        <i class="fa-solid fa-clock-rotate-left"></i> Passed this year · ${passed.length}
+                        <span style="font-weight:600; text-transform:none; letter-spacing:0;">(click to show)</span>
+                    </summary>
+                    <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">${passedRows}</div>
+                </details>`;
+            }
+
+            timelineHtml = heroHtml + upcomingHtml + passedHtml;
         } else {
             timelineHtml = `<p style="color: var(--text-subtle); margin: 0; font-style: italic;">No tax deadlines reported.</p>`;
         }
@@ -1041,6 +1124,14 @@ function initSgHub() {
             <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML((coe && coe.synced_at) || getRetrievalTimestamp())}
         </div>`;
 
+        // COE trend metadata (category colours + whether there's enough history to chart) is used
+        // both inside the COE panel below AND again outside that block to draw the chart. It must
+        // therefore be function-scoped: declaring it inside `if (coeEventsContent)` left the chart
+        // code at the bottom referencing out-of-scope consts (ReferenceError: hasCoeHistory is not
+        // defined), which threw and failed the entire Transit & Transport pane.
+        const coeCategoryColors = { 'A': '#2563eb', 'B': '#7c3aed', 'C': '#d97706', 'D': '#059669', 'E': '#dc2626' };
+        const hasCoeHistory = coeHistory && coeHistory.exercises && coeHistory.exercises.length > 1;
+
         // --- Render Panel 2: Taxi Availability & Map ---
         if (taxiEventsContent) {
             const taxiHtml = !taxiAvailability
@@ -1063,7 +1154,6 @@ function initSgHub() {
 
         // --- Render Panel 3: Transport & Vehicle Costs (COE) ---
         if (coeEventsContent) {
-            const coeCategoryColors = { 'A': '#2563eb', 'B': '#7c3aed', 'C': '#d97706', 'D': '#059669', 'E': '#dc2626' };
             const coeCategoriesHtml = (coe && coe.categories && coe.categories.length)
                 ? coe.categories.map(c => `
                     <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; min-width: 130px; flex: 1;">
@@ -1075,7 +1165,6 @@ function initSgHub() {
                     </div>`).join('')
                 : `<p style="color: var(--text-subtle); margin:0; font-size: 13px;">COE data unavailable.</p>`;
 
-            const hasCoeHistory = coeHistory && coeHistory.exercises && coeHistory.exercises.length > 1;
             const coeCaption = (coeHistory && coeHistory.insight)
                 ? coeHistory.insight
                 : "Two bidding rounds per month — hover for every category's exact premium.";
