@@ -5,6 +5,8 @@ Covers: live HDB newsroom scraper (BTO launch details via __NEXT_DATA__),
 CPF Enhanced Housing Grant (EHG) calculation, and HDB resale price stats.
 """
 
+import os
+import time
 import logging
 import requests
 import json
@@ -15,6 +17,8 @@ from tools.core import (
     _cache_set,
     _cached_rows,
     _fetch_datagovsg_csv_rows,
+    _disk_cache_load,
+    _disk_cache_save,
     _forecast_next_linear,
     make_feed_status,
 )
@@ -28,6 +32,23 @@ _hdb_news_status = make_feed_status(True)
 # far the slowest part of the HDB pane, and HDB only posts a few times a week, so cache it.
 _hdb_news_cache = {"data": None, "fetched_at": 0}
 _HDB_NEWS_CACHE_TTL_SECONDS = 30 * 60  # 30 min — newsroom updates a few times a week, not intraday
+
+# Committed last-resort snapshot shipped inside the image. hdb.gov.sg's WAF 403-blocks the
+# newsroom from datacenter IPs (incl. GCP Cloud Run), and .data_cache/ is dockerignored, so a
+# fresh container has no runtime snapshot to fall back to and the pane renders empty. This seed
+# (real articles captured from a residential/AWS IP that the WAF allows) keeps the card populated,
+# badged "showing last known" so its age stays honest. Refresh from a machine that can reach HDB:
+# `cp .data_cache/hdb_news.json data_seed/hdb_news.json`.
+_HDB_NEWS_SEED_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data_seed", "hdb_news.json")
+
+def _load_hdb_news_seed() -> list | None:
+    """Returns the article list from the committed HDB-news seed, or None if missing/unreadable.
+    The seed file uses the same {"fetched_at", "data"} shape _disk_cache_save writes."""
+    try:
+        with open(_HDB_NEWS_SEED_PATH, "r", encoding="utf-8") as f:
+            return json.load(f).get("data")
+    except (OSError, ValueError):
+        return None
 
 def get_hdb_news_status() -> dict:
     return _hdb_news_status
@@ -563,10 +584,23 @@ def scrape_hdb_news() -> list:
                 print(f"  \033[32m✔\033[0m [HDB News Scraper] Returning {len(results)} latest news articles with real embedded URLs.")
                 _hdb_news_status = make_feed_status(True)
                 _cache_set(_hdb_news_cache, results)
+                _disk_cache_save("hdb_news", results, time.time())
                 return results
     except Exception as e:
         logger.warning(f"Error scraping HDB news: {e}")
 
-    # Return empty list on failure — the pane shows an empty-state note, badged as offline.
+    # Live scrape failed — almost always a WAF 403 from a datacenter IP (GCP Cloud Run), where
+    # hdb.gov.sg blocks the request outright. Serve the newest disk snapshot, else the committed
+    # image seed, so the pane shows real last-known releases instead of an empty card. Badge it
+    # "showing last known" so a stale fallback is never presented as live.
+    stale, _ = _disk_cache_load("hdb_news", float("inf"))
+    if not stale:
+        stale = _load_hdb_news_seed()
+    if stale:
+        print(f"  [HDB News Scraper] live fetch failed — serving {len(stale)} last-known articles (snapshot/seed).")
+        _hdb_news_status = make_feed_status(False, note="HDB Newsroom unreachable — showing last known releases")
+        _cache_set(_hdb_news_cache, stale)
+        return stale
+
     _hdb_news_status = make_feed_status(False, note="HDB Newsroom unreachable — no live releases to show")
     return []

@@ -1,0 +1,52 @@
+name: Refresh data seeds
+
+# The HDB newsroom and MOM OWS sources WAF-block GCP Cloud Run's IPs, so the app falls back to
+# committed seeds (data_seed/*.json). Those seeds go stale on GCP because the container can never
+# refresh them itself. This job runs from a GitHub-hosted runner (an IP the WAFs generally allow),
+# re-scrapes each source, and — only when a seed actually changed — commits it and triggers a
+# redeploy so the GCP demo stays within a day of live.
+#
+# Caveat: if the runner IP is also blocked, scripts/refresh_seeds.py skips that source and leaves
+# its seed untouched (never clobbers good data). If GitHub runners turn out to be blocked for a
+# source, point this at a self-hosted runner on an allowed network (e.g. Render/residential).
+
+on:
+  schedule:
+    - cron: "0 20 * * *"   # 20:00 UTC daily = 04:00 SGT
+  workflow_dispatch: {}
+
+permissions:
+  contents: write   # commit the refreshed seeds
+  actions: write    # trigger the deploy workflow
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install scraper dependencies
+        run: pip install requests beautifulsoup4 openpyxl
+
+      - name: Refresh seeds
+        run: python scripts/refresh_seeds.py
+
+      - name: Commit refreshed seeds and redeploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet -- data_seed/; then
+            echo "No seed changes this run — nothing to deploy."
+            exit 0
+          fi
+          git config user.name "merlion-seed-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data_seed/
+          git commit -m "chore: refresh WAF-blocked .gov.sg data seeds"
+          git push
+          echo "Seeds changed — triggering Cloud Run deploy."
+          gh workflow run deploy.yml --ref main
