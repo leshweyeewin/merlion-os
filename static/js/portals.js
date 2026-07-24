@@ -501,14 +501,11 @@ function initPortalVisibility() {
             if (willOpen) {
                 selected.clear();
                 renderDropdown();
-                // On mobile the dropdown is position:fixed, so we must set top via JS.
-                // On desktop it's position:absolute with CSS top: calc(100% + 6px).
-                if (window.innerWidth <= 600) {
-                    const btnRect = manageBtn.getBoundingClientRect();
-                    dropdown.style.top = (btnRect.bottom + 6) + "px";
-                } else {
-                    dropdown.style.top = "";
-                }
+                // Position is CSS-driven: absolute below the button on desktop, and a fixed
+                // bottom-anchored sheet on mobile (always fully on-screen, independent of how far
+                // the toolbar button has scrolled). Clear any stale inline top from older logic
+                // that anchored the mobile panel to the button and dropped it off the fold.
+                dropdown.style.top = "";
             }
             dropdown.classList.toggle("hidden", !willOpen);
         });
