@@ -438,6 +438,11 @@ body {
         width: 100%;
         opacity: 0.4;
     }
+    /* Keep the streaming cursor visible as a "generating" marker, but don't blink it. */
+    .streaming-content::after {
+        animation: none;
+        opacity: 1;
+    }
 }
 
 /* ── Item 7: Bookmark (star) button on portal cards ────────────────────────── */
@@ -1311,6 +1316,18 @@ body {
     background: var(--primary);
     border-color: var(--primary);
     color: #ffffff !important;
+}
+
+/* De-linked login/SingPass source: reads as informational, not clickable. */
+.citation-pill-noauth {
+    color: var(--text-muted) !important;
+    cursor: default;
+    gap: 4px;
+}
+.citation-pill-noauth:hover {
+    background: var(--bg-muted);
+    border-color: var(--border);
+    color: var(--text-muted) !important;
 }
 
 

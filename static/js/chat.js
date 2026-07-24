@@ -63,6 +63,16 @@ document.addEventListener("DOMContentLoaded", () => {
         return `[${now.toTimeString().split(' ')[0]}]`;
     }
 
+    // Mirrors the backend's AUTH_URL_KEYWORDS (tools/search.py). A Google Search Grounding
+    // citation can point at a SingPass/login/auth page; the system prompt forbids the model from
+    // emitting a clickable login URL, so we enforce the same rule on the citations path — such a
+    // source is shown as plain, non-clickable text instead of a link (anti-phishing).
+    const AUTH_URL_KEYWORDS = ["login", "signin", "sign-in", "auth", "singpass", "corppass"];
+    function isAuthURL(url) {
+        const u = String(url).toLowerCase();
+        return AUTH_URL_KEYWORDS.some(k => u.includes(k));
+    }
+
     // Custom lightweight markdown renderer to safely format agent outputs
     function renderMarkdown(text) {
         if (!text) return "";
@@ -349,6 +359,15 @@ document.addEventListener("DOMContentLoaded", () => {
                                             try {
                                                 domain = new URL(c.uri).hostname.replace("www.", "");
                                             } catch (err) {}
+                                            // Login/SingPass/auth sources are shown de-linked — never a clickable
+                                            // login link from the assistant (same rule as the model's answer text).
+                                            if (isAuthURL(c.uri)) {
+                                                return `
+                                                    <span class="citation-pill citation-pill-noauth" title="Open this yourself in a new browser tab — never follow login links from a chat assistant">
+                                                        <strong>[${idx + 1}]</strong> ${escapeHTML(domain)} <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+                                                    </span>
+                                                `;
+                                            }
                                             return `
                                                 <a href="${safeURL(c.uri)}" target="_blank" rel="noopener noreferrer" class="citation-pill" title="${escapeHTML(c.title)}">
                                                     <strong>[${idx + 1}]</strong> ${escapeHTML(domain)}
