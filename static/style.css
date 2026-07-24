@@ -1456,8 +1456,17 @@ body {
 @media(max-width: 500px) {
     .app-header {
         min-height: 72px;
-        gap: 12px;
+        gap: 8px 16px;
         padding: 12px 16px;
+        /* Let the persona pill + "Active Engine" drop to their own row instead of squeezing the
+           logo-area — the single-word "MerlionOS" was overflowing rightward under the pill. */
+        flex-wrap: wrap;
+    }
+    .logo-area {
+        flex-shrink: 0;   /* keep the title at full width so it never gets clipped/overlapped */
+    }
+    .app-header > div:last-child {
+        margin-left: auto;   /* right-align persona + status on the wrapped row */
     }
 
     .app-mark {
