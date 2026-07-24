@@ -120,7 +120,6 @@ function initSgHub() {
     const hdbLaunchesContent = document.getElementById("hub-hdb-launches");
     const hdbNewsContent = document.getElementById("hub-hdb-news");
     const hdbResaleContent = document.getElementById("hub-hdb-resale");
-    const transportContent = document.getElementById("hub-transport-content");
     const jobsContent = document.getElementById("hub-jobs-content");
     const sectorTabButtons = document.querySelectorAll(".sector-tab-btn");
 
@@ -301,6 +300,11 @@ function initSgHub() {
         "hub-env-pane": false
     };
 
+    // Panes with a fetch currently in flight. The "loaded" flag above is only set on completion,
+    // so on a slow/cold-start fetch, tab-switching back before it finishes would otherwise kick
+    // off a duplicate fetch (and re-show the skeleton) every visit. This guards against that.
+    const loadingSgHubPanes = {};
+
     function skeletonRows(n, widths = ["tall", "medium", "short"]) {
         const rows = Array.from({ length: n }, () => `
             <div class="skeleton-row">
@@ -344,7 +348,10 @@ function initSgHub() {
         setPaneLoadingBar(paneId, true);
         if (paneId === "hub-transport-pane" || paneId === "hub-gov-transit-pane") {
             mrtEventsContent.innerHTML = skeletonRows(3);
-            if (transportContent) transportContent.innerHTML = skeletonCardGrid(9);
+            // taxi + COE live in their own elements — the old `hub-transport-content` id doesn't
+            // exist, so those sections used to never show a loading state (only MRT flickered).
+            if (taxiEventsContent) taxiEventsContent.innerHTML = skeletonCardGrid(4);
+            if (coeEventsContent) coeEventsContent.innerHTML = skeletonRows(2);
             govEventsContent.innerHTML = skeletonRows(3);
         } else if (paneId === "hub-hdb-pane") {
             hdbLaunchesContent.innerHTML = skeletonRows(3, ["tall", "full", "medium"]);
@@ -361,7 +368,8 @@ function initSgHub() {
     function showPaneError(paneId) {
         if (paneId === "hub-transport-pane" || paneId === "hub-gov-transit-pane") {
             mrtEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load transit feeds.</p>";
-            if (transportContent) transportContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load transport data.</p>";
+            if (taxiEventsContent) taxiEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load taxi availability.</p>";
+            if (coeEventsContent) coeEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load COE data.</p>";
             govEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load official alerts.</p>";
         } else if (paneId === "hub-hdb-pane") {
             hdbLaunchesContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load BTO listings.</p>";
@@ -438,7 +446,7 @@ function initSgHub() {
     }
 
     async function loadSgHubPaneData(paneId) {
-        if (loadedSgHubPanes[paneId]) return;
+        if (loadedSgHubPanes[paneId] || loadingSgHubPanes[paneId]) return;
 
         let endpoint = "";
         if (paneId === "hub-transport-pane") endpoint = "/api/sg-hub/transit";
@@ -455,6 +463,7 @@ function initSgHub() {
         // off in parallel with the main jobs fetch; it caches itself under its own key.
         if (paneId === "hub-jobs-pane") loadOccupationalWages();
 
+        loadingSgHubPanes[paneId] = true;
         showPaneLoader(paneId);
 
         try {
@@ -481,6 +490,7 @@ function initSgHub() {
             console.error("Failed to load pane " + paneId, err);
             showPaneError(paneId);
         } finally {
+            loadingSgHubPanes[paneId] = false;
             setPaneLoadingBar(paneId, false);
         }
     }
