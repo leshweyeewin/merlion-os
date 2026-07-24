@@ -12,7 +12,11 @@ name: Refresh data seeds
 
 on:
   schedule:
-    - cron: "0 20 * * *"   # 20:00 UTC daily = 04:00 SGT
+    # Hourly. The commit/deploy step only fires when the scraped DATA actually changes
+    # (refresh_seeds.py compares payloads and ignores timestamps), so most hourly runs are a
+    # cheap no-op — HDB posts a few times a week, MOM OWS is annual. Widen the interval if you
+    # want fewer runs, e.g. "0 */6 * * *" for every 6 hours.
+    - cron: "0 * * * *"
   workflow_dispatch: {}
 
 permissions:

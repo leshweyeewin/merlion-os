@@ -238,16 +238,20 @@ def compute_occupational_wage_insights() -> dict:
     new_keys = set(latest) - set(prior)
     gone_keys = set(prior) - set(latest)
     gone_by_match_key = {}
-    for g in gone_keys:
+    # Iterate the key sets in sorted order, not set-iteration order: Python randomizes string
+    # hashing per process (PYTHONHASHSEED), so unsorted iteration makes ambiguous rename-pairings
+    # tie-break differently each run — producing a slightly different result every time and
+    # churning the committed seed on each scheduled refresh. Sorting makes the output reproducible.
+    for g in sorted(gone_keys):
         gone_by_match_key.setdefault(_occ_wage_match_key(g), []).append(g)
 
     pair_for = {k: k for k in set(latest) & set(prior)}  # latest key -> prior key
     genuinely_new = []
-    for nk in new_keys:
+    for nk in sorted(new_keys):
         mk = _occ_wage_match_key(nk)
         candidates = gone_by_match_key.get(mk)
         if not candidates:
-            close = difflib.get_close_matches(mk, list(gone_by_match_key), n=1, cutoff=0.87)
+            close = difflib.get_close_matches(mk, sorted(gone_by_match_key), n=1, cutoff=0.87)
             candidates = gone_by_match_key.get(close[0]) if close else None
         if candidates:
             pair_for[nk] = candidates.pop(0)

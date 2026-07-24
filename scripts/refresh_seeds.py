@@ -20,13 +20,30 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _ROOT)
 
 
-def _write_seed(name: str, payload) -> None:
-    """Write data_seed/<name>.json in the {"fetched_at", "data"} shape the loaders expect."""
+def _write_seed(name: str, payload, ignore_keys=("synced_at",)) -> bool:
+    """Write data_seed/<name>.json in the {"fetched_at", "data"} shape the loaders expect —
+    but ONLY when the meaningful data actually changed. The file stamps fetched_at=now on every
+    write, and OWS bakes a fresh `synced_at` into its payload, so writing unconditionally would
+    diff-churn a commit+deploy on every run (bad once this is hourly). Compare the existing vs new
+    `data` with volatile keys (`synced_at`) stripped; skip the write when unchanged. Returns
+    whether the file was (re)written."""
+    def _norm(d):
+        return {k: v for k, v in d.items() if k not in ignore_keys} if isinstance(d, dict) else d
+
     path = os.path.join(_ROOT, "data_seed", f"{name}.json")
     os.makedirs(os.path.dirname(path), exist_ok=True)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            if _norm(json.load(f).get("data")) == _norm(payload):
+                print(f"  [ok] data_seed/{name}.json already current — no change")
+                return False
+    except (OSError, ValueError):
+        pass  # missing/corrupt existing seed → (re)write it
+
     with open(path, "w", encoding="utf-8") as f:
         json.dump({"fetched_at": time.time(), "data": payload}, f, ensure_ascii=False)
     print(f"  [ok] refreshed data_seed/{name}.json")
+    return True
 
 
 def refresh_hdb_news() -> bool:
@@ -37,8 +54,7 @@ def refresh_hdb_news() -> bool:
     h._hdb_news_cache.update({"data": None, "fetched_at": 0})
     articles = h.scrape_hdb_news()
     if articles and h.get_hdb_news_status().get("is_live"):
-        _write_seed("hdb_news", articles)
-        return True
+        return _write_seed("hdb_news", articles)
     print("  [skip] HDB news: live fetch blocked/empty — keeping existing seed")
     return False
 
@@ -58,8 +74,7 @@ def refresh_occ_wages() -> bool:
     except Exception as e:
         print(f"  [skip] MOM OWS: live fetch blocked/failed ({type(e).__name__}) — keeping existing seed")
         return False
-    _write_seed("occ_wages", data)
-    return True
+    return _write_seed("occ_wages", data)
 
 
 def main() -> int:
