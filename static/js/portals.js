@@ -611,6 +611,7 @@ function initPortalBookmarks() {
     const grid = document.querySelector(".grid-container");
     const mattersSection = document.getElementById("my-matters-section");
     const mattersGrid = document.getElementById("my-matters-grid");
+    const clearBtn = document.getElementById("my-matters-clear");
     if (!grid || !mattersSection || !mattersGrid) return;
 
     const STORAGE_KEY = "merlionos-bookmarked-portals";
@@ -661,12 +662,21 @@ function initPortalBookmarks() {
         mattersGrid.innerHTML = "";
         const bookmarks = loadBookmarks();
 
+        // My Matters stays visible even when empty, so the ★ feature is discoverable
+        // (otherwise users never learn the star exists — chicken-and-egg). Show a
+        // friendly empty-state card until the first portal is pinned.
+        mattersSection.classList.remove("hidden");
+
+        // "Clear all" only makes sense once something is pinned
+        if (clearBtn) clearBtn.classList.toggle("hidden", bookmarks.length === 0);
+
         if (bookmarks.length === 0) {
-            mattersSection.classList.add("hidden");
+            const empty = document.createElement("div");
+            empty.className = "my-matters-empty";
+            empty.innerHTML = `⭐ No pinned portals yet — click the <i class="fa-solid fa-star"></i> star icon on any portal card below to pin your frequent portals here for 1-click access!`;
+            mattersGrid.appendChild(empty);
             return;
         }
-
-        mattersSection.classList.remove("hidden");
 
         bookmarks.forEach(agency => {
             const origCard = grid.querySelector(`.service-card[data-agency="${agency}"]`);
@@ -704,6 +714,15 @@ function initPortalBookmarks() {
         });
         card.appendChild(btn);
     });
+
+    if (clearBtn) {
+        clearBtn.addEventListener("click", () => {
+            if (!loadBookmarks().length) return;
+            saveBookmarks([]);
+            updateCardStars();
+            renderMattersGrid();
+        });
+    }
 
     updateCardStars();
     renderMattersGrid();

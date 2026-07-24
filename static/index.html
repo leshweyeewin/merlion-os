@@ -12,7 +12,7 @@
     <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Style Sheet -->
-    <link rel="stylesheet" href="style.css?v=insight14">
+    <link rel="stylesheet" href="style.css?v=insight16">
     <!-- Leaflet JS & CSS for Interactive Maps -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -126,6 +126,9 @@
                     <div class="my-matters-header">
                         <span><i class="fa-solid fa-star"></i> My Matters</span>
                         <span class="my-matters-hint">Your bookmarked portals — click ★ on any card to pin it here</span>
+                        <button type="button" class="my-matters-clear hidden" id="my-matters-clear" title="Remove all pinned portals">
+                            <i class="fa-solid fa-xmark"></i> Clear all
+                        </button>
                     </div>
                     <div class="my-matters-grid" id="my-matters-grid"></div>
                     <hr class="my-matters-divider">
@@ -1686,9 +1689,11 @@
 
         <!-- Floating Chat Trigger Button -->
         <div class="chat-trigger" id="chat-trigger" title="Ask MerlionOS Co-Pilot" role="button" aria-label="Open Co-Pilot chat">
+            <span class="chat-trigger-label" aria-hidden="true">Ask Co-Pilot</span>
             <div class="chat-trigger-icon-wrap">
-                <img src="/merlion-icon-symbolizing-singapore-nation-on-red-gold-button-vector.jpg" alt="MerlionOS Co-Pilot" class="chat-trigger-logo">
+                <img src="merlion-icon-symbolizing-singapore-nation-on-red-gold-button-vector.jpg" alt="MerlionOS Co-Pilot" class="chat-trigger-logo">
             </div>
+            <span class="chat-trigger-badge" aria-hidden="true"><i class="fa-solid fa-comment-dots"></i></span>
             <span class="pulse-indicator" aria-hidden="true"></span>
         </div>
 
@@ -1830,7 +1835,7 @@
     <script src="js/utils.js?v=insight13"></script>
     <script src="js/tax.js?v=insight13"></script>
     <script src="js/persona.js?v=insight17"></script>
-    <script src="js/portals.js?v=insight21"></script>
+    <script src="js/portals.js?v=insight23"></script>
     <script src="js/chat.js?v=insight17"></script>
     <script src="js/hub.js?v=insight20"></script>
 </body>

@@ -503,6 +503,28 @@ body {
     color: var(--text-subtle);
 }
 
+.my-matters-clear {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-subtle);
+    background: var(--bg-muted);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.my-matters-clear:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+    background: var(--primary-soft);
+}
+
 .my-matters-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -513,6 +535,22 @@ body {
 /* Compact card style for My Matters */
 .my-matters-grid .service-card {
     padding: 14px;
+}
+
+/* Empty state — spans the whole grid so the pin hint reads as a full-width card */
+.my-matters-empty {
+    grid-column: 1 / -1;
+    padding: 14px 18px;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    background: var(--bg-muted);
+    color: var(--text-subtle);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.my-matters-empty .fa-star {
+    color: #f59e0b;
 }
 
 .my-matters-divider {
@@ -952,6 +990,52 @@ body {
     border-radius: 50%;
     display: block;
     animation: markerPulse 2s infinite;
+}
+
+/* Chat-bubble badge — signals the logo button opens an AI chat, not just branding */
+.chat-trigger-badge {
+    position: absolute;
+    bottom: -3px;
+    right: -3px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #ffffff;
+    border: 2px solid #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.22);
+}
+
+/* Hover-reveal label (desktop pointers) — spells out the function on approach */
+.chat-trigger-label {
+    position: absolute;
+    right: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%) translateX(8px);
+    white-space: nowrap;
+    background: var(--primary);
+    color: #ffffff;
+    padding: 7px 13px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 600;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.chat-trigger:hover .chat-trigger-label {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+}
+
+@media (hover: none) {
+    .chat-trigger-label { display: none; }
 }
 
 @keyframes markerPulse {
