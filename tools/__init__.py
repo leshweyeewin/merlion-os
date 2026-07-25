@@ -44,6 +44,9 @@ from tools.search import (
     COMMUNITY_CHANNELS,
     scrape_one_telegram_channel,
     scrape_one_telegram_channel_24h,
+    scrape_elections_news,
+    scrape_redeemsg_news,
+    scrape_iras_news,
 )
 
 # ── Environment / weather advisory ───────────────────────────────────────────
@@ -143,6 +146,7 @@ __all__ = [
     "search_singapore_government", "scrape_government_page", "call_tool_robustly",
     "GOV_CHANNELS", "COMMUNITY_CHANNELS",
     "scrape_one_telegram_channel", "scrape_one_telegram_channel_24h",
+    "scrape_elections_news", "scrape_redeemsg_news", "scrape_iras_news",
     # environment
     "get_singapore_live_environment_advisory",
     "fetch_weather_data", "fetch_pub_flood_alerts",
