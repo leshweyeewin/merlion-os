@@ -1597,7 +1597,17 @@ function initSgHub() {
             }
         }
 
-        govEventsContent.innerHTML = banner + floodBannerHtml + (govHtml || "<p style='color: var(--text-subtle); margin:0;'>No official alerts.</p>");
+        const govEvents = data.gov_events || [];
+        const count = govEvents.length;
+        const within3days = !!(data.data_status && data.data_status.is_live);
+        const windowChip = count ? `<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:2px 0 12px;">
+            <span style="display:inline-flex; align-items:center; gap:6px; background:${within3days ? '#eef6ff' : 'var(--bg-muted)'}; color:${within3days ? '#1d4ed8' : 'var(--text-muted)'}; border:1px solid ${within3days ? '#bfdbfe' : 'var(--border)'}; font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px;">
+                <i class="fa-solid fa-clock"></i> ${within3days ? 'Official broadcasts from the last 3 days (72 hours)' : 'Latest available — nothing posted in the last 3 days'}
+            </span>
+            <span style="font-size:11px; color:var(--text-muted);">${count} post${count === 1 ? '' : 's'}</span>
+        </div>` : '';
+
+        govEventsContent.innerHTML = banner + floodBannerHtml + windowChip + (govHtml || "<p style='color: var(--text-subtle); margin:0;'>No official alerts.</p>");
     }
 
     function renderCommunityPane(data) {

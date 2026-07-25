@@ -197,11 +197,9 @@ COMMUNITY_CHANNELS = [
 ]
 
 def scrape_one_telegram_channel(channel: str) -> list:
-    """Scrapes the last 3 posts from a Telegram channel (used for Gov Updates)."""
+    """Scrapes posts from the last 3 days (72 hours) from a Telegram channel (used for Gov Updates)."""
     url = f"https://t.me/s/{channel}"
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
-    }
+    headers = _common_headers()
     print(f"  \033[90m[Scraper Task] HTTP GET {url}\033[0m")
     channel_events = []
     try:
@@ -210,11 +208,14 @@ def scrape_one_telegram_channel(channel: str) -> list:
             print(f"  \033[90m[Scraper Task] HTTP RESPONSE: {r.status_code} ({len(r.text)} bytes) from @{channel}\033[0m")
             if r.status_code == 200:
                 import re
+                from datetime import datetime, timezone, timedelta
                 soup = BeautifulSoup(r.text, 'html.parser')
                 try:
                     messages = soup.find_all("div", class_="tgme_widget_message")
 
+                    now = datetime.now(timezone.utc)
                     valid_msgs = []
+                    within_3d_msgs = []
                     for msg in messages:
                         link_el = msg.find("a", class_="tgme_widget_message_date")
                         link = link_el["href"] if link_el and link_el.has_attr("href") else f"https://t.me/s/{channel}"
@@ -234,10 +235,10 @@ def scrape_one_telegram_channel(channel: str) -> list:
                         iso_date = dt_str
                         date_str = "N/A"
                         try:
-                            from datetime import datetime, timezone, timedelta
                             dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
                             sgt = dt.astimezone(timezone(timedelta(hours=8)))
                             date_str = sgt.strftime("%d %b %Y, %I:%M %p")
+                            is_within_3d = (now - dt) <= timedelta(days=3)
                         except Exception as dt_err:
                             logger.warning(f"Failed to parse datetime '{dt_str}' for channel {channel}: {dt_err}")
                             continue
@@ -246,16 +247,19 @@ def scrape_one_telegram_channel(channel: str) -> list:
                         if len(display_content) > 180:
                             display_content = display_content[:177] + "..."
 
-                        valid_msgs.append({
+                        item = {
                             "source": f"@{channel}",
                             "content": display_content,
                             "link": link,
                             "date": date_str,
                             "iso_date": iso_date
-                        })
+                        }
+                        valid_msgs.append(item)
+                        if is_within_3d:
+                            within_3d_msgs.append(item)
 
-                    channel_events = valid_msgs[-3:]
-                    print(f"  \033[32m✔\033[0m Parsed @{channel}: Found {len(messages)} messages, returning last {len(channel_events)}.")
+                    channel_events = within_3d_msgs if within_3d_msgs else (valid_msgs[-1:] if valid_msgs else [])
+                    print(f"  \033[32m✔\033[0m Parsed @{channel}: Found {len(messages)} messages, {len(within_3d_msgs)} within 3 days (returning {len(channel_events)}).")
                 finally:
                     soup.clear()
         finally:
