@@ -1,0 +1,16 @@
+name: Render Keep-Alive Ping
+
+on:
+  schedule:
+    # Runs every 14 minutes (Render sleeps after 15 min of inactivity)
+    - cron: '*/14 * * * *'
+  # Allows triggering the job manually from the GitHub Actions tab
+  workflow_dispatch:
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render App
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" https://merlion-os.onrender.com/health
