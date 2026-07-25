@@ -2,8 +2,8 @@ name: Render Keep-Alive Ping
 
 on:
   schedule:
-    # Runs every 14 minutes (Render sleeps after 15 min of inactivity)
-    - cron: '*/14 * * * *'
+    # Runs every 10 minutes to account for potential GitHub Actions queue delays
+    - cron: '*/10 * * * *'
   # Allows triggering the job manually from the GitHub Actions tab
   workflow_dispatch:
 
