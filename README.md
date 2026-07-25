@@ -30,7 +30,8 @@ MerlionOS aggregates this entire ecosystem into a single-pane-of-glass daily uti
 ## 🏗️ Architecture & Process Flow
 
 ```mermaid
-graph LR
+%%{init: {'flowchart': {'curve': 'basis', 'padding': 10}}}%%
+graph TD
     User([Citizen / Developer]):::client -->|NL query| UI[Frontend Dashboard<br/>static/js]:::client
     UI -->|POST /api/chat| Server[FastAPI Server<br/>server.py]:::server
     Server -->|Rate limit · 8/min| RateLimit{Under limit?}:::gate
@@ -62,19 +63,21 @@ graph LR
     Server -.->|MCP JSON-RPC| FastMCP[mcp_server.py]:::server
     FastMCP -.->|Tool export| Cursor[External agent<br/>Cursor / Claude]:::external
 
-    classDef client fill:#E8F0FE,stroke:#4285F4,stroke-width:1px,color:#202124;
-    classDef server fill:#4285F4,stroke:#1967D2,stroke-width:1px,color:#ffffff;
-    classDef ai fill:#34A853,stroke:#1E8E3E,stroke-width:1px,color:#ffffff;
-    classDef data fill:#FBBC04,stroke:#F9AB00,stroke-width:1px,color:#202124;
-    classDef api fill:#D2E3FC,stroke:#4285F4,stroke-width:1px,color:#202124;
-    classDef scraper fill:#EA4335,stroke:#C5221F,stroke-width:1px,color:#ffffff;
-    classDef security fill:#5F6368,stroke:#3C4043,stroke-width:1px,color:#ffffff;
-    classDef gate fill:#FEEFC3,stroke:#F9AB00,stroke-width:1px,color:#202124;
-    classDef fallback fill:#F1F3F4,stroke:#9AA0A6,stroke-width:1px,color:#3C4043;
-    classDef external fill:#E8EAED,stroke:#5F6368,stroke-width:1px,color:#202124;
+    classDef client fill:#E8F0FE,stroke:#4285F4,stroke-width:1.5px,color:#202124;
+    classDef server fill:#4285F4,stroke:#1967D2,stroke-width:1.5px,color:#ffffff;
+    classDef ai fill:#34A853,stroke:#1E8E3E,stroke-width:1.5px,color:#ffffff;
+    classDef data fill:#FBBC04,stroke:#F9AB00,stroke-width:1.5px,color:#202124;
+    classDef api fill:#D2E3FC,stroke:#4285F4,stroke-width:1.5px,color:#202124;
+    classDef scraper fill:#EA4335,stroke:#C5221F,stroke-width:1.5px,color:#ffffff;
+    classDef security fill:#5F6368,stroke:#3C4043,stroke-width:1.5px,color:#ffffff;
+    classDef gate fill:#FEEFC3,stroke:#F9AB00,stroke-width:1.5px,color:#202124;
+    classDef fallback fill:#F1F3F4,stroke:#9AA0A6,stroke-width:1.5px,color:#3C4043;
+    classDef external fill:#E8EAED,stroke:#5F6368,stroke-width:1.5px,color:#202124;
 
-    style AI fill:#F3FBF5,stroke:#34A853,stroke-width:1px,color:#1E8E3E;
-    style DATA fill:#FFFBEC,stroke:#F9AB00,stroke-width:1px,color:#B06000;
+    style AI fill:#F3FBF5,stroke:#34A853,stroke-width:2px,color:#1E8E3E;
+    style DATA fill:#FFFBEC,stroke:#F9AB00,stroke-width:2px,color:#B06000;
+
+    linkStyle default stroke:#8A94A6,stroke-width:1.5px;
 ```
 
 ---
