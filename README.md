@@ -4,6 +4,7 @@
 [![CI](https://github.com/leshweyeewin/merlion-os/actions/workflows/ci.yml/badge.svg)](https://github.com/leshweyeewin/merlion-os/actions/workflows/ci.yml)
 
 **🔗 Live Demo:** [merlion-os.onrender.com](https://merlion-os.onrender.com)  
+**📝 Read the Dev Journey:** [Building MerlionOS (Blog Post)](https://blog.pancherry.com/merlion-os/)  
 *(Hosted on Render. Singapore government sites — LTA DataMall, the HDB newsroom, MOM's wage
 tables — WAF-block cloud datacenter IP ranges, and Google Cloud Run's egress falls inside those
 blocks, so those live feeds 403 from GCP. Render's AWS-based egress isn't blocked, so all feeds
