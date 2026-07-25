@@ -1676,6 +1676,12 @@ body {
         flex-basis: 100% !important;
     }
 
+    /* COE bidding cards (CAT A–E): the 130px-min flex cards pack 2-per-row on a phone, which
+       cramps the text. Give each its own full-width row like CAT E already gets when it wraps. */
+    #hub-coe-events-content [style*="min-width: 130px"] {
+        flex-basis: 100% !important;
+    }
+
     /* Generic alert cards: long content + "View Alert" link must wrap and
        never spill outside the card bound. */
     .hub-sub-pane [style*="margin-bottom: 8px"] {

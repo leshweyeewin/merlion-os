@@ -1636,20 +1636,24 @@ function initSgHub() {
         `).join('');
 
         hdbResaleContent.innerHTML = banner + `
-            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;">
-                <div style="flex: 1; min-width: 200px; background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px;">
-                    <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">📊 ISLANDWIDE MEDIAN (${escapeHTML(resale.latest_month)})</span>
-                    <strong style="font-size: 20px; color: var(--primary); display:block;">S$${resale.median_price.toLocaleString()}</strong>
-                    ${yoyText ? `<span style="font-size: 12px; font-weight: 700; color: ${yoyColor};">${yoyIcon} ${escapeHTML(yoyText)} YoY</span>` : ''}
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; align-items: flex-start;">
+                <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 12px;">
+                    <div style="background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px;">
+                        <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">📊 ISLANDWIDE MEDIAN (${escapeHTML(resale.latest_month)})</span>
+                        <strong style="font-size: 20px; color: var(--primary); display:block;">S$${resale.median_price.toLocaleString()}</strong>
+                        ${yoyText ? `<span style="font-size: 12px; font-weight: 700; color: ${yoyColor};">${yoyIcon} ${escapeHTML(yoyText)} YoY</span>` : ''}
+                    </div>
+                    ${resale.mix_shift_reason ? `<div style="font-size: 12px; color: var(--text-muted); background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px;"><strong>🔍 Why:</strong> ${escapeHTML(resale.mix_shift_reason)}</div>` : ''}
                 </div>
-                <div style="flex: 1; min-width: 200px; background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px;">
-                    <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">🏙️ PRICIEST TOWN</span>
-                    ${towns.length ? `<strong style="font-size: 16px; color: var(--text-main); display:block;">${escapeHTML(towns[0].town)}</strong><span style="font-size:12px; color: var(--text-muted);">S$${towns[0].median_price.toLocaleString()} median</span>` : '<span style="color:var(--text-subtle);">N/A</span>'}
+                <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 12px;">
+                    <div style="background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px;">
+                        <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">🏙️ PRICIEST TOWN</span>
+                        ${towns.length ? `<strong style="font-size: 16px; color: var(--text-main); display:block;">${escapeHTML(towns[0].town)}</strong><span style="font-size:12px; color: var(--text-muted);">S$${towns[0].median_price.toLocaleString()} median</span>` : '<span style="color:var(--text-subtle);">N/A</span>'}
+                    </div>
+                    ${(resale.priciest_town_caveat && towns.length) ? `<div style="font-size: 12px; color: var(--text-muted); background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px;"><strong>🔍 Why ${escapeHTML(towns[0].town)} tops the list:</strong> ${escapeHTML(resale.priciest_town_caveat)}</div>` : ''}
                 </div>
             </div>
 
-            ${resale.mix_shift_reason ? `<div style="font-size: 12px; color: var(--text-muted); background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;"><strong>🔍 Why:</strong> ${escapeHTML(resale.mix_shift_reason)}</div>` : ''}
-            ${resale.priciest_town_caveat ? `<div style="font-size: 12px; color: var(--text-muted); background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;"><strong>🔍 Why ${escapeHTML(towns[0].town)} tops the list:</strong> ${escapeHTML(resale.priciest_town_caveat)}</div>` : ''}
 
             <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">🗺️ Median Resale Price by Town</div>
             <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; max-height: 340px; overflow-y: auto;">
