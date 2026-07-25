@@ -117,16 +117,19 @@ def scrape_government_page(url: str) -> str:
 
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        for element in soup(["script", "style", "noscript", "header", "footer", "nav", "svg", "iframe"]):
-            element.decompose()
+        try:
+            for element in soup(["script", "style", "noscript", "header", "footer", "nav", "svg", "iframe"]):
+                element.decompose()
 
-        text = soup.get_text(separator=' ')
+            text = soup.get_text(separator=' ')
 
-        lines = (line.strip() for line in text.splitlines())
-        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-        cleaned_text = '\n'.join(chunk for chunk in chunks if chunk)
+            lines = (line.strip() for line in text.splitlines())
+            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+            cleaned_text = '\n'.join(chunk for chunk in chunks if chunk)
 
-        return cleaned_text[:6000]
+            return cleaned_text[:6000]
+        finally:
+            soup.clear()
     except Exception as e:
         return f"Failed to scrape {url}: {str(e)}"
 
@@ -178,13 +181,15 @@ GOV_CHANNELS = [
     "HealthHubSG", "scamshieldalert", "govsg", "LTAsg", "NEAsg", "MOEsg", "GovTechSG",
     "MOHSingapore", "SPFsg", "SCDFsg", "momsg",
     "ReachSingapore",
+    "ElectionsDepartmentSingapore", "neasingapore", "skillsfuturesg", "Skills_Workforce_Development",
+    "CPFBoard", "LTASingapore", "Govsg", "govtechbytes", "NLBsg", "urasingapore",
 ]
 
 COMMUNITY_CHANNELS = [
-    "dailyvanity", "goodlobang", "triptalksSG", "dateideas", 
-    "kiasufoodies", "klooktravelsg", "youtripsg", "sgweekend", 
-    "confirmgood", "moneydigest", "sgnewmovies", "greatdealssg", 
-    "danielfooddiary", "allsgpromo", "sgmrt"
+    "dailyvanity", "goodlobang", "triptalksSG", "dateideas",
+    "kiasufoodies", "klooktravelsg", "youtripsg", "sgweekend",
+    "confirmgood", "moneydigest", "sgnewmovies", "greatdealssg",
+    "danielfooddiary", "allsgpromo", "sgmrt", "goodyfeedsg", "TSLMedia", "todayonlinesg"
 ]
 
 def scrape_one_telegram_channel(channel: str) -> list:
@@ -311,3 +316,42 @@ def scrape_one_telegram_channel_24h(channel: str) -> list:
     except Exception as e:
         logger.warning(f"Error scraping community channel {channel}: {e}")
     return channel_events
+
+def scrape_elections_news() -> list:
+    """Scrapes the latest elections news from Elections Department Telegram channel."""
+    channel = "ElectionsDepartmentSingapore"
+    events = scrape_one_telegram_channel(channel)
+    news_items = []
+    for event in events:
+        news_items.append({
+            "date": event.get("date", ""),
+            "title": event.get("content", "").split('\n')[0][:100],
+            "link": event.get("link", ""),
+        })
+    return news_items
+
+def scrape_redeemsg_news() -> list:
+    """Scrapes the latest RedeemSG/CDC news from their official channel."""
+    channel = "CDCVouchers"
+    events = scrape_one_telegram_channel(channel)
+    news_items = []
+    for event in events:
+        news_items.append({
+            "date": event.get("date", ""),
+            "title": event.get("content", "").split('\n')[0][:100],
+            "link": event.get("link", ""),
+        })
+    return news_items
+
+def scrape_iras_news() -> list:
+    """Scrapes the latest IRAS news from IRAS Telegram channel."""
+    channel = "IRASsg"
+    events = scrape_one_telegram_channel(channel)
+    news_items = []
+    for event in events:
+        news_items.append({
+            "date": event.get("date", ""),
+            "title": event.get("content", "").split('\n')[0][:100],
+            "link": event.get("link", ""),
+        })
+    return news_items

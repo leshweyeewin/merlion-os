@@ -85,6 +85,9 @@ from tools import (
     scrape_one_telegram_channel,
     scrape_one_telegram_channel_24h,
     scrape_hdb_news,
+    scrape_elections_news,
+    scrape_redeemsg_news,
+    scrape_iras_news,
     run_chat_loop,
     run_chat_stream,
     ChatRequest,
@@ -149,6 +152,8 @@ _RATE_LIMITED_PATHS = {"/api/chat", "/api/chat/stream"}
 _RATE_LIMIT_MAX_REQUESTS = 8
 _RATE_LIMIT_WINDOW_SECONDS = 60
 _rate_limit_hits: dict[str, deque] = defaultdict(deque)
+_rate_limit_cleanup_interval = 0
+_rate_limit_last_cleanup = time.time()
 
 class ChatRateLimitMiddleware(BaseHTTPMiddleware):
     """Caps Gemini-backed chat requests per client IP so a single abusive client (or a
@@ -171,6 +176,17 @@ class ChatRateLimitMiddleware(BaseHTTPMiddleware):
                     headers={"Retry-After": str(retry_after)},
                 )
             hits.append(now)
+
+            # Periodically clean up stale IPs (every 300s) to prevent unbounded dict growth
+            global _rate_limit_last_cleanup
+            if now - _rate_limit_last_cleanup > 300:
+                stale_ips = [ip for ip, dq in _rate_limit_hits.items()
+                            if not dq or (now - dq[-1] > _RATE_LIMIT_WINDOW_SECONDS)]
+                for ip in stale_ips:
+                    del _rate_limit_hits[ip]
+                _rate_limit_last_cleanup = now
+                if stale_ips:
+                    logger.info(f"Rate limit cleanup: removed {len(stale_ips)} stale IP entries")
         return await call_next(request)
 
 app.add_middleware(ChatRateLimitMiddleware)
@@ -318,6 +334,9 @@ async def get_sg_hub_hdb():
     # runs after that group (a warm-cache read, not a second download).
     hdb_text = None
     hdb_news = None
+    elections_news = None
+    redeemsg_news = None
+    iras_news = None
     resale = None
 
     async def fetch_bto():
@@ -330,6 +349,21 @@ async def get_sg_hub_hdb():
         hdb_news = await anyio.to_thread.run_sync(scrape_hdb_news)
         print(f"\033[93m[HDB Scraping Engine] Successfully fetched {len(hdb_news)} HDB news articles.\033[0m")
 
+    async def fetch_elections():
+        nonlocal elections_news
+        elections_news = await anyio.to_thread.run_sync(scrape_elections_news)
+        print(f"\033[93m[Elections Scraper] Successfully fetched {len(elections_news)} Elections news items.\033[0m")
+
+    async def fetch_redeemsg():
+        nonlocal redeemsg_news
+        redeemsg_news = await anyio.to_thread.run_sync(scrape_redeemsg_news)
+        print(f"\033[93m[RedeemSG Scraper] Successfully fetched {len(redeemsg_news)} RedeemSG news items.\033[0m")
+
+    async def fetch_iras():
+        nonlocal iras_news
+        iras_news = await anyio.to_thread.run_sync(scrape_iras_news)
+        print(f"\033[93m[IRAS Scraper] Successfully fetched {len(iras_news)} IRAS news items.\033[0m")
+
     async def fetch_resale():
         nonlocal resale
         print("\033[93m[data.gov.sg] Fetching HDB resale flat price dataset...\033[0m")
@@ -339,6 +373,9 @@ async def get_sg_hub_hdb():
     async with anyio.create_task_group() as tg:
         tg.start_soon(fetch_bto)
         tg.start_soon(fetch_news)
+        tg.start_soon(fetch_elections)
+        tg.start_soon(fetch_redeemsg)
+        tg.start_soon(fetch_iras)
         tg.start_soon(fetch_resale)
 
     # Derived from the rows the stats call just cached — degrades to None, never the pane.
@@ -357,6 +394,7 @@ async def get_sg_hub_hdb():
         note=None if hdb_live else "HDB — showing last known data (a source was unreachable)")
 
     return {"hdb": hdb_text, "hdb_news": hdb_news, "hdb_news_status": news_status,
+            "elections_news": elections_news or [], "redeemsg_news": redeemsg_news or [], "iras_news": iras_news or [],
             "resale": resale, "resale_history": resale_history, "data_status": data_status}
 
 _jobs_response_cache: dict[str, dict] = defaultdict(lambda: {"data": None, "fetched_at": 0})
