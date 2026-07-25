@@ -37,11 +37,18 @@ def _fetch_datagovsg_csv_rows(dataset_id: str, csv_timeout: int = 15) -> list:
     poll_url = f"https://api-open.data.gov.sg/v1/public/api/datasets/{dataset_id}/poll-download"
     print(f"  [data.gov.sg] HTTP GET {poll_url}")
     r = requests.get(poll_url, headers=_data_gov_sg_headers(), timeout=10)
-    r.raise_for_status()
-    download_url = r.json()["data"]["url"]
+    try:
+        r.raise_for_status()
+        download_url = r.json()["data"]["url"]
+    finally:
+        r.close()
+
     r_csv = requests.get(download_url, timeout=csv_timeout)
-    r_csv.raise_for_status()
-    return list(csv.DictReader(io.StringIO(r_csv.text)))
+    try:
+        r_csv.raise_for_status()
+        return list(csv.DictReader(io.StringIO(r_csv.text)))
+    finally:
+        r_csv.close()
 
 def _cached_rows(cache: dict, disk_name: str, ttl_seconds: float, fetch_fn, *,
                  lock=None, label: str | None = None) -> list:

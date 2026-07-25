@@ -106,30 +106,33 @@ def scrape_government_page(url: str) -> str:
 
         # Follow redirects but re-validate the landing page domain to prevent hijacking
         response = requests.get(url, headers=headers, timeout=10, allow_redirects=True)
-        response.raise_for_status()
-
-        # Validate post-redirect domain
-        final_url = response.url
-        parsed_final = urlparse(final_url)
-        domain_final = parsed_final.netloc.lower()
-        if not is_trusted_sg_domain(domain_final):
-            return "Error: Security policy prevents scraping non-government websites after redirects."
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-
         try:
-            for element in soup(["script", "style", "noscript", "header", "footer", "nav", "svg", "iframe"]):
-                element.decompose()
+            response.raise_for_status()
 
-            text = soup.get_text(separator=' ')
+            # Validate post-redirect domain
+            final_url = response.url
+            parsed_final = urlparse(final_url)
+            domain_final = parsed_final.netloc.lower()
+            if not is_trusted_sg_domain(domain_final):
+                return "Error: Security policy prevents scraping non-government websites after redirects."
 
-            lines = (line.strip() for line in text.splitlines())
-            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-            cleaned_text = '\n'.join(chunk for chunk in chunks if chunk)
+            soup = BeautifulSoup(response.text, 'html.parser')
 
-            return cleaned_text[:6000]
+            try:
+                for element in soup(["script", "style", "noscript", "header", "footer", "nav", "svg", "iframe"]):
+                    element.decompose()
+
+                text = soup.get_text(separator=' ')
+
+                lines = (line.strip() for line in text.splitlines())
+                chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+                cleaned_text = '\n'.join(chunk for chunk in chunks if chunk)
+
+                return cleaned_text[:6000]
+            finally:
+                soup.clear()
         finally:
-            soup.clear()
+            response.close()
     except Exception as e:
         return f"Failed to scrape {url}: {str(e)}"
 
@@ -202,54 +205,60 @@ def scrape_one_telegram_channel(channel: str) -> list:
     channel_events = []
     try:
         r = requests.get(url, headers=headers, timeout=6)
-        print(f"  \033[90m[Scraper Task] HTTP RESPONSE: {r.status_code} ({len(r.text)} bytes) from @{channel}\033[0m")
-        if r.status_code == 200:
-            import re
-            soup = BeautifulSoup(r.text, 'html.parser')
-            messages = soup.find_all("div", class_="tgme_widget_message")
-            
-            valid_msgs = []
-            for msg in messages:
-                link_el = msg.find("a", class_="tgme_widget_message_date")
-                link = link_el["href"] if link_el and link_el.has_attr("href") else f"https://t.me/s/{channel}"
-                text_el = msg.find("div", class_="tgme_widget_message_text")
-                if not text_el:
-                    continue
-                
-                time_el = msg.find("time")
-                if not time_el or not time_el.has_attr("datetime"):
-                    continue
-                
-                content = text_el.get_text(separator='\n').strip()
-                lines = [re.sub(r'[ \t]+', ' ', line).strip() for line in content.split('\n')]
-                content = '\n'.join(line for line in lines if line)
-
-                dt_str = time_el["datetime"]
-                iso_date = dt_str
-                date_str = "N/A"
+        try:
+            print(f"  \033[90m[Scraper Task] HTTP RESPONSE: {r.status_code} ({len(r.text)} bytes) from @{channel}\033[0m")
+            if r.status_code == 200:
+                import re
+                soup = BeautifulSoup(r.text, 'html.parser')
                 try:
-                    from datetime import datetime, timezone, timedelta
-                    dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-                    sgt = dt.astimezone(timezone(timedelta(hours=8)))
-                    date_str = sgt.strftime("%d %b %Y, %I:%M %p")
-                except Exception as dt_err:
-                    logger.warning(f"Failed to parse datetime '{dt_str}' for channel {channel}: {dt_err}")
-                    continue
+                    messages = soup.find_all("div", class_="tgme_widget_message")
 
-                display_content = content
-                if len(display_content) > 180:
-                    display_content = display_content[:177] + "..."
-                
-                valid_msgs.append({
-                    "source": f"@{channel}",
-                    "content": display_content,
-                    "link": link,
-                    "date": date_str,
-                    "iso_date": iso_date
-                })
-            
-            channel_events = valid_msgs[-3:]
-            print(f"  \033[32m✔\033[0m Parsed @{channel}: Found {len(messages)} messages, returning last {len(channel_events)}.")
+                    valid_msgs = []
+                    for msg in messages:
+                        link_el = msg.find("a", class_="tgme_widget_message_date")
+                        link = link_el["href"] if link_el and link_el.has_attr("href") else f"https://t.me/s/{channel}"
+                        text_el = msg.find("div", class_="tgme_widget_message_text")
+                        if not text_el:
+                            continue
+
+                        time_el = msg.find("time")
+                        if not time_el or not time_el.has_attr("datetime"):
+                            continue
+
+                        content = text_el.get_text(separator='\n').strip()
+                        lines = [re.sub(r'[ \t]+', ' ', line).strip() for line in content.split('\n')]
+                        content = '\n'.join(line for line in lines if line)
+
+                        dt_str = time_el["datetime"]
+                        iso_date = dt_str
+                        date_str = "N/A"
+                        try:
+                            from datetime import datetime, timezone, timedelta
+                            dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+                            sgt = dt.astimezone(timezone(timedelta(hours=8)))
+                            date_str = sgt.strftime("%d %b %Y, %I:%M %p")
+                        except Exception as dt_err:
+                            logger.warning(f"Failed to parse datetime '{dt_str}' for channel {channel}: {dt_err}")
+                            continue
+
+                        display_content = content
+                        if len(display_content) > 180:
+                            display_content = display_content[:177] + "..."
+
+                        valid_msgs.append({
+                            "source": f"@{channel}",
+                            "content": display_content,
+                            "link": link,
+                            "date": date_str,
+                            "iso_date": iso_date
+                        })
+
+                    channel_events = valid_msgs[-3:]
+                    print(f"  \033[32m✔\033[0m Parsed @{channel}: Found {len(messages)} messages, returning last {len(channel_events)}.")
+                finally:
+                    soup.clear()
+        finally:
+            r.close()
     except Exception as e:
         logger.warning(f"Error scraping telegram channel {channel}: {e}")
     return channel_events
@@ -264,55 +273,61 @@ def scrape_one_telegram_channel_24h(channel: str) -> list:
     channel_events = []
     try:
         r = requests.get(url, headers=headers, timeout=6)
-        print(f"  \033[90m[Scraper Task] HTTP RESPONSE: {r.status_code} ({len(r.text)} bytes) from @{channel}\033[0m")
-        if r.status_code == 200:
-            import re
-            from datetime import datetime, timezone, timedelta
-            soup = BeautifulSoup(r.text, 'html.parser')
-            messages = soup.find_all("div", class_="tgme_widget_message")
-            
-            now = datetime.now(timezone.utc)
-            for msg in messages:
-                link_el = msg.find("a", class_="tgme_widget_message_date")
-                link = link_el["href"] if link_el and link_el.has_attr("href") else f"https://t.me/s/{channel}"
-                text_el = msg.find("div", class_="tgme_widget_message_text")
-                if not text_el:
-                    continue
-                
-                time_el = msg.find("time")
-                if not time_el or not time_el.has_attr("datetime"):
-                    continue
-                
-                content = text_el.get_text(separator=' ').strip()
-                content = re.sub(r'\s+', ' ', content)
-                
-                dt_str = time_el["datetime"]
-                iso_date = dt_str
-                date_str = "N/A"
+        try:
+            print(f"  \033[90m[Scraper Task] HTTP RESPONSE: {r.status_code} ({len(r.text)} bytes) from @{channel}\033[0m")
+            if r.status_code == 200:
+                import re
+                from datetime import datetime, timezone, timedelta
+                soup = BeautifulSoup(r.text, 'html.parser')
                 try:
-                    dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-                    diff = now - dt
-                    if diff > timedelta(hours=24):
-                        continue
-                    sgt = dt.astimezone(timezone(timedelta(hours=8)))
-                    date_str = sgt.strftime("%d %b %Y, %I:%M %p")
-                except Exception as dt_err:
-                    logger.warning(f"Failed to parse datetime '{dt_str}' for channel {channel}: {dt_err}")
-                    continue
-                
-                display_content = content
-                if len(display_content) > 180:
-                    display_content = display_content[:177] + "..."
-                
-                channel_events.append({
-                    "source": f"@{channel}",
-                    "content": display_content,
-                    "link": link,
-                    "date": date_str,
-                    "iso_date": iso_date
-                })
-            
-            print(f"  \033[32m✔\033[0m Parsed @{channel}: Found {len(messages)} messages, {len(channel_events)} within 24h.")
+                    messages = soup.find_all("div", class_="tgme_widget_message")
+
+                    now = datetime.now(timezone.utc)
+                    for msg in messages:
+                        link_el = msg.find("a", class_="tgme_widget_message_date")
+                        link = link_el["href"] if link_el and link_el.has_attr("href") else f"https://t.me/s/{channel}"
+                        text_el = msg.find("div", class_="tgme_widget_message_text")
+                        if not text_el:
+                            continue
+
+                        time_el = msg.find("time")
+                        if not time_el or not time_el.has_attr("datetime"):
+                            continue
+
+                        content = text_el.get_text(separator=' ').strip()
+                        content = re.sub(r'\s+', ' ', content)
+
+                        dt_str = time_el["datetime"]
+                        iso_date = dt_str
+                        date_str = "N/A"
+                        try:
+                            dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+                            diff = now - dt
+                            if diff > timedelta(hours=24):
+                                continue
+                            sgt = dt.astimezone(timezone(timedelta(hours=8)))
+                            date_str = sgt.strftime("%d %b %Y, %I:%M %p")
+                        except Exception as dt_err:
+                            logger.warning(f"Failed to parse datetime '{dt_str}' for channel {channel}: {dt_err}")
+                            continue
+
+                        display_content = content
+                        if len(display_content) > 180:
+                            display_content = display_content[:177] + "..."
+
+                        channel_events.append({
+                            "source": f"@{channel}",
+                            "content": display_content,
+                            "link": link,
+                            "date": date_str,
+                            "iso_date": iso_date
+                        })
+
+                    print(f"  \033[32m✔\033[0m Parsed @{channel}: Found {len(messages)} messages, {len(channel_events)} within 24h.")
+                finally:
+                    soup.clear()
+        finally:
+            r.close()
     except Exception as e:
         logger.warning(f"Error scraping community channel {channel}: {e}")
     return channel_events

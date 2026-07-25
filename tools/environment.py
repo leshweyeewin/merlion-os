@@ -35,33 +35,36 @@ def get_singapore_live_environment_advisory(context_query: str = "general") -> s
         try:
             print("  [NEA API] HTTP GET https://api-open.data.gov.sg/v2/real-time/api/psi")
             r_psi = requests.get("https://api-open.data.gov.sg/v2/real-time/api/psi", headers=headers, timeout=10)
-            if r_psi.status_code == 200:
-                data = r_psi.json()
-                readings_list = data.get("data", {}).get("readings", [])
-                if readings_list:
-                    readings = readings_list[0]
-                    psi_twenty_four = readings.get("psiTwentyFourHr", {})
-                    national_psi = psi_twenty_four.get("national", "N/A")
+            try:
+                if r_psi.status_code == 200:
+                    data = r_psi.json()
+                    readings_list = data.get("data", {}).get("readings", [])
+                    if readings_list:
+                        readings = readings_list[0]
+                        psi_twenty_four = readings.get("psiTwentyFourHr", {})
+                        national_psi = psi_twenty_four.get("national", "N/A")
 
-                    status = "Good"
-                    try:
-                        val = float(national_psi)
-                        if val > 300: status = "Hazardous"
-                        elif val > 200: status = "Very Unhealthy"
-                        elif val > 100: status = "Unhealthy"
-                        elif val > 50: status = "Moderate"
-                    except ValueError:
-                        pass
+                        status = "Good"
+                        try:
+                            val = float(national_psi)
+                            if val > 300: status = "Hazardous"
+                            elif val > 200: status = "Very Unhealthy"
+                            elif val > 100: status = "Unhealthy"
+                            elif val > 50: status = "Moderate"
+                        except ValueError:
+                            pass
 
-                    results.append(
-                        f"--- [NEA LIVE ADVISORY: PSI AIR QUALITY] ---\n"
-                        f"🍃 24-Hr National PSI Reading: {national_psi} ({status})\n"
-                        f"📋 Status Summary: Air quality is {status.lower()}. Suitable for general outdoor activities."
-                    )
+                        results.append(
+                            f"--- [NEA LIVE ADVISORY: PSI AIR QUALITY] ---\n"
+                            f"🍃 24-Hr National PSI Reading: {national_psi} ({status})\n"
+                            f"📋 Status Summary: Air quality is {status.lower()}. Suitable for general outdoor activities."
+                        )
+                    else:
+                        results.append("--- [NEA LIVE ADVISORY: PSI AIR QUALITY] ---\n📋 No current air quality readings available.")
                 else:
-                    results.append("--- [NEA LIVE ADVISORY: PSI AIR QUALITY] ---\n📋 No current air quality readings available.")
-            else:
-                results.append(f"--- [NEA LIVE ADVISORY: PSI AIR QUALITY] ---\n⚠️ Failed to fetch PSI: HTTP {r_psi.status_code}")
+                    results.append(f"--- [NEA LIVE ADVISORY: PSI AIR QUALITY] ---\n⚠️ Failed to fetch PSI: HTTP {r_psi.status_code}")
+            finally:
+                r_psi.close()
         except Exception as e:
             results.append(f"--- [NEA LIVE ADVISORY: PSI AIR QUALITY] ---\n⚠️ Failed to fetch PSI: {str(e)}")
 
@@ -70,28 +73,31 @@ def get_singapore_live_environment_advisory(context_query: str = "general") -> s
         try:
             print("  [NEA API] HTTP GET https://api-open.data.gov.sg/v2/real-time/api/two-hr-forecast")
             r_weather = requests.get("https://api-open.data.gov.sg/v2/real-time/api/two-hr-forecast", headers=headers, timeout=10)
-            if r_weather.status_code == 200:
-                data = r_weather.json()
-                items = data.get("data", {}).get("items", [])
-                if items:
-                    forecasts = items[0].get("forecasts", [])
-                    targets = {"Tampines", "Orchard", "Jurong West", "Woodlands", "Downtown Core", "Punggol"}
-                    forecast_lines = []
-                    for f in forecasts:
-                        area = f.get("area")
-                        if area in targets:
-                            forecast_lines.append(f"   • {area}: {f.get('forecast')}")
+            try:
+                if r_weather.status_code == 200:
+                    data = r_weather.json()
+                    items = data.get("data", {}).get("items", [])
+                    if items:
+                        forecasts = items[0].get("forecasts", [])
+                        targets = {"Tampines", "Orchard", "Jurong West", "Woodlands", "Downtown Core", "Punggol"}
+                        forecast_lines = []
+                        for f in forecasts:
+                            area = f.get("area")
+                            if area in targets:
+                                forecast_lines.append(f"   • {area}: {f.get('forecast')}")
 
-                    weather_summary = "\n".join(forecast_lines) if forecast_lines else "   • Live forecast data temporarily unavailable."
+                        weather_summary = "\n".join(forecast_lines) if forecast_lines else "   • Live forecast data temporarily unavailable."
 
-                    results.append(
-                        f"--- [NEA LIVE ADVISORY: 2-HR WEATHER FORECAST] ---\n"
-                        f"⛅ Current Area Outlook:\n{weather_summary}"
-                    )
+                        results.append(
+                            f"--- [NEA LIVE ADVISORY: 2-HR WEATHER FORECAST] ---\n"
+                            f"⛅ Current Area Outlook:\n{weather_summary}"
+                        )
+                    else:
+                        results.append("--- [NEA LIVE ADVISORY: 2-HR WEATHER FORECAST] ---\n📋 No current forecast readings available.")
                 else:
-                    results.append("--- [NEA LIVE ADVISORY: 2-HR WEATHER FORECAST] ---\n📋 No current forecast readings available.")
-            else:
-                results.append(f"--- [NEA LIVE ADVISORY: 2-HR WEATHER FORECAST] ---\n⚠️ Failed to fetch Weather: HTTP {r_weather.status_code}")
+                    results.append(f"--- [NEA LIVE ADVISORY: 2-HR WEATHER FORECAST] ---\n⚠️ Failed to fetch Weather: HTTP {r_weather.status_code}")
+            finally:
+                r_weather.close()
         except Exception as e:
             results.append(f"--- [NEA LIVE ADVISORY: 2-HR WEATHER FORECAST] ---\n⚠️ Failed to fetch Weather: {str(e)}")
 
