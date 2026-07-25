@@ -19,6 +19,7 @@ from tools.core import (
     _fetch_datagovsg_csv_rows,
     _disk_cache_load,
     _disk_cache_save,
+    _cache_feed_status,
     _forecast_next_linear,
     make_feed_status,
 )
@@ -61,6 +62,10 @@ _BTO_LAUNCH_CACHE_TTL_SECONDS = 12 * 60 * 60  # BTO exercises happen a few times
 _HDB_RESALE_DATASET_ID = "d_8b84c4ee58e3cfc0ece0d773c8ca6abc"  # data.gov.sg: HDB Resale flat prices based on registration date from Jan-2017 onwards
 _hdb_resale_cache = {"rows": None, "fetched_at": 0}
 _HDB_RESALE_CACHE_TTL_SECONDS = 6 * 60 * 60  # monthly data — no need to refetch more than a few times a day
+
+def get_hdb_resale_status() -> dict:
+    """Honest Live/last-known freshness marker for the HDB resale dataset (data.gov.sg)."""
+    return _cache_feed_status(_hdb_resale_cache, "HDB resale prices — showing last known data")
 
 def _parse_html_table_to_grid(table_tag) -> list:
     """Expands an HTML table (with rowspan/colspan merged cells) into a full 2D grid of cell text,

@@ -74,6 +74,10 @@ from tools import (
     get_ica_status,
     get_iras_status,
     get_hdb_news_status,
+    get_hdb_resale_status,
+    get_job_vacancy_status,
+    get_retrenchment_status,
+    get_occ_wage_status,
     make_feed_status,
     prewarm_knowledge_base,
     GOV_CHANNELS,
@@ -291,7 +295,15 @@ async def get_sg_hub_weather():
     now = time.time()
     from datetime import datetime, timezone, timedelta
     sgt = datetime.fromtimestamp(now, tz=timezone(timedelta(hours=8)))
-    result["synced_at"] = sgt.strftime("%d %b %Y, %I:%M %p") + " (SGT)"
+    synced = sgt.strftime("%d %b %Y, %I:%M %p") + " (SGT)"
+    result["synced_at"] = synced
+    # Honest freshness: each NEA sub-fetch swallows its own error and returns None, so "live"
+    # means at least one real metric came back this round; all-None = NEA unreachable.
+    cc = result.get("current_conditions") or {}
+    nea_live = bool(result.get("psi") or result.get("forecasts") or any(v is not None for v in cc.values()))
+    result["data_status"] = make_feed_status(
+        nea_live, synced_at=synced,
+        note=None if nea_live else "NEA feed unreachable — showing last known readings")
     _cache_set(_weather_cache, result, fetched_at=now)
     return result
 
@@ -336,8 +348,16 @@ async def get_sg_hub_hdb():
     except Exception as e:
         logger.warning(f"HDB resale history skipped: {type(e).__name__}: {e}")
 
-    return {"hdb": hdb_text, "hdb_news": hdb_news, "hdb_news_status": get_hdb_news_status(),
-            "resale": resale, "resale_history": resale_history}
+    # Panel-level freshness: live only if BOTH the resale dataset and the newsroom are current.
+    resale_status = get_hdb_resale_status()
+    news_status = get_hdb_news_status()
+    hdb_live = resale_status["is_live"] and news_status["is_live"]
+    data_status = make_feed_status(
+        hdb_live, synced_at=resale_status.get("synced_at"),
+        note=None if hdb_live else "HDB — showing last known data (a source was unreachable)")
+
+    return {"hdb": hdb_text, "hdb_news": hdb_news, "hdb_news_status": news_status,
+            "resale": resale, "resale_history": resale_history, "data_status": data_status}
 
 _jobs_response_cache: dict[str, dict] = defaultdict(lambda: {"data": None, "fetched_at": 0})
 _JOBS_RESPONSE_CACHE_TTL_SECONDS = 5 * 60  # underlying rows are cached 6h; this skips the per-click recompute
@@ -406,7 +426,16 @@ async def get_sg_hub_jobs(sector: str = "all"):
     }
     print("\033[33m[data.gov.sg] Retrenchment fetch complete.\033[0m")
 
-    response = {"jobs": job_sectors, "retrenchment": retrenchment, "history": history}
+    # Panel-level freshness: live only if BOTH the vacancy and retrenchment datasets are current.
+    vac_status = get_job_vacancy_status()
+    ret_status = get_retrenchment_status()
+    jobs_live = vac_status["is_live"] and ret_status["is_live"]
+    data_status = make_feed_status(
+        jobs_live, synced_at=vac_status.get("synced_at"),
+        note=None if jobs_live else "Job market — showing last known data (a source was unreachable)")
+
+    response = {"jobs": job_sectors, "retrenchment": retrenchment, "history": history,
+                "data_status": data_status}
     _cache_set(sector_cache, response)
     return response
 
@@ -419,6 +448,7 @@ async def get_sg_hub_wages():
     print("\n\033[94m[MerlionOS Orchestrator] --- Fetching MOM Occupational Wage Tables ---\033[0m")
     data = await anyio.to_thread.run_sync(compute_occupational_wage_insights)
     print(f"\033[33m[MOM OWS] Fetch complete: {data['occupation_count']} occupations, June {data['latest_year']} vs {data['prior_year']}.\033[0m")
+    data["data_status"] = get_occ_wage_status()
     return data
 
 @app.get("/api/sg-hub/taxi-nearby")
@@ -501,6 +531,16 @@ async def get_sg_hub_transit(lat: float | None = None, lon: float | None = None)
     except Exception as e:
         logger.warning(f"COE premium history skipped: {type(e).__name__}: {e}")
 
+    # Panel-level freshness across the tab's sources: LTA DataMall (train alerts + taxi) is live
+    # when train_alerts came back (null = key missing / fetch failed); COE is live when it served
+    # the data.gov.sg tier rather than the hardcoded fallback.
+    lta_live = train_alerts is not None
+    coe_live = bool(coe_stats) and coe_stats.get("tier") == "data_gov_sg"
+    transit_live = lta_live and coe_live
+    transit_note = (None if transit_live
+                    else "LTA live feed unavailable — showing available data" if not lta_live
+                    else "COE showing last known data")
+
     return {
         "train_alerts": train_alerts,
         "taxi_availability": taxi_availability,
@@ -508,6 +548,7 @@ async def get_sg_hub_transit(lat: float | None = None, lon: float | None = None)
         "coe_history": coe_history,
         "ica_news": ica_news,
         "ica_status": get_ica_status(),
+        "data_status": make_feed_status(transit_live, note=transit_note),
     }
 
 

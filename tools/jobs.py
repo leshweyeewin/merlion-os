@@ -9,11 +9,20 @@ and the sector meta map.
 import threading as _threading
 from tools.core import (
     _cache_synced_at,
+    _cache_feed_status,
     _cached_rows,
     _fetch_datagovsg_csv_rows,
     _disk_cache_load,
     _disk_cache_save,
 )
+
+def get_job_vacancy_status() -> dict:
+    """Honest Live/last-known freshness marker for the MOM job-vacancy dataset (data.gov.sg)."""
+    return _cache_feed_status(_job_vacancy_cache, "Job vacancy data — showing last known data")
+
+def get_retrenchment_status() -> dict:
+    """Honest Live/last-known freshness marker for the MOM retrenchment dataset (data.gov.sg)."""
+    return _cache_feed_status(_retrenchment_cache, "Retrenchment data — showing last known data")
 
 # ── Sector → industry label mapping ──────────────────────────────────────────
 # Maps each dashboard sector to its industry label(s) in the real data.gov.sg "Number of Job

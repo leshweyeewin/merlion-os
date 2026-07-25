@@ -1827,6 +1827,12 @@ body {
     margin-top: 10px;
 }
 
+/* One-per-panel freshness banner slot at the top of each SG Hub sub-pane. Collapses when the
+   pane hasn't reported a status yet so it adds no empty gap. */
+.hub-pane-status:empty {
+    display: none;
+}
+
 /* ── Intent-based portal search ─────────────────────────────────────────── */
 .portal-search-wrap {
     margin-bottom: 18px;

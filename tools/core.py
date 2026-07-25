@@ -71,11 +71,13 @@ def _cached_rows(cache: dict, disk_name: str, ttl_seconds: float, fetch_fn, *,
     def _load() -> list:
         cached = _cache_get(cache, ttl_seconds, key="rows")
         if cached is not None:
-            return cached
+            return cached  # memory hit — cache["is_live"] retains its last-set value
 
         disk_rows, disk_ts = _disk_cache_load(disk_name, ttl_seconds)
         if disk_rows:  # skip an empty snapshot — it's never a valid dataset, keep looking
+            # A within-TTL disk snapshot is current data (fetched inside the refresh window) — live.
             _cache_set(cache, disk_rows, key="rows", fetched_at=disk_ts)
+            cache["is_live"] = True
             return disk_rows
 
         try:
@@ -86,6 +88,7 @@ def _cached_rows(cache: dict, disk_name: str, ttl_seconds: float, fetch_fn, *,
                 print(f"  [data.gov.sg] {label or disk_name} fetch failed "
                       f"({type(e).__name__}) — serving expired disk snapshot")
                 _cache_set(cache, stale_rows, key="rows", fetched_at=time.time())
+                cache["is_live"] = False  # expired fallback, not current
                 return stale_rows
             raise
 
@@ -97,14 +100,17 @@ def _cached_rows(cache: dict, disk_name: str, ttl_seconds: float, fetch_fn, *,
                 print(f"  [data.gov.sg] {label or disk_name} returned no rows "
                       f"— serving expired disk snapshot instead of caching empty")
                 _cache_set(cache, stale_rows, key="rows", fetched_at=time.time())
+                cache["is_live"] = False
                 return stale_rows
             # No snapshot to fall back to: memory-cache the empty result so a genuinely-empty
             # upstream isn't re-hit every request, but leave disk untouched.
             _cache_set(cache, rows, key="rows", fetched_at=time.time())
+            cache["is_live"] = False
             return rows
 
         now = time.time()
         _cache_set(cache, rows, key="rows", fetched_at=now)
+        cache["is_live"] = True  # genuine live fetch
         _disk_cache_save(disk_name, rows, now)
         return rows
 
@@ -131,6 +137,20 @@ def _cache_synced_at(cache: dict) -> str | None:
     from datetime import datetime, timezone, timedelta
     sgt = datetime.fromtimestamp(ts, tz=timezone(timedelta(hours=8)))
     return sgt.strftime("%d %b %Y, %I:%M %p") + " (SGT)"
+
+def _cache_is_live(cache: dict) -> bool:
+    """Whether the cache last served current data (a live fetch or a within-TTL snapshot) rather
+    than an expired stale fallback. Set by _cached_rows; defaults True for caches that never fell
+    back or don't track it."""
+    return cache.get("is_live", True)
+
+def _cache_feed_status(cache: dict, stale_note: str | None = None) -> dict:
+    """A make_feed_status marker derived from a _cached_rows-backed cache dict: green 'Live' when
+    the data is current, amber 'showing last known' when it's an expired fallback — stamped with
+    the cache's real last-synced time. Lets data.gov.sg panels show an honest freshness badge."""
+    live = _cache_is_live(cache)
+    return make_feed_status(live, synced_at=_cache_synced_at(cache),
+                            note=None if live else (stale_note or "Showing last known data — live source unavailable"))
 
 def _sgt_now():
     from datetime import datetime, timezone, timedelta

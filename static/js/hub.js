@@ -522,6 +522,13 @@ function initSgHub() {
             <i class="fa-solid fa-triangle-exclamation"></i>${escapeHTML(note)}</span>`;
     }
 
+    // Renders the one-per-panel freshness banner (Last synced + Live/last-known pill) into a
+    // pane's dedicated status element. Empty status → cleared.
+    function renderPaneStatus(statusElId, status) {
+        const el = document.getElementById(statusElId);
+        if (el) el.innerHTML = status ? syncBanner(status) : "";
+    }
+
     // Builds the standard "Last synced" banner, optionally with a freshness badge appended.
     function syncBanner(status) {
         const badge = feedStatusBadge(status);
@@ -982,6 +989,7 @@ function initSgHub() {
     }
 
     function renderWeatherPane(data) {
+        renderPaneStatus("hub-env-status", data.data_status);
         const psi = data.psi || { value: 28, status: 'Good' };
         const forecasts = data.forecasts || [];
 
@@ -1358,6 +1366,7 @@ function initSgHub() {
     }
 
     function renderTransitPane(data) {
+        renderPaneStatus("hub-transport-status", data.data_status);
         renderTransportPane(data.taxi_availability, data.coe, data.coe_history);
 
         const banner = syncBanner(null);
@@ -1580,6 +1589,7 @@ function initSgHub() {
     }
 
     function renderHdbPane(data) {
+        renderPaneStatus("hub-hdb-status", data.data_status);
         const banner = syncBanner(null);
         hdbLaunchesContent.innerHTML = banner + renderHdbLaunches(data.hdb);
 
@@ -1984,6 +1994,7 @@ function initSgHub() {
     }
 
     function renderJobsPane(data) {
+        renderPaneStatus("hub-jobs-status", data.data_status);
         sgHubJobsData = data.jobs;
         renderSectorDetails("tech"); // Default to Tech
         renderRetrenchmentPane(data.retrenchment);
@@ -2038,9 +2049,9 @@ function initSgHub() {
             return;
         }
 
-        const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
-            <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML(data.synced_at || getRetrievalTimestamp())}
-        </div>`;
+        // Honest freshness pill (Live vs last-known seed) for the OWS card — it can serve the
+        // committed seed on GCP while the rest of the Jobs pane is live, so it carries its own.
+        const banner = syncBanner(data.data_status || { synced_at: data.synced_at, is_live: true });
 
         // ---- Derived insights (the panel leads with takeaways, not raw tables) ----
         const matched = data.all_occupations.filter(o => o.pct_change != null);

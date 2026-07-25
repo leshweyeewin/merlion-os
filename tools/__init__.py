@@ -57,6 +57,8 @@ from tools.environment import (
 from tools.jobs import (
     compute_job_market_history,
     get_retrenchment_synced_at,
+    get_job_vacancy_status,
+    get_retrenchment_status,
     resolve_job_sector,
     compute_job_sector_stats,
     compute_retrenchment_stats,
@@ -80,6 +82,7 @@ from tools.housing import (
     query_hdb_resale_price_trends,
     scrape_hdb_news,
     get_hdb_news_status,
+    get_hdb_resale_status,
 )
 
 # ── Transport: COE ────────────────────────────────────────────────────────────
@@ -101,6 +104,7 @@ from tools.wages import (
     compute_occupational_wage_insights,
     compute_tech_wage_growth_reason,
     query_occupational_wage_insights,
+    get_occ_wage_status,
 )
 
 # ── RAG knowledge base ────────────────────────────────────────────────────────
@@ -149,10 +153,11 @@ __all__ = [
     "format_job_trend_line", "format_hiring_pressure_display",
     "format_cagr_trend_display", "format_retrenchment_headline",
     "query_singapore_job_statistics_via_bigquery", "query_singapore_retrenchment_advisory",
+    "get_job_vacancy_status", "get_retrenchment_status",
     # housing
     "compute_hdb_resale_stats", "compute_hdb_resale_history", "compute_resale_mix_shift_reason",
     "query_hdb_bto_launches_and_grants", "query_hdb_resale_price_trends",
-    "scrape_hdb_news", "get_hdb_news_status",
+    "scrape_hdb_news", "get_hdb_news_status", "get_hdb_resale_status",
     # transport
     "compute_coe_premium_history", "get_coe_synced_at",
     "compute_coe_bidding_stats", "compute_coe_movement_reason",
@@ -163,6 +168,7 @@ __all__ = [
     "compute_occupational_wage_insights",
     "compute_tech_wage_growth_reason",
     "query_occupational_wage_insights",
+    "get_occ_wage_status",
     # knowledge base (RAG)
     "KNOWLEDGE_BASE", "corpus_size", "retrieve", "search_knowledge_base",
     "ensure_corpus_embedded", "prewarm_knowledge_base",

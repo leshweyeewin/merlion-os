@@ -26,6 +26,19 @@ _OCC_WAGE_XLSX_URL = "https://stats.mom.gov.sg/iMAS_Tables1/Wages/Wages_{year}/m
 _occ_wage_cache = {"data": None, "fetched_at": 0}
 _OCC_WAGE_CACHE_TTL_SECONDS = 24 * 60 * 60  # annual survey — daily refresh is plenty
 
+# Whether the last OWS load was genuinely live (fresh fetch / within-TTL snapshot) vs the
+# committed seed served when MOM 403-blocks the runner. Drives the panel's Live/last-known badge.
+_occ_wage_is_live = True
+
+def get_occ_wage_status() -> dict:
+    """Honest Live/last-known freshness marker for the MOM Occupational Wage Survey."""
+    from tools.core import make_feed_status, _cache_synced_at as _synced
+    return make_feed_status(
+        _occ_wage_is_live,
+        synced_at=_synced(_occ_wage_cache),
+        note=None if _occ_wage_is_live else "MOM OWS — showing last known data (source unreachable)",
+    )
+
 # Committed last-resort snapshot shipped inside the image. stats.mom.gov.sg 403-blocks the OWS
 # workbook from datacenter IPs (incl. Cloud Run), and .data_cache/ is dockerignored, so a fresh
 # container has no runtime snapshot to fall back to. This seed guarantees the panel still shows
@@ -166,16 +179,18 @@ def compute_occupational_wage_insights() -> dict:
     """
     import time
     import difflib
+    global _occ_wage_is_live
 
     cached = _cache_get(_occ_wage_cache, _OCC_WAGE_CACHE_TTL_SECONDS)
     if cached is not None:
-        return cached
+        return cached  # memory hit — _occ_wage_is_live retains its last-set value
 
     # Disk snapshot second (memory first, network last) — a dev-server restart no longer
     # re-downloads the multi-MB Excel workbooks within the TTL window.
     disk_data, disk_ts = _disk_cache_load("occ_wages", _OCC_WAGE_CACHE_TTL_SECONDS)
     if disk_data is not None:
         _cache_set(_occ_wage_cache, disk_data, fetched_at=disk_ts)
+        _occ_wage_is_live = True  # within-TTL snapshot is current
         print("  [MOM OWS] Served from disk snapshot (.data_cache/occ_wages.json).")
         return disk_data
 
@@ -193,6 +208,8 @@ def compute_occupational_wage_insights() -> dict:
             stale = _load_occ_wage_seed()
             source = "committed seed data_seed/occ_wages.json"
         if stale is not None:
+            global _occ_wage_is_live
+            _occ_wage_is_live = False  # served a fallback snapshot/seed, not a live fetch
             print(f"  [MOM OWS] {reason} — serving {source}, cached as fresh to avoid re-hitting MOM.")
             _cache_set(_occ_wage_cache, stale, fetched_at=time.time())
             return stale
@@ -314,6 +331,7 @@ def compute_occupational_wage_insights() -> dict:
     }
     now = time.time()
     _cache_set(_occ_wage_cache, data, fetched_at=now)
+    _occ_wage_is_live = True  # genuine live compute from freshly fetched MOM workbooks
     data["synced_at"] = _cache_synced_at(_occ_wage_cache)
     _disk_cache_save("occ_wages", data, now)
     return data
