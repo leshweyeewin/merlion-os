@@ -633,6 +633,8 @@ def compute_retrenchment_stats() -> dict:
             "top_industries": top_industries,
             "source": f"MOM Retrenched Employees by Industry, {latest_quarter} (data.gov.sg, dataset `{_RETRENCHMENT_DATASET_ID}`).",
             "tier": "data_gov_sg",
+            "synced_at": _cache_synced_at(_retrenchment_cache),
+            "data_status": get_retrenchment_status(),
         }
     except Exception as e:
         # FALLBACK DATA last refreshed for Q4 2025 — as of 2026-07 this is already ~2 quarters
@@ -645,6 +647,8 @@ def compute_retrenchment_stats() -> dict:
             "source": "MOM Retrenched Employees by Industry (data.gov.sg) — cached snapshot.",
             "tier": "fallback",
             "fetch_error": type(e).__name__,
+            "synced_at": _cache_synced_at(_retrenchment_cache),
+            "data_status": get_retrenchment_status(),
         }
 
 def format_retrenchment_headline(stats: dict) -> str:

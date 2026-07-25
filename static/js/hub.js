@@ -1660,9 +1660,7 @@ function initSgHub() {
         const yoyText = resale.yoy_pct == null ? ''
             : `${resale.yoy_pct >= 0 ? '+' : ''}${resale.yoy_pct.toFixed(1)}% (vs S$${resale.prior_median_price.toLocaleString()} in ${escapeHTML(resale.prior_month)})`;
 
-        const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
-            <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML(resale.synced_at || getRetrievalTimestamp())}
-        </div>`;
+        const banner = syncBanner(resale.data_status || { synced_at: resale.synced_at, is_live: true });
 
         const towns = resale.towns || [];
         const maxPrice = Math.max(...towns.map(t => t.median_price), 1);
@@ -2411,9 +2409,7 @@ function initSgHub() {
 
         const syncedEl = document.getElementById("retrenchment-synced");
         if (syncedEl) {
-            syncedEl.innerHTML = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
-                <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML(retrenchment.synced_at || getRetrievalTimestamp())}
-            </div>`;
+            syncedEl.innerHTML = syncBanner(retrenchment.data_status || { synced_at: retrenchment.synced_at, is_live: true });
         }
 
         // headline looks like "3,590 workers (2025-Q4)" — split the count from the quarter label

@@ -492,6 +492,7 @@ def _resale_stats_from_rows(rows: list, latest_month: str, source: str) -> dict:
         "transaction_count": len(prices_latest),
         "towns": towns,
         "synced_at": _cache_synced_at(_hdb_resale_cache),
+        "data_status": get_hdb_resale_status(),
         "source": source,
     }
 
