@@ -44,9 +44,8 @@ from tools.search import (
     COMMUNITY_CHANNELS,
     scrape_one_telegram_channel,
     scrape_one_telegram_channel_24h,
-    scrape_elections_news,
-    scrape_redeemsg_news,
     scrape_iras_news,
+    scrape_cdc_news,
 )
 
 # ── Environment / weather advisory ───────────────────────────────────────────

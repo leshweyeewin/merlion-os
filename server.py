@@ -85,9 +85,8 @@ from tools import (
     scrape_one_telegram_channel,
     scrape_one_telegram_channel_24h,
     scrape_hdb_news,
-    scrape_elections_news,
-    scrape_redeemsg_news,
     scrape_iras_news,
+    scrape_cdc_news,
     run_chat_loop,
     run_chat_stream,
     ChatRequest,
@@ -289,9 +288,30 @@ def _sg_hub_route(label: str):
 @_sg_hub_route("IRAS tax data")
 async def get_sg_hub_tax():
     print("\n\033[94m[MerlionOS Orchestrator] --- Fetching IRAS Tax Due Dates Selected ---\033[0m")
-    due_dates = await anyio.to_thread.run_sync(fetch_iras_due_dates)
+
+    # The statutory due-dates feed and the IRAS newsroom (Telegram @irassg) are independent, so
+    # fetch them concurrently — the pane loads in the time of the slower one, not the sum.
+    due_dates = None
+    iras_news = None
+
+    async def fetch_due_dates():
+        nonlocal due_dates
+        due_dates = await anyio.to_thread.run_sync(fetch_iras_due_dates)
+
+    async def fetch_iras_news():
+        nonlocal iras_news
+        iras_news = await anyio.to_thread.run_sync(scrape_iras_news)
+        print(f"\033[93m[IRAS News Scraper] Fetched {len(iras_news)} IRAS updates.\033[0m")
+
+    async with anyio.create_task_group() as tg:
+        tg.start_soon(fetch_due_dates)
+        tg.start_soon(fetch_iras_news)
+
     return {
         "due_dates": due_dates,
+        "iras_news": iras_news or [],
+        "iras_news_status": make_feed_status(bool(iras_news),
+            note=None if iras_news else "IRAS newsroom unreachable — no recent updates to show"),
         "data_status": get_iras_status(),
         "limits": {
             "cpf_sa_rstu_max": 8000,
@@ -334,9 +354,6 @@ async def get_sg_hub_hdb():
     # runs after that group (a warm-cache read, not a second download).
     hdb_text = None
     hdb_news = None
-    elections_news = None
-    redeemsg_news = None
-    iras_news = None
     resale = None
 
     async def fetch_bto():
@@ -349,21 +366,6 @@ async def get_sg_hub_hdb():
         hdb_news = await anyio.to_thread.run_sync(scrape_hdb_news)
         print(f"\033[93m[HDB Scraping Engine] Successfully fetched {len(hdb_news)} HDB news articles.\033[0m")
 
-    async def fetch_elections():
-        nonlocal elections_news
-        elections_news = await anyio.to_thread.run_sync(scrape_elections_news)
-        print(f"\033[93m[Elections Scraper] Successfully fetched {len(elections_news)} Elections news items.\033[0m")
-
-    async def fetch_redeemsg():
-        nonlocal redeemsg_news
-        redeemsg_news = await anyio.to_thread.run_sync(scrape_redeemsg_news)
-        print(f"\033[93m[RedeemSG Scraper] Successfully fetched {len(redeemsg_news)} RedeemSG news items.\033[0m")
-
-    async def fetch_iras():
-        nonlocal iras_news
-        iras_news = await anyio.to_thread.run_sync(scrape_iras_news)
-        print(f"\033[93m[IRAS Scraper] Successfully fetched {len(iras_news)} IRAS news items.\033[0m")
-
     async def fetch_resale():
         nonlocal resale
         print("\033[93m[data.gov.sg] Fetching HDB resale flat price dataset...\033[0m")
@@ -373,9 +375,6 @@ async def get_sg_hub_hdb():
     async with anyio.create_task_group() as tg:
         tg.start_soon(fetch_bto)
         tg.start_soon(fetch_news)
-        tg.start_soon(fetch_elections)
-        tg.start_soon(fetch_redeemsg)
-        tg.start_soon(fetch_iras)
         tg.start_soon(fetch_resale)
 
     # Derived from the rows the stats call just cached — degrades to None, never the pane.
@@ -394,7 +393,6 @@ async def get_sg_hub_hdb():
         note=None if hdb_live else "HDB — showing last known data (a source was unreachable)")
 
     return {"hdb": hdb_text, "hdb_news": hdb_news, "hdb_news_status": news_status,
-            "elections_news": elections_news or [], "redeemsg_news": redeemsg_news or [], "iras_news": iras_news or [],
             "resale": resale, "resale_history": resale_history, "data_status": data_status}
 
 _jobs_response_cache: dict[str, dict] = defaultdict(lambda: {"data": None, "fetched_at": 0})
@@ -602,6 +600,7 @@ async def get_sg_hub_gov_updates():
 
     gov_events = []
     flood_alerts = None
+    cdc_news = None
 
     async def fetch_gov_channel(channel_name):
         ch_events = await anyio.to_thread.run_sync(scrape_one_telegram_channel, channel_name)
@@ -612,10 +611,19 @@ async def get_sg_hub_gov_updates():
         print("  \033[90m[PUB] Fetching flood alerts in parallel...\033[0m")
         flood_alerts = await anyio.to_thread.run_sync(fetch_pub_flood_alerts)
 
+    async def fetch_cdc():
+        # CDC has no Telegram channel — its media releases are scraped from cdc.gov.sg and shown
+        # as a dedicated card (Elections is already covered by the @ElectionsDepartmentSingapore
+        # stream inside the GOV_CHANNELS feed above).
+        nonlocal cdc_news
+        cdc_news = await anyio.to_thread.run_sync(scrape_cdc_news)
+        print(f"  \033[90m[CDC] Fetched {len(cdc_news)} CDC media releases.\033[0m")
+
     async with anyio.create_task_group() as tg:
         for ch in GOV_CHANNELS:
             tg.start_soon(fetch_gov_channel, ch)
         tg.start_soon(fetch_flood_data)
+        tg.start_soon(fetch_cdc)
 
     used_fallback = False
     # Fallback for Official Gov Alerts
@@ -639,6 +647,9 @@ async def get_sg_hub_gov_updates():
     return {
         "gov_events": gov_events,
         "flood_alerts": flood_alerts,
+        "cdc_news": cdc_news or [],
+        "cdc_news_status": make_feed_status(bool(cdc_news),
+            note=None if cdc_news else "CDC newsroom unreachable — no recent releases to show"),
         "data_status": _feed_status_from_scrape(bool(gov_events), used_fallback, "gov channels"),
     }
 

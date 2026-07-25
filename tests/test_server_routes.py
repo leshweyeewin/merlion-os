@@ -102,11 +102,14 @@ def test_sg_hub_weather(client, monkeypatch):
 
 def test_sg_hub_tax(client, monkeypatch):
     monkeypatch.setattr(server, "fetch_iras_due_dates", lambda: ["18 Apr 2026 — e-Filing deadline"])
+    monkeypatch.setattr(server, "scrape_iras_news", lambda: [{"date": "22 Jul 2026", "title": "New tax scheme", "link": "https://t.me/irassg"}])
     resp = client.get("/api/sg-hub/tax")
     assert resp.status_code == 200
     body = resp.json()
     assert body["due_dates"] == ["18 Apr 2026 — e-Filing deadline"]
     assert body["limits"]["cpf_sa_rstu_max"] == 8000
+    assert body["iras_news"][0]["title"] == "New tax scheme"
+    assert body["iras_news_status"]["is_live"] is True
 
 
 def test_sg_hub_route_error_returns_generic_message_not_raw_exception(client, monkeypatch):
@@ -115,6 +118,7 @@ def test_sg_hub_route_error_returns_generic_message_not_raw_exception(client, mo
     def boom():
         raise ValueError("SECRET_INTERNAL_DETAIL: /etc/some/path leaked here")
     monkeypatch.setattr(server, "fetch_iras_due_dates", boom)
+    monkeypatch.setattr(server, "scrape_iras_news", lambda: [])
 
     resp = client.get("/api/sg-hub/tax")
     assert resp.status_code == 500
@@ -324,11 +328,14 @@ def test_sg_hub_transit_coe_fallback_tier_shows_caveat(client, monkeypatch):
 def test_sg_hub_gov_updates(client, monkeypatch):
     monkeypatch.setattr(server, "scrape_one_telegram_channel", lambda channel: [{"source": f"@{channel}", "iso_date": "2026-07-21"}])
     monkeypatch.setattr(server, "fetch_pub_flood_alerts", lambda: None)
+    monkeypatch.setattr(server, "scrape_cdc_news", lambda: [{"date": "04 July 2026", "title": "CDC Vouchers 2026", "link": "https://www.cdc.gov.sg/x.pdf"}])
 
     resp = client.get("/api/sg-hub/gov-updates")
     assert resp.status_code == 200
     body = resp.json()
     assert len(body["gov_events"]) == len(server.GOV_CHANNELS)
+    assert body["cdc_news"][0]["title"] == "CDC Vouchers 2026"
+    assert body["cdc_news_status"]["is_live"] is True
 
 
 def test_sg_hub_community(client, monkeypatch):

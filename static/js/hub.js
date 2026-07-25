@@ -13,6 +13,8 @@ function initSgHub() {
 
     const weatherContent = document.getElementById("hub-weather-content");
     const govEventsContent = document.getElementById("hub-gov-events-content");
+    const cdcNewsContent = document.getElementById("hub-cdc-news");
+    const irasNewsContent = document.getElementById("hub-iras-news");
     const communityEventsContent = document.getElementById("hub-community-events-content");
     const mrtEventsContent = document.getElementById("hub-mrt-events-content");
     const icaEventsContent = document.getElementById("hub-ica-events-content");
@@ -670,6 +672,11 @@ function initSgHub() {
             timelineHtml = `<p style="color: var(--text-subtle); margin: 0; font-style: italic;">No tax deadlines reported.</p>`;
         }
         taxDeadlinesContent.innerHTML = banner + timelineHtml;
+
+        if (irasNewsContent) {
+            irasNewsContent.innerHTML = renderAgencyNewsCards(
+                data.iras_news, data.iras_news_status, "No recent IRAS updates.");
+        }
 
         // Brackets are defined globally in tax.js to prevent early reference errors
         // calculateSingaporeTax is also defined globally.
@@ -1495,8 +1502,30 @@ function initSgHub() {
         }
     }
 
+    // Shared renderer for agency "news" cards (date + headline + outbound link). Used by the
+    // CDC media-releases card (Gov Updates) and the IRAS updates card (Tax), so all agency news
+    // feeds render identically to the HDB News card.
+    function renderAgencyNewsCards(items, status, emptyLabel) {
+        let html = "";
+        (items || []).forEach(news => {
+            html += `<div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 8px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom: 6px; font-weight:600; gap:8px; flex-wrap:wrap;">
+                    <span style="color: var(--primary); font-size: 11px;"><i class="fa-solid fa-calendar-day"></i> ${escapeHTML(news.date)}</span>
+                    <a href="${safeURL(news.link)}" target="_blank" style="color: var(--link); text-decoration:none; font-size: 11px; white-space:nowrap;"><i class="fa-solid fa-up-right-from-square"></i> Read More</a>
+                </div>
+                <div style="color: var(--text-main); line-height:1.45; font-weight:600;">${escapeHTML(news.title)}</div>
+            </div>`;
+        });
+        return syncBanner(status) + (html || `<p style='color: var(--text-subtle); margin:0;'>${escapeHTML(emptyLabel)}</p>`);
+    }
+
     function renderGovUpdatesPane(data) {
         const banner = syncBanner(data.data_status);
+
+        if (cdcNewsContent) {
+            cdcNewsContent.innerHTML = renderAgencyNewsCards(
+                data.cdc_news, data.cdc_news_status, "No recent CDC media releases.");
+        }
 
         let govHtml = "";
         (data.gov_events || []).forEach(evt => {

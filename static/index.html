@@ -1351,12 +1351,22 @@
 
                 <!-- Gov Updates Pane -->
                 <div class="hub-sub-pane hidden" id="hub-gov-transit-pane">
+                    <!-- CDC / RedeemSG Media Releases Card -->
+                    <div class="hub-card" style="margin-bottom: 20px;">
+                        <h3>
+                            <i class="fa-solid fa-ticket"></i> CDC / RedeemSG Media Releases
+                        </h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Latest Community Development Council announcements — CDC Vouchers schemes, community programmes and grants — scraped from the CDC Newsroom.</p>
+                        <div id="hub-cdc-news" style="display: flex; flex-direction: column; gap: 10px;">
+                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading CDC media releases...</p>
+                        </div>
+                    </div>
                     <!-- Official Gov Bulletins Card -->
                     <div class="hub-card">
                         <h3>
                             <i class="fa-solid fa-shield-halved"></i> Official Government Broadcasts &amp; Updates
                         </h3>
-                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Official broadcasts, healthcare advisories, and security alerts from govsg, HealthHub, and ScamShield.</p>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Official broadcasts from Elections Dept, CPF, LTA, SkillsFuture, NEA, NLB, URA, govsg, HealthHub, ScamShield &amp; more.</p>
                         <div id="hub-gov-events-content">
                             <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading official broadcasts...</p>
                         </div>
@@ -1548,6 +1558,17 @@
                         <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Official filing deadlines for individual income tax, corporate tax, and GST from IRAS.</p>
                         <div id="hub-tax-deadlines">
                             <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading tax calendar...</p>
+                        </div>
+                    </div>
+
+                    <!-- IRAS News Card -->
+                    <div class="hub-card" style="margin-bottom: 20px;">
+                        <h3>
+                            <i class="fa-solid fa-newspaper"></i> IRAS News &amp; Updates
+                        </h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Latest tax announcements, scheme changes and reminders from the official IRAS channel (@irassg).</p>
+                        <div id="hub-iras-news" style="display: flex; flex-direction: column; gap: 10px;">
+                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading IRAS updates...</p>
                         </div>
                     </div>
 
@@ -1841,6 +1862,6 @@
     <script src="js/persona.js?v=insight17"></script>
     <script src="js/portals.js?v=insight23"></script>
     <script src="js/chat.js?v=insight18"></script>
-    <script src="js/hub.js?v=insight23"></script>
+    <script src="js/hub.js?v=insight24"></script>
 </body>
 </html>

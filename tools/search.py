@@ -6,10 +6,12 @@ scrape_government_page:       BeautifulSoup scraper restricted to .gov.sg.
 call_tool_robustly:           Dynamic argument-matching helper.
 """
 
+import time
 import logging
 import requests
 from bs4 import BeautifulSoup
 from tools.civic import GOV_DIRECTORY
+from tools.core import _cache_get, _cache_set
 
 logger = logging.getLogger("merlion-os-search")
 
@@ -332,41 +334,94 @@ def scrape_one_telegram_channel_24h(channel: str) -> list:
         logger.warning(f"Error scraping community channel {channel}: {e}")
     return channel_events
 
-def scrape_elections_news() -> list:
-    """Scrapes the latest elections news from Elections Department Telegram channel."""
-    channel = "ElectionsDepartmentSingapore"
-    events = scrape_one_telegram_channel(channel)
-    news_items = []
-    for event in events:
-        news_items.append({
-            "date": event.get("date", ""),
-            "title": event.get("content", "").split('\n')[0][:100],
-            "link": event.get("link", ""),
-        })
-    return news_items
-
-def scrape_redeemsg_news() -> list:
-    """Scrapes the latest RedeemSG/CDC news from their official channel."""
-    channel = "CDCVouchers"
-    events = scrape_one_telegram_channel(channel)
-    news_items = []
-    for event in events:
-        news_items.append({
-            "date": event.get("date", ""),
-            "title": event.get("content", "").split('\n')[0][:100],
-            "link": event.get("link", ""),
-        })
-    return news_items
-
 def scrape_iras_news() -> list:
-    """Scrapes the latest IRAS news from IRAS Telegram channel."""
-    channel = "IRASsg"
-    events = scrape_one_telegram_channel(channel)
+    """Scrapes the latest IRAS updates from the official IRAS Telegram channel (t.me/irassg).
+    Returns a normalised [{date, title, link}] list (same shape as the CDC/HDB news feeds) so
+    the SG Hub renderer can treat all agency news cards uniformly."""
+    import re
+    events = scrape_one_telegram_channel("irassg")
     news_items = []
     for event in events:
+        content = event.get("content", "")
+        # Pick the first line that actually carries words — IRAS posts often open with a lone
+        # emoji/decorative line, which makes a useless card headline. Fall back to the collapsed
+        # full text if no line has letters.
+        lines = [ln.strip() for ln in content.split('\n') if ln.strip()]
+        title = next((ln for ln in lines if re.search(r'[A-Za-z0-9]', ln)), None)
+        if not title:
+            title = re.sub(r'\s+', ' ', content).strip()
         news_items.append({
             "date": event.get("date", ""),
-            "title": event.get("content", "").split('\n')[0][:100],
+            "title": title[:140],
             "link": event.get("link", ""),
         })
-    return news_items
+    # Newest first, matching how the Telegram page lists oldest→newest.
+    return list(reversed(news_items))
+
+# CDC has no Telegram channel, so its media releases come from the newsroom page directly.
+# cdc.gov.sg is on the scraper's trusted-domain allowlist. Media releases are infrequent, so a
+# long TTL keeps every SG Hub tab-load from re-hitting the site.
+_cdc_news_cache: dict = {"data": None, "fetched_at": 0}
+_CDC_NEWS_CACHE_TTL_SECONDS = 6 * 60 * 60
+
+def scrape_cdc_news() -> list:
+    """Scrapes the latest CDC (Community Development Council / CDC Vouchers) media releases from
+    cdc.gov.sg. Each release on the page is a date node + title text + a '(Media Release)' PDF
+    link; we climb from each PDF anchor to the enclosing block to pair them. Returns a normalised
+    [{date, title, link}] list. Cached for 6h; degrades to [] on any failure (never raises)."""
+    import re
+
+    cached = _cache_get(_cdc_news_cache, _CDC_NEWS_CACHE_TTL_SECONDS)
+    if cached is not None:
+        print(f"  \033[90m[CDC News Scraper] Serving {len(cached)} cached releases.\033[0m")
+        return cached
+
+    url = "https://www.cdc.gov.sg/who-we-are/press-centre/media-releases/"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+    }
+    print(f"  \033[90m[CDC News Scraper] HTTP GET {url}\033[0m")
+    results = []
+    try:
+        r = requests.get(url, headers=headers, timeout=10)
+        print(f"  \033[90m[CDC News Scraper] HTTP RESPONSE: {r.status_code} ({len(r.text)} bytes)\033[0m")
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.text, 'html.parser')
+            date_re = re.compile(r'\d{1,2}\s+\w+\s+20\d\d')
+            seen_links = set()
+            pdf_links = [a for a in soup.find_all('a', href=True) if a['href'].lower().endswith('.pdf')]
+            for a in pdf_links:
+                # Climb up to the nearest ancestor whose text carries a date — that block holds
+                # the release's date + title alongside this PDF link.
+                node = a
+                block_text = None
+                for _ in range(6):
+                    node = node.parent
+                    if node is None:
+                        break
+                    txt = node.get_text(" ", strip=True)
+                    if date_re.search(txt):
+                        block_text = txt
+                        break
+                if not block_text:
+                    continue
+                date_str = date_re.search(block_text).group(0)
+                title = block_text.replace(date_str, "").replace("(Media Release)", "").strip()
+                title = re.sub(r'\s+', ' ', title)
+                if not title:
+                    continue
+                href = a['href']
+                if href.startswith('/'):
+                    href = "https://www.cdc.gov.sg" + href
+                if href in seen_links:
+                    continue
+                seen_links.add(href)
+                results.append({"date": date_str, "title": title[:140], "link": href})
+                if len(results) >= 4:
+                    break
+            print(f"  \033[32m✔\033[0m [CDC News Scraper] Returning {len(results)} latest media releases.")
+            if results:
+                _cache_set(_cdc_news_cache, results)
+    except Exception as e:
+        logger.warning(f"Error scraping CDC media releases: {e}")
+    return results
