@@ -356,21 +356,37 @@ async def get_sg_hub_hdb():
     hdb_news = None
     resale = None
 
+    # Each sub-fetch swallows its own error and leaves its slot at the safe default (BTO already
+    # returns a cached-snapshot string, news an empty list, resale None). This keeps the three
+    # independent: in an anyio task group an unhandled exception in one task cancels its siblings
+    # AND propagates to a 500 — so on a Render cold start, a slow/failed 20MB resale CSV download
+    # (which has no data_seed fallback) used to take the whole pane down, blanking the BTO and news
+    # cards too. Now the pane always renders whatever came back, with an honest per-source status.
     async def fetch_bto():
         nonlocal hdb_text
         print("\033[93m[HDB Scraping Engine] Querying upcoming BTO launches and CPF grant tables...\033[0m")
-        hdb_text = await anyio.to_thread.run_sync(query_hdb_bto_launches_and_grants, "general")
+        try:
+            hdb_text = await anyio.to_thread.run_sync(query_hdb_bto_launches_and_grants, "general")
+        except Exception as e:
+            logger.warning(f"HDB BTO fetch failed: {type(e).__name__}: {e}")
 
     async def fetch_news():
         nonlocal hdb_news
-        hdb_news = await anyio.to_thread.run_sync(scrape_hdb_news)
-        print(f"\033[93m[HDB Scraping Engine] Successfully fetched {len(hdb_news)} HDB news articles.\033[0m")
+        try:
+            hdb_news = await anyio.to_thread.run_sync(scrape_hdb_news)
+            print(f"\033[93m[HDB Scraping Engine] Successfully fetched {len(hdb_news)} HDB news articles.\033[0m")
+        except Exception as e:
+            logger.warning(f"HDB news fetch failed: {type(e).__name__}: {e}")
+            hdb_news = []
 
     async def fetch_resale():
         nonlocal resale
         print("\033[93m[data.gov.sg] Fetching HDB resale flat price dataset...\033[0m")
-        resale = await anyio.to_thread.run_sync(compute_hdb_resale_stats)
-        print("\033[93m[data.gov.sg] HDB resale price fetch complete.\033[0m")
+        try:
+            resale = await anyio.to_thread.run_sync(compute_hdb_resale_stats)
+            print("\033[93m[data.gov.sg] HDB resale price fetch complete.\033[0m")
+        except Exception as e:
+            logger.warning(f"HDB resale fetch failed: {type(e).__name__}: {e}")
 
     async with anyio.create_task_group() as tg:
         tg.start_soon(fetch_bto)
@@ -392,7 +408,7 @@ async def get_sg_hub_hdb():
         hdb_live, synced_at=resale_status.get("synced_at"),
         note=None if hdb_live else "HDB — showing last known data (a source was unreachable)")
 
-    return {"hdb": hdb_text, "hdb_news": hdb_news, "hdb_news_status": news_status,
+    return {"hdb": hdb_text, "hdb_news": hdb_news or [], "hdb_news_status": news_status,
             "resale": resale, "resale_history": resale_history, "data_status": data_status}
 
 _jobs_response_cache: dict[str, dict] = defaultdict(lambda: {"data": None, "fetched_at": 0})

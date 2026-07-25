@@ -430,11 +430,20 @@ function initSgHub() {
     // OWS cache, or an upstream gov API may briefly refuse a connection — so a transient hiccup
     // silently recovers instead of dropping the user on an error state. On persistent failure the
     // caller's catch still runs (which then shows the error state / stale-data badge as before).
-    async function fetchJsonWithRetry(url, { retries = 2, baseDelay = 400 } = {}) {
+    async function fetchJsonWithRetry(url, { retries = 2, baseDelay = 400, timeoutMs = 30000 } = {}) {
         let lastErr;
         for (let attempt = 0; attempt <= retries; attempt++) {
+            // Each attempt gets its own AbortController-backed timeout. Without this a request that
+            // hangs (Render free-tier cold start can stall a connection indefinitely) never settles,
+            // so loadSgHubPaneData's `finally` never clears loadingSgHubPanes[paneId] — and every
+            // later revisit to that tab is blocked at the "already loading" guard, leaving the
+            // skeleton up forever (the transit tab's "never repopulates on return" bug). Timing out
+            // turns a hung request into a normal rejection: the pane shows its error state, the
+            // loading flag clears, and switching back re-fetches (which succeeds once the dyno warms).
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
             try {
-                const res = await fetch(url);
+                const res = await fetch(url, { signal: controller.signal });
                 if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
                 return await res.json();
             } catch (err) {
@@ -442,6 +451,8 @@ function initSgHub() {
                 if (attempt < retries) {
                     await new Promise(r => setTimeout(r, baseDelay * Math.pow(2, attempt)));
                 }
+            } finally {
+                clearTimeout(timer);
             }
         }
         throw lastErr;

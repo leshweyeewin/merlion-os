@@ -393,20 +393,70 @@ def compute_priciest_town_caveat(towns: list) -> str | None:
         f"specific units happened to sell, not necessarily a broad repricing."
     )
 
-def compute_hdb_resale_stats() -> dict:
-    """
-    Shared computation used by both the AI chat tool (query_hdb_resale_price_trends, below)
-    and the /api/sg-hub/hdb REST endpoint — returns the full per-town breakdown (all ~26 towns)
-    as structured data, since that doesn't fit the fixed-field string-parse pattern used
-    elsewhere in this file (same rationale as compute_occupational_wage_insights).
-    """
+# ── HDB resale: BigQuery-first, data.gov.sg CSV fallback ──────────────────────
+# The resale dataset is ~236k rows / ~20MB. Rather than download that CSV and compute medians in
+# Python on every cold start, prefer a BigQuery table (loaded by scripts/load_hdb_resale_to_bigquery.py)
+# and answer with a couple of tiny aggregate/2-month queries. Any failure — no GCP creds on this
+# host, table absent, query error — falls through to _fetch_hdb_resale_rows (data.gov.sg → disk
+# snapshot), so this only ever adds a faster tier, never a new failure mode. Same 3-tier shape as
+# the MOM job-vacancy feed in tools/jobs.py.
+_BQ_RESALE_DATASET = "sg_housing"
+_BQ_RESALE_TABLE = "hdb_resale_prices"
+
+# Resale figures are monthly-static, but computing them costs either two BigQuery round-trips or a
+# median sweep over 236k rows — so memoise the finished payloads and only recompute a few times a
+# day. Covers both tiers (BigQuery and the CSV fallback), so repeat HDB-pane loads are instant.
+_hdb_resale_stats_cache = {"data": None, "fetched_at": 0}
+_hdb_resale_history_cache = {"data": None, "fetched_at": 0}
+_HDB_RESALE_COMPUTE_TTL_SECONDS = 6 * 60 * 60
+
+def _resale_bq_client_and_table():
+    """(client, fully-qualified `project.dataset.table`) for the resale table. Raises if the
+    BigQuery client can't be built (missing lib / no credentials) — callers treat any raise as
+    'BigQuery tier unavailable' and fall back to the data.gov.sg CSV path."""
+    import os
+    from google.cloud import bigquery
+    project_id = os.environ.get("GCP_PROJECT_ID")
+    client = bigquery.Client(project=project_id) if project_id else bigquery.Client()
+    return client, f"`{client.project}.{_BQ_RESALE_DATASET}.{_BQ_RESALE_TABLE}`"
+
+def _resale_bq_two_latest_months() -> list:
+    """The two most recent months present in the table (descending)."""
+    client, table = _resale_bq_client_and_table()
+    q = f"SELECT DISTINCT month FROM {table} ORDER BY month DESC LIMIT 2"
+    return [r.month for r in client.query(q).result()]
+
+def _resale_bq_rows_for_months(months: list) -> list:
+    """Row-level (month, town, flat_type, resale_price) for just the given months — a few thousand
+    rows, enough for the exact-median headline, per-town breakdown and the mix-shift 'Why' reason,
+    without pulling the whole dataset."""
+    from google.cloud import bigquery
+    client, table = _resale_bq_client_and_table()
+    q = f"SELECT month, town, flat_type, resale_price FROM {table} WHERE month IN UNNEST(@months)"
+    cfg = bigquery.QueryJobConfig(query_parameters=[bigquery.ArrayQueryParameter("months", "STRING", months)])
+    return [{"month": r.month, "town": r.town, "flat_type": r.flat_type, "resale_price": r.resale_price}
+            for r in client.query(q, job_config=cfg).result()]
+
+def _resale_bq_history_series():
+    """Per-month (median, txn count) across the whole table, computed server-side. Uses
+    APPROX_QUANTILES with 100 buckets (the 50th → median) so the estimate sits within a few dollars
+    of the exact median across thousands of monthly transactions — close enough that the chart's
+    latest point matches the exact-median headline, while still avoiding downloading every row."""
+    client, table = _resale_bq_client_and_table()
+    q = (f"SELECT month, APPROX_QUANTILES(resale_price, 100)[OFFSET(50)] AS median, COUNT(*) AS txns "
+         f"FROM {table} GROUP BY month ORDER BY month")
+    rows = list(client.query(q).result())
+    months = [r.month for r in rows]
+    medians = [round(float(r.median)) for r in rows]
+    transactions = [int(r.txns) for r in rows]
+    return months, medians, transactions
+
+def _resale_stats_from_rows(rows: list, latest_month: str, source: str) -> dict:
+    """Builds the resale stats payload from a row list containing at least `latest_month` and its
+    prior-year month. Shared by the BigQuery tier (2-month row fetch) and the CSV fallback (full
+    dataset), so both produce byte-identical structure and 'Why' explanations."""
     import statistics
     from collections import defaultdict
-
-    rows = _fetch_hdb_resale_rows()
-    months = sorted(set(r["month"] for r in rows))
-    # Skip the current in-progress month (partial transaction count skews the median low)
-    latest_month = months[-2] if len(months) > 1 else months[-1]
 
     prices_latest = [float(r["resale_price"]) for r in rows if r["month"] == latest_month]
     median_latest = statistics.median(prices_latest)
@@ -442,14 +492,96 @@ def compute_hdb_resale_stats() -> dict:
         "transaction_count": len(prices_latest),
         "towns": towns,
         "synced_at": _cache_synced_at(_hdb_resale_cache),
-        "source": f"Resale Flat Prices based on registration date from Jan-2017 onwards, {latest_month} (data.gov.sg, dataset `{_HDB_RESALE_DATASET_ID}`)."
+        "source": source,
+    }
+
+def compute_hdb_resale_stats() -> dict:
+    """
+    Shared computation used by both the AI chat tool (query_hdb_resale_price_trends, below)
+    and the /api/sg-hub/hdb REST endpoint — returns the full per-town breakdown (all ~26 towns)
+    as structured data. Prefers BigQuery; falls back to the data.gov.sg CSV (which itself
+    degrades to a disk snapshot). The finished payload is memoised for a few hours.
+    """
+    cached = _cache_get(_hdb_resale_stats_cache, _HDB_RESALE_COMPUTE_TTL_SECONDS)
+    if cached is not None:
+        return cached
+
+    # Tier 1: BigQuery — the two latest months, then just those months' rows for an exact median.
+    try:
+        two = _resale_bq_two_latest_months()
+        if not two:
+            raise ValueError("resale BigQuery table returned no months")
+        # Skip the current in-progress month (partial transaction count skews the median low).
+        latest_month = sorted(two)[-2] if len(two) > 1 else two[0]
+        y, mn = latest_month.split("-")
+        prior_month = f"{int(y) - 1}-{mn}"
+        rows = _resale_bq_rows_for_months([latest_month, prior_month])
+        if not any(r["month"] == latest_month for r in rows):
+            raise ValueError("resale BigQuery returned no rows for latest month")
+        _hdb_resale_cache["fetched_at"] = time.time()  # freshness badge reads this cache
+        _hdb_resale_cache["is_live"] = True
+        result = _resale_stats_from_rows(
+            rows, latest_month,
+            f"Resale Flat Prices based on registration date from Jan-2017 onwards, {latest_month} "
+            f"(Google BigQuery `{_BQ_RESALE_DATASET}.{_BQ_RESALE_TABLE}`).")
+        _cache_set(_hdb_resale_stats_cache, result)
+        return result
+    except Exception as e:
+        logger.info(f"HDB resale BigQuery tier unavailable ({type(e).__name__}: {e}) — using data.gov.sg")
+
+    # Tier 2/3: full CSV from data.gov.sg (→ expired disk snapshot inside _fetch_hdb_resale_rows).
+    rows = _fetch_hdb_resale_rows()
+    months = sorted(set(r["month"] for r in rows))
+    latest_month = months[-2] if len(months) > 1 else months[-1]
+    result = _resale_stats_from_rows(
+        rows, latest_month,
+        f"Resale Flat Prices based on registration date from Jan-2017 onwards, {latest_month} "
+        f"(data.gov.sg, dataset `{_HDB_RESALE_DATASET_ID}`).")
+    _cache_set(_hdb_resale_stats_cache, result)
+    return result
+
+def _resale_history_from_series(months, medians, transactions, source) -> dict:
+    """Appends the linear next-month forecast point and wraps the series into the history payload —
+    shared by the BigQuery tier and the CSV fallback so both are structurally identical."""
+    months = list(months)
+    medians = list(medians)
+    transactions = list(transactions)
+    months.append("Next Month (Forecast)")
+    medians.append(_forecast_next_linear(medians))
+    transactions.append(0)
+    return {
+        "months": months,
+        "medians": medians,
+        "transactions": transactions,
+        "synced_at": _cache_synced_at(_hdb_resale_cache),
+        "source": source,
     }
 
 def compute_hdb_resale_history() -> dict:
     """Monthly islandwide median resale price + transaction count across the dataset's full
-    range (Jan-2017 onwards), for the trend chart and CSV export. Derived from the same cached
-    rows compute_hdb_resale_stats already downloads — no extra network fetch. The in-progress
-    final month is dropped (partial transaction counts skew its median low)."""
+    range (Jan-2017 onwards), for the trend chart and CSV export. Prefers a single grouped
+    BigQuery query; falls back to computing from the cached data.gov.sg rows. The in-progress
+    final month is dropped (partial transaction counts skew its median low). Memoised for hours."""
+    cached = _cache_get(_hdb_resale_history_cache, _HDB_RESALE_COMPUTE_TTL_SECONDS)
+    if cached is not None:
+        return cached
+
+    # Tier 1: one grouped BigQuery query (server-side aggregation, tiny result).
+    try:
+        months, medians, transactions = _resale_bq_history_series()
+        if len(months) < 2:
+            raise ValueError("resale BigQuery history too short")
+        months, medians, transactions = months[:-1], medians[:-1], transactions[:-1]
+        result = _resale_history_from_series(
+            months, medians, transactions,
+            f"Resale Flat Prices based on registration date from Jan-2017 onwards "
+            f"(Google BigQuery `{_BQ_RESALE_DATASET}.{_BQ_RESALE_TABLE}`).")
+        _cache_set(_hdb_resale_history_cache, result)
+        return result
+    except Exception as e:
+        logger.info(f"HDB resale history BigQuery tier unavailable ({type(e).__name__}: {e}) — using data.gov.sg")
+
+    # Tier 2/3: derive from the full cached rows (data.gov.sg → disk snapshot).
     import statistics
     from collections import defaultdict
 
@@ -467,19 +599,11 @@ def compute_hdb_resale_history() -> dict:
     medians = [round(statistics.median(by_month[m])) for m in months]
     transactions = [len(by_month[m]) for m in months]
 
-    forecast_val = _forecast_next_linear(medians)
-
-    months.append("Next Month (Forecast)")
-    medians.append(forecast_val)
-    transactions.append(0)
-
-    return {
-        "months": months,
-        "medians": medians,
-        "transactions": transactions,
-        "synced_at": _cache_synced_at(_hdb_resale_cache),
-        "source": f"Resale Flat Prices based on registration date from Jan-2017 onwards (data.gov.sg, dataset `{_HDB_RESALE_DATASET_ID}`).",
-    }
+    result = _resale_history_from_series(
+        months, medians, transactions,
+        f"Resale Flat Prices based on registration date from Jan-2017 onwards (data.gov.sg, dataset `{_HDB_RESALE_DATASET_ID}`).")
+    _cache_set(_hdb_resale_history_cache, result)
+    return result
 
 def query_hdb_resale_price_trends(context_query: str = "general") -> str:
     """Tool: Retrieves Singapore's real HDB resale flat transaction data (data.gov.sg) with islandwide median price, YoY change, and the priciest towns.

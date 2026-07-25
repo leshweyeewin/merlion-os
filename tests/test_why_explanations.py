@@ -272,6 +272,17 @@ def test_coe_movement_reason_none_on_missing_fields():
 def _resale_row(month, flat_type, price, town="TAMPINES"):
     return {"month": month, "town": town, "flat_type": flat_type, "resale_price": str(price)}
 
+def _disable_resale_bigquery(monkeypatch):
+    """Force compute_hdb_resale_stats/_history down the data.gov.sg row-computation path these
+    tests exercise, regardless of whether the machine running the suite happens to have live
+    BigQuery credentials + the sg_housing table (e.g. after a local `gcloud auth ... login`).
+    Also clears the memoised compute caches so each test computes fresh from its own rows."""
+    def _raise():
+        raise RuntimeError("BigQuery disabled for this test")
+    monkeypatch.setattr(housing, "_resale_bq_client_and_table", _raise)
+    housing._hdb_resale_stats_cache.update({"data": None, "fetched_at": 0})
+    housing._hdb_resale_history_cache.update({"data": None, "fetched_at": 0})
+
 def test_resale_mix_shift_reason_none_without_yoy():
     assert housing.compute_resale_mix_shift_reason([], "2026-06", "2025-06", None) is None
     assert housing.compute_resale_mix_shift_reason([], "2026-06", None, 5.0) is None
@@ -327,6 +338,7 @@ def test_resale_mix_shift_reason_wired_into_compute_hdb_resale_stats(monkeypatch
         ("2025-06", "3-room", [400000] * 6),
     ]:
         rows += [_resale_row(month, flat_type, p) for p in prices]
+    _disable_resale_bigquery(monkeypatch)
     monkeypatch.setattr(housing, "_fetch_hdb_resale_rows", lambda: rows)
     monkeypatch.setattr(housing, "_cache_synced_at", lambda cache: "21 Jul 2026")
 
@@ -374,6 +386,7 @@ def test_priciest_town_caveat_wired_into_compute_hdb_resale_stats(monkeypatch):
         ("BUKIT MERAH", 862500, 82),
     ]:
         rows += [_resale_row("2026-06", "4-room", price, town=town) for _ in range(n)]
+    _disable_resale_bigquery(monkeypatch)
     monkeypatch.setattr(housing, "_fetch_hdb_resale_rows", lambda: rows)
     monkeypatch.setattr(housing, "_cache_synced_at", lambda cache: "22 Jul 2026")
 
