@@ -136,8 +136,17 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             print(f"\033[31m[kb] Startup pre-warm skipped ({type(e).__name__}: {e}).\033[0m")
 
+    def _warm_hdb():
+        try:
+            res = compute_hdb_resale_stats()
+            compute_hdb_resale_history()
+            print(f"\033[33m[HDB Resale] Startup pre-warm complete: {res.get('latest_month', 'resale')} median S${res.get('median_price', 0):,} cached.\033[0m")
+        except Exception as e:
+            print(f"\033[31m[HDB Resale] Startup pre-warm skipped ({type(e).__name__}: {e}) — will fetch lazily on first request.\033[0m")
+
     threading.Thread(target=_warm, daemon=True, name="ows-prewarm").start()
     threading.Thread(target=_warm_kb, daemon=True, name="kb-prewarm").start()
+    threading.Thread(target=_warm_hdb, daemon=True, name="hdb-prewarm").start()
     yield
 
 # Initialize FastAPI app

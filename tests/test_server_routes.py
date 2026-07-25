@@ -345,3 +345,23 @@ def test_sg_hub_community(client, monkeypatch):
     assert resp.status_code == 200
     body = resp.json()
     assert len(body["community_events"]) == len(server.COMMUNITY_CHANNELS)
+
+
+def test_sg_hub_wages_bq_source(client, monkeypatch):
+    fake_wages = {
+        "latest_year": 2025,
+        "prior_year": 2024,
+        "occupation_count": 523,
+        "matched_count": 480,
+        "source": "MOM Occupational Wage Survey, June 2025 vs June 2024 (Google BigQuery `sg_employment.occupational_wages`).",
+    }
+    monkeypatch.setattr(server, "compute_occupational_wage_insights", lambda: fake_wages)
+    monkeypatch.setattr(server, "get_occ_wage_status", lambda: {"is_live": True, "synced_at": "25 Jul 2026", "note": None})
+
+    resp = client.get("/api/sg-hub/wages")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["occupation_count"] == 523
+    assert "Google BigQuery" in body["source"]
+    assert body["data_status"]["is_live"] is True
+

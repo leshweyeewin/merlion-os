@@ -138,6 +138,57 @@ def _fetch_occ_wage_year(year: int) -> dict | None:
 
 _TECH_WAGE_GAP_THRESHOLD_PTS = 2.0  # pp gap between tech/non-tech average YoY increment before flagging it
 
+# BigQuery table loaded by scripts/load_ows_to_bigquery.py
+_BQ_OWS_DATASET = "sg_employment"
+_BQ_OWS_TABLE = "occupational_wages"
+
+def _occ_wage_bq_client_and_table():
+    """(client, fully-qualified `project.dataset.table`) for the OWS table. Raises if the
+    BigQuery client can't be built (missing lib / no credentials) — callers treat any raise as
+    'BigQuery tier unavailable' and fall back to the live MOM fetch / seed path."""
+    import os
+    from google.cloud import bigquery
+    project_id = os.environ.get("GCP_PROJECT_ID")
+    client = bigquery.Client(project=project_id) if project_id else bigquery.Client()
+    return client, f"`{client.project}.{_BQ_OWS_DATASET}.{_BQ_OWS_TABLE}`"
+
+def _fetch_occ_wage_from_bigquery():
+    """Queries BigQuery for the two most recent published OWS years and returns
+    (latest_year, prior_year, latest_dict, prior_dict) where latest_dict and prior_dict
+    are formatted as {norm_name: {"name": occupation, "ssoc": ssoc, "group": occupation_group, "basic": basic_wage, "gross": gross_wage}}."""
+    client, table = _occ_wage_bq_client_and_table()
+    q_years = f"SELECT DISTINCT year FROM {table} ORDER BY year DESC LIMIT 2"
+    years = [int(r.year) for r in client.query(q_years).result()]
+    if len(years) < 2:
+        raise ValueError("OWS BigQuery table returned fewer than 2 years of data")
+    latest_year, prior_year = years[0], years[1]
+
+    from google.cloud import bigquery
+    q_data = f"SELECT year, ssoc, occupation, occupation_group, basic_wage, gross_wage FROM {table} WHERE year IN UNNEST(@years)"
+    cfg = bigquery.QueryJobConfig(query_parameters=[bigquery.ArrayQueryParameter("years", "INT64", [latest_year, prior_year])])
+    rows = list(client.query(q_data, job_config=cfg).result())
+
+    latest_dict = {}
+    prior_dict = {}
+    for r in rows:
+        norm = _occ_wage_norm(r.occupation)
+        entry = {
+            "name": r.occupation,
+            "ssoc": r.ssoc,
+            "group": r.occupation_group,
+            "basic": int(r.basic_wage) if r.basic_wage is not None else None,
+            "gross": int(r.gross_wage) if r.gross_wage is not None else None,
+        }
+        if r.year == latest_year:
+            latest_dict[norm] = entry
+        elif r.year == prior_year:
+            prior_dict[norm] = entry
+
+    if not latest_dict or not prior_dict:
+        raise ValueError(f"OWS BigQuery table returned empty dataset for year {latest_year} or {prior_year}")
+
+    return latest_year, prior_year, latest_dict, prior_dict
+
 def compute_tech_wage_growth_reason(movers: list) -> str | None:
     """Explains whether tech/AI roles are actually seeing faster raises than the rest of the
     workforce, or whether the AI-era wage story is mostly about new job creation and pay
@@ -215,41 +266,56 @@ def compute_occupational_wage_insights() -> dict:
             return stale
         raise ValueError(reason)
 
-    # Discover the latest published edition (survey year runs behind calendar year).
-    # The candidate-year probes are independent downloads, so they run concurrently —
-    # the cold-cache fetch costs roughly the duration of the single slowest download.
-    from concurrent.futures import ThreadPoolExecutor
+    latest_year, prior_year, latest, prior = None, None, None, None
+    source_str = None
 
-    sgt_year = _sgt_now().year
-    candidate_years = list(range(sgt_year, sgt_year - 3, -1))
+    # Tier 1: BigQuery (server-side query, fast & reliable, bypasses MOM WAF 403 blocks)
+    try:
+        latest_year, prior_year, latest, prior = _fetch_occ_wage_from_bigquery()
+        source_str = (
+            f"MOM Occupational Wage Survey, June {latest_year} vs June {prior_year} "
+            f"(Google BigQuery `{_BQ_OWS_DATASET}.{_BQ_OWS_TABLE}`)."
+        )
+        print(f"  \033[32m[BigQuery]\033[0m OWS loaded from {_BQ_OWS_DATASET}.{_BQ_OWS_TABLE} (years {latest_year} vs {prior_year}).")
+    except Exception as e:
+        print(f"  [MOM OWS] BigQuery tier unavailable ({type(e).__name__}: {e}) — using live MOM Excel / snapshot fetch")
 
-    def _safe_fetch_year(year):
-        try:
-            return _fetch_occ_wage_year(year)
-        except Exception as e:
-            print(f"  [MOM OWS] {year} edition fetch failed: {type(e).__name__}: {e}")
-            return None
+    if latest is None or prior is None:
+        # Tier 2: live MOM Excel fetch -> Tier 3: disk cache -> Tier 4: committed seed
+        sgt_year = _sgt_now().year
+        candidate_years = list(range(sgt_year, sgt_year - 3, -1))
 
-    with ThreadPoolExecutor(max_workers=3) as pool:
-        year_results = dict(zip(candidate_years, pool.map(_safe_fetch_year, candidate_years)))
+        def _safe_fetch_year(year):
+            try:
+                return _fetch_occ_wage_year(year)
+            except Exception as e:
+                print(f"  [MOM OWS] {year} edition fetch failed: {type(e).__name__}: {e}")
+                return None
 
-    latest_year = next((y for y in candidate_years if year_results.get(y)), None)
-    if latest_year is None:
-        # All concurrent probes failed — retry the two most likely editions sequentially
-        print("  [MOM OWS] all concurrent probes failed — retrying sequentially...")
-        for candidate in candidate_years[1:]:
-            parsed = _safe_fetch_year(candidate)
-            if parsed:
-                latest_year = candidate
-                year_results[candidate] = parsed
-                break
-    if latest_year is None:
-        return _serve_stale_or_raise("No live MOM OWS table1 edition reachable on stats.mom.gov.sg (see [MOM OWS] logs above for per-year causes)")
-    latest = year_results[latest_year]
-    prior_year = latest_year - 1
-    prior = year_results.get(prior_year) or _safe_fetch_year(prior_year)
-    if not prior:
-        return _serve_stale_or_raise(f"Prior-year OWS table1 ({prior_year}) not reachable live (see [MOM OWS] logs above)")
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            year_results = dict(zip(candidate_years, pool.map(_safe_fetch_year, candidate_years)))
+
+        latest_year = next((y for y in candidate_years if year_results.get(y)), None)
+        if latest_year is None:
+            print("  [MOM OWS] all concurrent probes failed — retrying sequentially...")
+            for candidate in candidate_years[1:]:
+                parsed = _safe_fetch_year(candidate)
+                if parsed:
+                    latest_year = candidate
+                    year_results[candidate] = parsed
+                    break
+        if latest_year is None:
+            return _serve_stale_or_raise("No live MOM OWS table1 edition reachable on stats.mom.gov.sg (see [MOM OWS] logs above for per-year causes)")
+        latest = year_results[latest_year]
+        prior_year = latest_year - 1
+        prior = year_results.get(prior_year) or _safe_fetch_year(prior_year)
+        if not prior:
+            return _serve_stale_or_raise(f"Prior-year OWS table1 ({prior_year}) not reachable live (see [MOM OWS] logs above)")
+        source_str = (
+            f"MOM Occupational Wage Survey, June {latest_year} vs June {prior_year} "
+            f"(stats.mom.gov.sg Occupational Wages tables)."
+        )
 
     # Pair latest-year occupations with prior-year rows: exact name first, then fuzzy rename match.
     new_keys = set(latest) - set(prior)
@@ -324,10 +390,7 @@ def compute_occupational_wage_insights() -> dict:
         "tech_roles": tech_roles,
         "tech_wage_growth_reason": tech_wage_growth_reason,
         "all_occupations": all_occupations,
-        "source": (
-            f"MOM Occupational Wage Survey, June {latest_year} vs June {prior_year} "
-            f"(stats.mom.gov.sg Occupational Wages tables)."
-        ),
+        "source": source_str,
     }
     now = time.time()
     _cache_set(_occ_wage_cache, data, fetched_at=now)
