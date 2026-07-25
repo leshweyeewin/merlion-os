@@ -483,24 +483,48 @@ body {
 
 /* ── Item 7: My Matters pinned section ─────────────────────────────────────── */
 .my-matters-section {
-    margin-bottom: 8px;
+    background: rgba(245, 158, 11, 0.04);
+    border: 1px solid rgba(245, 158, 11, 0.28);
+    border-left: 4px solid #f59e0b;
+    border-radius: 12px;
+    padding: 14px 16px 16px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 10px rgba(245, 158, 11, 0.05);
 }
 
 .my-matters-header {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
     flex-wrap: wrap;
 }
 
-.my-matters-header > span:first-child {
-    font-size: 13px;
-    font-weight: 700;
-    color: #f59e0b;
+.my-matters-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.my-matters-title-group > span:first-child {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: #d97706;
     display: flex;
     align-items: center;
     gap: 6px;
+    letter-spacing: 0.2px;
+}
+
+.my-matters-badge {
+    font-size: 9.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    background: #f59e0b;
+    color: #ffffff;
+    padding: 2px 7px;
+    border-radius: 10px;
+    letter-spacing: 0.6px;
 }
 
 .my-matters-hint {
@@ -533,22 +557,32 @@ body {
 .my-matters-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 10px;
-    margin-bottom: 16px;
+    gap: 12px;
+    margin-bottom: 0;
 }
 
-/* Compact card style for My Matters */
+/* Compact card style for My Matters — highlighted with amber top accent */
 .my-matters-grid .service-card {
     padding: 14px;
+    background: var(--bg-panel);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-top: 3px solid #f59e0b;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.08);
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.my-matters-grid .service-card:hover {
+    border-color: #f59e0b;
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.18);
 }
 
 /* Empty state — spans the whole grid so the pin hint reads as a full-width card */
 .my-matters-empty {
     grid-column: 1 / -1;
     padding: 14px 18px;
-    border: 1px dashed var(--border);
+    border: 1px dashed rgba(245, 158, 11, 0.4);
     border-radius: 10px;
-    background: var(--bg-muted);
+    background: rgba(245, 158, 11, 0.02);
     color: var(--text-subtle);
     font-size: 13px;
     line-height: 1.55;
@@ -558,10 +592,24 @@ body {
     color: #f59e0b;
 }
 
-.my-matters-divider {
-    border: none;
-    border-top: 1px solid var(--border);
-    margin: 4px 0 18px;
+.all-portals-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 24px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+}
+
+.all-portals-header span {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 /* ── Main portal grid ──────────────────────────────────────────────────────── */

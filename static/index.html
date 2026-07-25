@@ -124,14 +124,21 @@
                 <!-- My Matters — pinned portals (populated by JS from localStorage bookmarks) -->
                 <div class="my-matters-section hidden" id="my-matters-section">
                     <div class="my-matters-header">
-                        <span><i class="fa-solid fa-star"></i> My Matters</span>
+                        <div class="my-matters-title-group">
+                            <span><i class="fa-solid fa-star"></i> My Matters</span>
+                            <span class="my-matters-badge">Pinned</span>
+                        </div>
                         <span class="my-matters-hint">Your bookmarked portals — click ★ on any card to pin it here</span>
                         <button type="button" class="my-matters-clear hidden" id="my-matters-clear" title="Remove all pinned portals">
                             <i class="fa-solid fa-xmark"></i> Clear all
                         </button>
                     </div>
                     <div class="my-matters-grid" id="my-matters-grid"></div>
-                    <hr class="my-matters-divider">
+                </div>
+
+                <!-- Section Header for main grid -->
+                <div class="all-portals-header" id="all-portals-header">
+                    <span><i class="fa-solid fa-layer-group"></i> All Statutory Portals</span>
                 </div>
 
                 <div class="grid-container">
