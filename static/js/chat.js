@@ -73,6 +73,24 @@ document.addEventListener("DOMContentLoaded", () => {
         return AUTH_URL_KEYWORDS.some(k => u.includes(k));
     }
 
+    // Link policy (anti-phishing): only OFFICIAL Singapore government domains stay clickable —
+    // *.gov.sg plus the same short trusted-domain allowlist the backend scraper uses
+    // (is_trusted_sg_domain / TRUSTED_SG_DOMAINS in tools/search.py). Every other source the
+    // assistant surfaces — arbitrary grounded web results, blogs, forums — is rendered as plain,
+    // non-clickable text so users are never trained to click links from a chat window. Auth/login
+    // pages are NEVER clickable, even on a trusted domain.
+    const TRUSTED_SG_DOMAINS = ["healthhub.sg", "wsg.sg", "cdc.gov.sg"];
+    function isTrustedGovURL(url) {
+        if (isAuthURL(url)) return false;
+        try {
+            const host = new URL(url).hostname.toLowerCase();
+            if (host === "gov.sg" || host.endsWith(".gov.sg")) return true;
+            return TRUSTED_SG_DOMAINS.some(t => host === t || host.endsWith("." + t));
+        } catch (err) {
+            return false;
+        }
+    }
+
     // Custom lightweight markdown renderer to safely format agent outputs
     function renderMarkdown(text) {
         if (!text) return "";
@@ -89,11 +107,14 @@ document.addEventListener("DOMContentLoaded", () => {
         // Inline code: `code`
         html = html.replace(/`(.*?)`/g, "<code>$1</code>");
 
-        // Links: [label](url) — render as plain, NON-CLICKABLE text. The assistant never emits
-        // a clickable outbound link; we keep the label and surface the source domain in muted text
-        // so the reader can see where it came from and open it themselves (anti-phishing). `label`
-        // is already HTML-escaped above; `host` is derived via URL() so it is safe to inline.
+        // Links: [label](url) — clickable ONLY for official *.gov.sg sources; every other link is
+        // rendered as plain, non-clickable text with its source domain in muted text so the reader
+        // can see where it came from and open it themselves (anti-phishing; see isTrustedGovURL).
+        // `label` is already HTML-escaped above; `host` is derived via URL() so it is safe to inline.
         html = html.replace(/\[(.*?)\]\((.*?)\)/g, (match, label, url) => {
+            if (isTrustedGovURL(url)) {
+                return `<a href="${safeURL(url)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+            }
             let host = "";
             try {
                 host = new URL(url).hostname.replace("www.", "");
@@ -367,11 +388,17 @@ document.addEventListener("DOMContentLoaded", () => {
                                             try {
                                                 domain = new URL(c.uri).hostname.replace("www.", "");
                                             } catch (err) {}
-                                            // Cited sources are shown as plain, non-clickable text — the
-                                            // assistant surfaces where the grounding came from without ever
-                                            // emitting a clickable outbound link (anti-phishing; users open
-                                            // sources themselves). Auth/login sources additionally carry a
-                                            // shield marker as an extra caution cue.
+                                            // Link policy (anti-phishing): official *.gov.sg sources stay
+                                            // clickable; auth/login pages and every non-gov source are shown
+                                            // as plain, non-clickable text so users open them themselves.
+                                            if (isTrustedGovURL(c.uri)) {
+                                                return `
+                                                    <a href="${safeURL(c.uri)}" target="_blank" rel="noopener noreferrer" class="citation-pill" title="${escapeHTML(c.title)}">
+                                                        <strong>[${idx + 1}]</strong> ${escapeHTML(domain)}
+                                                    </a>
+                                                `;
+                                            }
+                                            // Auth/login sources additionally carry a shield marker as an extra caution cue.
                                             const isAuth = isAuthURL(c.uri);
                                             const shield = isAuth
                                                 ? ' <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>'
