@@ -10,7 +10,7 @@ import os
 import math
 import logging
 import requests
-from tools.core import _data_gov_sg_headers, _cache_get, _cache_set
+from tools.core import _data_gov_sg_headers, _cache_get, _cache_set, _common_headers, _sgt_stamp
 
 logger = logging.getLogger("merlion-os-environment")
 
@@ -318,11 +318,7 @@ def fetch_pub_flood_alerts() -> dict:
     if cached is not None:
         return cached
 
-    headers = {"User-Agent": "Mozilla/5.0"}
-    data_gov_sg_api_key = os.environ.get("DATA_GOV_SG_API_KEY", "").strip()
-    if data_gov_sg_api_key:
-        headers["x-api-key"] = data_gov_sg_api_key
-
+    headers = _common_headers(_data_gov_sg_headers())
     url = "https://api-open.data.gov.sg/v2/real-time/api/weather/flood-alerts"
     print(f"  \033[90m[PUB Flood Alerts] HTTP GET {url}\033[0m")
     try:
@@ -331,9 +327,7 @@ def fetch_pub_flood_alerts() -> dict:
         r.raise_for_status()
         data = r.json()
 
-        from datetime import datetime, timezone, timedelta
-        sgt_now = datetime.now(timezone(timedelta(hours=8)))
-        retrieved_at = sgt_now.strftime("%d %b %Y, %I:%M %p")
+        retrieved_at = _sgt_stamp()
 
         items = data.get("data", {}).get("items", [])
         alerts = []

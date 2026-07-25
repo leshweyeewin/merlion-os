@@ -10,7 +10,7 @@ import logging
 import requests
 from bs4 import BeautifulSoup
 from tools.civic import GOV_DIRECTORY
-from tools.core import _cache_get, _cache_set
+from tools.core import _cache_get, _cache_set, _common_headers
 
 logger = logging.getLogger("merlion-os-search")
 
@@ -376,9 +376,7 @@ def scrape_cdc_news() -> list:
         return cached
 
     url = "https://www.cdc.gov.sg/who-we-are/press-centre/media-releases/"
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
-    }
+    headers = _common_headers()
     print(f"  \033[90m[CDC News Scraper] HTTP GET {url}\033[0m")
     results = []
     try:

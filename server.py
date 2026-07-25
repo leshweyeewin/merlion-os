@@ -48,6 +48,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 from tools import (
     _cache_get,
     _cache_set,
+    _sgt_stamp,
     compute_job_sector_stats,
     format_job_trend_line,
     format_hiring_pressure_display,
@@ -338,9 +339,7 @@ async def get_sg_hub_weather():
 
     result = await anyio.to_thread.run_sync(fetch_weather_data)
     now = time.time()
-    from datetime import datetime, timezone, timedelta
-    sgt = datetime.fromtimestamp(now, tz=timezone(timedelta(hours=8)))
-    synced = sgt.strftime("%d %b %Y, %I:%M %p") + " (SGT)"
+    synced = _sgt_stamp(now)
     result["synced_at"] = synced
     # Honest freshness: each NEA sub-fetch swallows its own error and returns None, so "live"
     # means at least one real metric came back this round; all-None = NEA unreachable.

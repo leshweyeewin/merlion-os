@@ -8,7 +8,7 @@ import os
 import math
 import logging
 import requests
-from tools.core import _fetch_datagovsg_csv_rows, _cache_synced_at, _cache_get, _cache_set, _forecast_next_linear
+from tools.core import _fetch_datagovsg_csv_rows, _cache_synced_at, _cache_get, _cache_set, _forecast_next_linear, _sgt_stamp
 
 logger = logging.getLogger("merlion-os-transport")
 
@@ -333,7 +333,6 @@ def fetch_lta_train_alerts() -> dict | None:
         logger.warning("[LTA DataMall] LTA_DATAMALL_API_KEY not set — skipping train alert fetch.")
         return None
 
-    from datetime import datetime, timezone, timedelta
     url = "https://datamall2.mytransport.sg/ltaodataservice/TrainServiceAlerts"
     headers = {
         "AccountKey": api_key,
@@ -394,8 +393,7 @@ def fetch_lta_train_alerts() -> dict | None:
                 "affected_segments":  segs
             })
 
-        sgt = datetime.now(timezone(timedelta(hours=8)))
-        retrieved_at = sgt.strftime("%d %b %Y, %I:%M %p")
+        retrieved_at = _sgt_stamp()
 
         print(f"  \033[32m✔\033[0m [LTA DataMall] Overall status: {overall_status_str} ({raw_status}). "
               f"{len(affected_segments)} segment(s) affected, {len(parsed_messages)} message(s) retrieved.")
@@ -455,7 +453,6 @@ def fetch_lta_taxi_availability(user_lat: float | None = None, user_lon: float |
         return None
 
     import random
-    from datetime import datetime, timezone, timedelta
     url = "https://datamall2.mytransport.sg/ltaodataservice/Taxi-Availability"
     headers = {
         "AccountKey": api_key,
@@ -485,8 +482,7 @@ def fetch_lta_taxi_availability(user_lat: float | None = None, user_lon: float |
         sampled = random.sample(taxis, sample_size) if taxi_count > sample_size else taxis
         sample_positions = [[t["Latitude"], t["Longitude"]] for t in sampled]
 
-        sgt = datetime.now(timezone(timedelta(hours=8)))
-        retrieved_at = sgt.strftime("%d %b %Y, %I:%M %p")
+        retrieved_at = _sgt_stamp()
 
         print(f"  \033[32m✔\033[0m [LTA DataMall] {taxi_count} taxis currently available islandwide"
               f"{f', {nearby_count} within {nearby_radius_km}km of caller near {area_name}' if nearby_count is not None else ''}.")

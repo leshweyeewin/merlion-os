@@ -126,6 +126,15 @@ def _cached_rows(cache: dict, disk_name: str, ttl_seconds: float, fetch_fn, *,
             return _load()
     return _load()
 
+def _common_headers(extra: dict | None = None) -> dict:
+    """Standard browser User-Agent headers for scrapers and APIs across tools/*."""
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    if extra:
+        headers.update(extra)
+    return headers
+
 def _data_gov_sg_headers() -> dict:
     """x-api-key header for data.gov.sg calls, if DATA_GOV_SG_API_KEY is configured.
     Optional everywhere it's used — data.gov.sg APIs work unauthenticated too, just at a
@@ -139,11 +148,13 @@ def _cache_synced_at(cache: dict) -> str | None:
     truly fetched, not just when the page happened to render (which is misleading once a
     panel is backed by a server-side cache with a multi-hour TTL, e.g. Salary Growth's 24h)."""
     ts = cache.get("fetched_at")
-    if not ts:
+    return _sgt_stamp(ts) if ts else None
+
+def _calc_pct_change(current: float, previous: float, digits: int = 1) -> float | None:
+    """Computes percentage change from previous to current safely, returning None if previous is 0."""
+    if not previous:
         return None
-    from datetime import datetime, timezone, timedelta
-    sgt = datetime.fromtimestamp(ts, tz=timezone(timedelta(hours=8)))
-    return sgt.strftime("%d %b %Y, %I:%M %p") + " (SGT)"
+    return round(((current - previous) / previous) * 100, digits)
 
 def _cache_is_live(cache: dict) -> bool:
     """Whether the cache last served current data (a live fetch or a within-TTL snapshot) rather
