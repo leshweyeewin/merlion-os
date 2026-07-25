@@ -34,6 +34,7 @@ const PERSONAS = [
         quickTasks: ["Singapore Journey", "Renew passport", "Apply for BTO", "First tax filing", "Top up CPF", "SkillsFuture courses"],
         chatPrompts: [
             { label: "SG Journey", query: "What are the key steps and requirements to complete the Singapore Journey onboarding?" },
+            { label: "BTO vs Resale", query: "As a newly naturalised citizen renting in Punggol, what's the difference between a BTO and a resale flat, and which CPF housing grants can I get?" },
             { label: "First BTO", query: "What HDB housing grants and eligibility rules apply to newly naturalised Singapore citizens?" },
             { label: "First Tax", query: "How do I set up GIRO or pay income tax for the first time with IRAS?" },
             { label: "Passport", query: "How do I apply for a Singapore passport and IC with ICA?" }

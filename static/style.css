@@ -1378,6 +1378,15 @@ body {
     color: var(--text-muted) !important;
 }
 
+/* Inline source reference from the answer text: plain, non-clickable label + muted domain. */
+.inline-source {
+    font-weight: 500;
+}
+.inline-source-host {
+    color: var(--text-muted);
+    font-size: 0.85em;
+}
+
 
 .message-content p {
     margin-bottom: 8px;

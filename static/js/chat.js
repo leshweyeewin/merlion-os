@@ -89,9 +89,17 @@ document.addEventListener("DOMContentLoaded", () => {
         // Inline code: `code`
         html = html.replace(/`(.*?)`/g, "<code>$1</code>");
 
-        // Links: [label](url) — block javascript: and data: scheme hrefs to prevent XSS
+        // Links: [label](url) — render as plain, NON-CLICKABLE text. The assistant never emits
+        // a clickable outbound link; we keep the label and surface the source domain in muted text
+        // so the reader can see where it came from and open it themselves (anti-phishing). `label`
+        // is already HTML-escaped above; `host` is derived via URL() so it is safe to inline.
         html = html.replace(/\[(.*?)\]\((.*?)\)/g, (match, label, url) => {
-            return `<a href="${safeURL(url)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+            let host = "";
+            try {
+                host = new URL(url).hostname.replace("www.", "");
+            } catch (err) {}
+            const src = host ? ` <span class="inline-source-host">(${host})</span>` : "";
+            return `<span class="inline-source">${label}</span>${src}`;
         });
 
         // Lists: lines starting with * or -
@@ -359,19 +367,22 @@ document.addEventListener("DOMContentLoaded", () => {
                                             try {
                                                 domain = new URL(c.uri).hostname.replace("www.", "");
                                             } catch (err) {}
-                                            // Login/SingPass/auth sources are shown de-linked — never a clickable
-                                            // login link from the assistant (same rule as the model's answer text).
-                                            if (isAuthURL(c.uri)) {
-                                                return `
-                                                    <span class="citation-pill citation-pill-noauth" title="Open this yourself in a new browser tab — never follow login links from a chat assistant">
-                                                        <strong>[${idx + 1}]</strong> ${escapeHTML(domain)} <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
-                                                    </span>
-                                                `;
-                                            }
+                                            // Cited sources are shown as plain, non-clickable text — the
+                                            // assistant surfaces where the grounding came from without ever
+                                            // emitting a clickable outbound link (anti-phishing; users open
+                                            // sources themselves). Auth/login sources additionally carry a
+                                            // shield marker as an extra caution cue.
+                                            const isAuth = isAuthURL(c.uri);
+                                            const shield = isAuth
+                                                ? ' <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>'
+                                                : '';
+                                            const tip = isAuth
+                                                ? "Open this yourself in a new browser tab — never follow login links from a chat assistant"
+                                                : escapeHTML(c.title);
                                             return `
-                                                <a href="${safeURL(c.uri)}" target="_blank" rel="noopener noreferrer" class="citation-pill" title="${escapeHTML(c.title)}">
-                                                    <strong>[${idx + 1}]</strong> ${escapeHTML(domain)}
-                                                </a>
+                                                <span class="citation-pill citation-pill-noauth" title="${tip}">
+                                                    <strong>[${idx + 1}]</strong> ${escapeHTML(domain)}${shield}
+                                                </span>
                                             `;
                                         }).join("")}
                                     </div>
