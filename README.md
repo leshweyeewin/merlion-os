@@ -30,33 +30,35 @@ MerlionOS aggregates this entire ecosystem into a single-pane-of-glass daily uti
 ## 🏗️ Architecture & Process Flow
 
 ```mermaid
-graph TD
-    User([Citizen / Developer]):::client -->|Natural-language query| UI[Frontend Dashboard<br/>static/js modules]:::client
-    UI -->|AJAX POST /api/chat| Server[FastAPI Server<br/>server.py]:::server
-    Server -->|Per-IP rate limit · 8/min| RateLimit{Under limit?}:::gate
+graph LR
+    User([Citizen / Developer]):::client -->|NL query| UI[Frontend Dashboard<br/>static/js]:::client
+    UI -->|POST /api/chat| Server[FastAPI Server<br/>server.py]:::server
+    Server -->|Rate limit · 8/min| RateLimit{Under limit?}:::gate
     RateLimit -.->|No · 429| UI
 
     subgraph AI["AI Orchestration Layer"]
+        direction LR
         RateLimit -->|Yes| Chat[tools/chat.py]:::ai
-        Chat -->|Orchestrate| Gemini[Gemini 2.5 Flash]:::ai
-        Gemini -->|Parallel tool calling| Tools{Statutory Tools}:::ai
-        Gemini -.->|Quota exceeded · 429| Fallback[Gemini 3.1 Flash-Lite<br/>+ Google Search Grounding]:::fallback
+        Chat --> Gemini[Gemini 2.5 Flash]:::ai
+        Gemini -->|Parallel tool calls| Tools{Statutory Tools}:::ai
+        Gemini -.->|429| Fallback[Flash-Lite<br/>+ Search Grounding]:::fallback
     end
 
     subgraph DATA["Data &amp; Scraper Layer"]
-        Tools -->|SQL aggregate| BQ[(Google BigQuery<br/>HDB Resale · Job Vacancy · OWS)]:::data
-        BQ -.->|no creds / miss| GOV[(data.gov.sg CSV<br/>→ disk snapshot)]:::fallback
-        Tools -->|Live JSON APIs| APIS[LTA DataMall · NEA Weather · PUB Flood]:::api
-        Tools -->|BeautifulSoup4 scrapers| Scrapers[ELD · HDB · IRAS · CDC · ICA · Telegram]:::scraper
-        Tools -->|RAG retrieval| KB[Civic Knowledge Base<br/>Gemini embeddings + cosine]:::ai
-        Scrapers -->|Strict domain validation| Validate{gov.sg / trusted?}:::gate
+        direction LR
+        Tools -->|SQL| BQ[(BigQuery<br/>HDB · Vacancy · OWS)]:::data
+        BQ -.->|miss| GOV[(data.gov.sg CSV<br/>→ snapshot)]:::fallback
+        Tools -->|JSON APIs| APIS[LTA · NEA · PUB]:::api
+        Tools -->|Scrapers| Scrapers[ELD · HDB · IRAS<br/>CDC · ICA · Telegram]:::scraper
+        Tools -->|RAG| KB[Knowledge Base<br/>embeddings + cosine]:::ai
+        Scrapers --> Validate{gov.sg /<br/>trusted?}:::gate
         Validate -->|Yes| Fetch[Secure parse]:::scraper
         Validate -->|No / auth| Block[Blocked redirect<br/>/ SingPass bypass]:::security
     end
 
-    Fetch -->|Structured result| Server
+    Fetch -->|Result| Server
     Server -->|JSON stream| UI
-    UI -->|escapeHTML + safeURL render| User
+    UI -->|escapeHTML + safeURL| User
     Server -.->|MCP JSON-RPC| FastMCP[mcp_server.py]:::server
     FastMCP -.->|Tool export| Cursor[External agent<br/>Cursor / Claude]:::external
 
