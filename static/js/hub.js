@@ -348,13 +348,14 @@ function initSgHub() {
 
     function showPaneLoader(paneId) {
         setPaneLoadingBar(paneId, true);
-        if (paneId === "hub-transport-pane" || paneId === "hub-gov-transit-pane") {
-            mrtEventsContent.innerHTML = skeletonRows(3);
-            // taxi + COE live in their own elements — the old `hub-transport-content` id doesn't
-            // exist, so those sections used to never show a loading state (only MRT flickered).
+        if (paneId === "hub-transport-pane") {
+            if (mrtEventsContent) mrtEventsContent.innerHTML = skeletonRows(3);
             if (taxiEventsContent) taxiEventsContent.innerHTML = skeletonCardGrid(4);
             if (coeEventsContent) coeEventsContent.innerHTML = skeletonRows(2);
-            govEventsContent.innerHTML = skeletonRows(3);
+            if (icaEventsContent) icaEventsContent.innerHTML = skeletonRows(3);
+        } else if (paneId === "hub-gov-transit-pane") {
+            if (cdcNewsContent) cdcNewsContent.innerHTML = skeletonRows(3);
+            if (govEventsContent) govEventsContent.innerHTML = skeletonRows(3);
         } else if (paneId === "hub-hdb-pane") {
             hdbLaunchesContent.innerHTML = skeletonRows(3, ["tall", "full", "medium"]);
             hdbNewsContent.innerHTML = skeletonRows(3, ["medium", "long", "short"]);
@@ -368,11 +369,14 @@ function initSgHub() {
     }
 
     function showPaneError(paneId) {
-        if (paneId === "hub-transport-pane" || paneId === "hub-gov-transit-pane") {
-            mrtEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load transit feeds.</p>";
+        if (paneId === "hub-transport-pane") {
+            if (mrtEventsContent) mrtEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load transit feeds.</p>";
             if (taxiEventsContent) taxiEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load taxi availability.</p>";
             if (coeEventsContent) coeEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load COE data.</p>";
-            govEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load official alerts.</p>";
+            if (icaEventsContent) icaEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load ICA advisories.</p>";
+        } else if (paneId === "hub-gov-transit-pane") {
+            if (cdcNewsContent) cdcNewsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load CDC media releases.</p>";
+            if (govEventsContent) govEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load official broadcasts.</p>";
         } else if (paneId === "hub-hdb-pane") {
             hdbLaunchesContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load BTO listings.</p>";
             hdbNewsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load portal news.</p>";
