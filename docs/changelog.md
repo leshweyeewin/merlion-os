@@ -2,7 +2,22 @@
 
 The document above always reflects the **latest** release. This section records what changed between versions.
 
-## Version 4 — current
+## Version 5 — current
+A data-layer and coverage cycle: more agency news feeds, and moving the large tabular datasets off per-request downloads onto Google BigQuery. What's new or changed:
+
+**📰 New & expanded agency news feeds**
+The **Gov Updates** tab grew from 12 to **22 official Telegram channels** (added Elections Dept, CPF, LTA, SkillsFuture, SWDA, NEA, NLB, URA, GovTech and more), and gained a dedicated **CDC / RedeemSG Media Releases** card — since CDC has no Telegram channel, it's a BeautifulSoup scrape of the `cdc.gov.sg` newsroom (a trusted-domain allowlist entry). The **IRAS Tax & Wealth** tab gained an **IRAS News & Updates** card from the official `@irassg` channel (kept at the bottom of the tab, below the deadlines and the relief optimizer). The **Kiasu SG Deals** community feed grew from 15 to **18 channels** (added `@goodyfeedsg`, `@TSLMedia`, `@todayonlinesg`). All render with the same live/last-known freshness badge as the other scraper-backed cards.
+
+**🗄️ BigQuery for the big datasets (3-tier, WAF-proof)**
+Extended the BigQuery pattern from just MOM Job Vacancy to also cover **HDB Resale** (`sg_housing.hdb_resale_prices`, 236k+ rows) and the **MOM Occupational Wage Survey** (`sg_employment.occupational_wages`). Both now answer with server-side aggregate queries — `APPROX_QUANTILES` medians and `GROUP BY` roll-ups for resale; a two-year occupation pull for OWS — instead of downloading a ~20MB CSV or scraping multi-year Excel per request. Each degrades cleanly through **BigQuery → live source (data.gov.sg / MOM) → committed seed/disk snapshot**, so a host without GCP credentials still works. OWS especially benefits: stats.mom.gov.sg WAF-403s datacenter IPs, so querying pre-loaded BigQuery rows sidesteps that block entirely. New loader scripts `scripts/load_hdb_resale_to_bigquery.py` and `scripts/load_ows_to_bigquery.py` (re-runnable, `WRITE_TRUNCATE`) mirror the existing job-vacancy loader. Results are memoised for hours (monthly-static data) and a startup pre-warm thread means the first visitor never pays the cold query.
+
+**🛡️ HDB pane resilience & stuck-skeleton fix**
+The `/api/sg-hub/hdb` endpoint's three sub-fetches (BTO, newsroom, resale) are now independent — a slow/failed resale on a cold start no longer cancels its siblings and 500s the whole pane; BTO and news render with whatever came back, with an honest per-source status. On the client, `fetchJsonWithRetry` gained an `AbortController` timeout so a hung request (Render free-tier cold starts can stall a connection indefinitely) now settles instead of leaving a pane's loading flag stuck — which previously left the Transit tab showing skeletons forever on a return visit.
+
+**🧪 Testing**
+Suite grown to **144 Python + 6 JavaScript tests**, including the new CDC/IRAS feed endpoints and the BigQuery-first resale/OWS paths (with the fallback tier exercised deterministically regardless of whether the machine running CI has live BigQuery credentials).
+
+## Version 4
 A refinement cycle addressing weaknesses surfaced in post-submission review — grounding, personalization, demo resilience, and front-end maintainability. What's new or changed:
 
 **📚 New: RAG civic knowledge base**

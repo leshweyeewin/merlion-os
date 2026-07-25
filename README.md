@@ -44,9 +44,10 @@ graph TD
     end
 
     subgraph Data & Scraper Layer
-        Tools -->|SQL Query| BQ[(Google BigQuery MOM Employment)]
+        Tools -->|SQL Query| BQ[(Google BigQuery<br/>HDB Resale · MOM Job Vacancy · OWS)]
+        BQ -.->|no creds / miss| GOV[(data.gov.sg CSV → disk snapshot)]
         Tools -->|Live JSON APIs| APIS[LTA DataMall / NEA Weather / PUB Flood]
-        Tools -->|BeautifulSoup4 Scrapers| Scrapers[ELD / HDB / IRAS / ICA / Telegram]
+        Tools -->|BeautifulSoup4 Scrapers| Scrapers[ELD / HDB / IRAS / CDC / ICA / Telegram]
         Tools -->|RAG retrieval| KB[Civic Knowledge Base<br/>Gemini embeddings + cosine]
         Scrapers -->|Strict Domain Validation| Validate{gov.sg / trusted?}
         Validate -->|Yes| Fetch[Secure Parse]
@@ -74,6 +75,8 @@ graph TD
    - Safe failover layer: if the primary Gemini API quota is hit (429), it falls back to `gemini-3.1-flash-lite` with Google Search Grounding. The response parses the grounding metadata to render clickable link pills (e.g. `[1] moh.gov.sg`) below the message bubble.
 5. **Interactive Dashboards & Predictive Analytics**:
    - Integrates linear regression modules directly in Python to analyze and forecast HDB resale and COE premium trends. Plots live taxi availability near the user on an interactive Leaflet.js map (the "Around You" feature); NEA weather is shown as a live PSI gauge with 6-region forecast cards.
+5a. **BigQuery-Backed Big Datasets (3-Tier, WAF-Proof)**:
+   - The three large tabular datasets — **HDB Resale** (236k+ rows), **MOM Job Vacancy**, and the **MOM Occupational Wage Survey** — are hosted in Google BigQuery (loaded via `scripts/load_*_to_bigquery.py`) and answered with server-side aggregate queries (`APPROX_QUANTILES` medians, `GROUP BY` roll-ups) instead of downloading multi-MB CSV/Excel per request. Each falls back cleanly: **BigQuery → data.gov.sg / live source → committed seed/disk snapshot**, so a host without GCP credentials (or a WAF that 403s the origin) degrades to the next tier rather than failing. Results are memoised for hours since the data is monthly-static, and a startup pre-warm thread means the first visitor never pays the cold query.
 6. **Operations Transparency Terminal**:
    - Live-streams raw BigQuery SQL, BeautifulSoup scraper networks, HTTP response status codes, and crawler logs directly to an active log terminal widget in the frontend.
 7. **Considered Loading States & Bookmarks**:
@@ -82,9 +85,9 @@ graph TD
    - Deterministic causal reasoning built entirely from data the app already fetches (no extra AI calls, no generated narrative): the Job Market panel cross-references the Hiring Pressure Index against the CAGR trend-break to distinguish genuine hiring demand from vacancy churn; COE Bidding compares quota vs. bid-volume to explain whether a premium move was a supply story, a demand story, or both; HDB Resale compares each flat type's own YoY move against the islandwide figure to flag a mix-shift vs. a broad-based price change. All three stay silent rather than force a guess when the signal is ambiguous.
 9. **Structured-Data Architecture**:
    - Job vacancy, retrenchment, and COE bidding stats used to be computed once as Gemini-formatted text that the server then re-parsed with fragile line-splits for the dashboard. These now compute structured dicts consumed directly by the dashboard, with thin formatting wrappers rendering the same data into text for the chat/MCP tool — eliminating an entire class of "a wording tweak silently breaks the UI" bugs.
-10. **CI, Hourly Seed Refresh & 147-Test Suite**:
-    - **Deploy:** the canonical demo auto-deploys to **Render** on every push to `main` (Render's GitHub integration). A Google Cloud Run pipeline (`deploy.yml`) is retained as a manual-only cold backup. CI runs a `pyflakes` lint gate (unused imports, undefined names) plus **141 Python + 6 JavaScript unit tests** (routes, caching, the shared data.gov.sg fetch/cache loader, structured stats, "why" explanations, RAG retrieval, XSS/`safeURL`, pydantic structures, OLS forecasts, allowlists).
-    - **Hourly seed refresh (`refresh-seeds.yml`):** re-scrapes the WAF-sensitive `.gov.sg` sources (HDB newsroom, MOM OWS) from a GitHub runner and commits the refreshed `data_seed/*.json` only when the underlying data changes, so the shipped fallback seeds never drift stale; the commit is picked up by Render's auto-deploy.
+10. **CI, Hourly Seed Refresh & 150-Test Suite**:
+    - **Deploy:** the canonical demo auto-deploys to **Render** on every push to `main` (Render's GitHub integration). A Google Cloud Run pipeline (`deploy.yml`) is retained as a manual-only cold backup. CI runs a `pyflakes` lint gate (unused imports, undefined names) plus **144 Python + 6 JavaScript unit tests** (routes, caching, the shared data.gov.sg fetch/cache loader, structured stats, "why" explanations, RAG retrieval, XSS/`safeURL`, pydantic structures, OLS forecasts, allowlists).
+    - **Hourly seed refresh (`refresh-seeds.yml`):** re-scrapes the WAF-sensitive `.gov.sg` sources (HDB newsroom, MOM OWS) from a GitHub runner and commits the refreshed `data_seed/*.json` only when the underlying data changes, so the shipped fallback seeds never drift stale; the commit is picked up by Render's auto-deploy. (These seeds are now the *last* fallback tier — BigQuery and the live sources are tried first — but stay committed so the app still renders on a fresh host before any BigQuery load.)
 11. **Chat Rate Limiting**:
     - Per-IP request caps (8/min, in-memory sliding window) on `/api/chat` and `/api/chat/stream`, so a single client can't drain the shared Gemini free-tier quota on the public demo link.
 12. **Intent-Based Portal Search & Plain-English Glossary**:
@@ -142,7 +145,7 @@ python server.py
 Open **`http://127.0.0.1:8000/`** in your browser.
 
 ### 3. Run Tests
-Ensure dependencies are installed, then run the lint gate and the python/javascript test suites (141 Python + 6 JavaScript tests):
+Ensure dependencies are installed, then run the lint gate and the python/javascript test suites (144 Python + 6 JavaScript tests):
 ```bash
 pip install -r requirements-dev.txt
 pyflakes server.py tools mcp_server.py tests

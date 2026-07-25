@@ -45,13 +45,19 @@ INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 ```
 
 
-## 3. Setup Google BigQuery for Job Market Analysis
-By default, the Job Market Analysis panel queries Google BigQuery first. If GCP credentials or the table is not set up, it automatically falls back to fetching directly from data.gov.sg (without any loss of functionality). To populate and run with the Google BigQuery tier:
+## 3. Setup Google BigQuery for the large datasets
+Three panels — **Job Market Analysis**, **HDB Resale Flat Prices**, and the **Occupational Wage Explorer** — query Google BigQuery first, then fall back automatically (BigQuery → live data.gov.sg/MOM source → committed seed/disk snapshot) with no loss of functionality if GCP credentials or the tables aren't set up. To populate and run with the BigQuery tier:
 ```bash
 gcloud auth application-default login
-python scripts/load_job_vacancy_to_bigquery.py --project YOUR_GCP_PROJECT_ID
+gcloud services enable bigquery.googleapis.com --project YOUR_GCP_PROJECT_ID
+
+python scripts/load_job_vacancy_to_bigquery.py --project YOUR_GCP_PROJECT_ID   # sg_employment.job_vacancy_by_industry
+python scripts/load_hdb_resale_to_bigquery.py --project YOUR_GCP_PROJECT_ID    # sg_housing.hdb_resale_prices
+python scripts/load_ows_to_bigquery.py --project YOUR_GCP_PROJECT_ID           # sg_employment.occupational_wages
 ```
-Then set `GCP_PROJECT_ID` alongside your other environment variables before starting the server. If this isn't configured, the app automatically falls back to the direct data.gov.sg fetch.
+Each loader is re-runnable (`WRITE_TRUNCATE` replaces the table in place) — re-run monthly when a new edition publishes. Then set `GCP_PROJECT_ID` alongside your other environment variables before starting the server. If this isn't configured, the app automatically falls back to the direct live fetch.
+
+**Deploying to a non-GCP host (e.g. Render):** the `google-cloud-bigquery` client authenticates via a service-account key, not `gcloud` login. Add the JSON key as a **Secret File** (Render exposes it at `/etc/secrets/<filename>`), then set `GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/<filename>` and `GCP_PROJECT_ID` as environment variables. The service account needs BigQuery **Data Viewer** + **Job User** roles (read-only — the loader scripts run separately from your own machine). Without the key, the host simply uses the data.gov.sg / seed fallback tiers.
 
 ## 4. Run Tests & Lint
 The test suite consists of **92 unit tests** spanning both Python and Node.js testing frameworks, plus a `pyflakes` lint gate:
