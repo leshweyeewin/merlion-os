@@ -1,10 +1,14 @@
 # 🇸🇬 MerlionOS: Unified Singapore Public Sector AI Coordination Brain
 *APAC GenAI Academy (APAC Edition) — Cohort 2 Hackathon Project*
 
-[![CI](https://github.com/leshweyeewin/merlion-os/actions/workflows/ci.yml/badge.svg)](https://github.com/leshweyeewin/merlion-os/actions/workflows/ci.yml) [![Deploy to Google Cloud Run](https://github.com/leshweyeewin/merlion-os/actions/workflows/deploy.yml/badge.svg)](https://github.com/leshweyeewin/merlion-os/actions/workflows/deploy.yml)
+[![CI](https://github.com/leshweyeewin/merlion-os/actions/workflows/ci.yml/badge.svg)](https://github.com/leshweyeewin/merlion-os/actions/workflows/ci.yml)
 
-**🔗 Live Demo:** [merlion-os-648096114696.asia-southeast1.run.app](https://merlion-os-648096114696.asia-southeast1.run.app)  
-*(Hosted on Google Cloud Run, region `asia-southeast1`, with a warm minimum instance — no cold-start wait.)*
+**🔗 Live Demo:** [merlion-os.onrender.com](https://merlion-os.onrender.com)  
+*(Hosted on Render. Singapore government sites — LTA DataMall, the HDB newsroom, MOM's wage
+tables — WAF-block cloud datacenter IP ranges, and Google Cloud Run's egress falls inside those
+blocks, so those live feeds 403 from GCP. Render's AWS-based egress isn't blocked, so all feeds
+fetch live there. A Google Cloud Run backup deploy still exists (`deploy.yml`, manual-only) but
+serves cached/seed fallbacks for the WAF-blocked sources.)*
 
 ---
 
@@ -78,8 +82,9 @@ graph TD
    - Deterministic causal reasoning built entirely from data the app already fetches (no extra AI calls, no generated narrative): the Job Market panel cross-references the Hiring Pressure Index against the CAGR trend-break to distinguish genuine hiring demand from vacancy churn; COE Bidding compares quota vs. bid-volume to explain whether a premium move was a supply story, a demand story, or both; HDB Resale compares each flat type's own YoY move against the islandwide figure to flag a mix-shift vs. a broad-based price change. All three stay silent rather than force a guess when the signal is ambiguous.
 9. **Structured-Data Architecture**:
    - Job vacancy, retrenchment, and COE bidding stats used to be computed once as Gemini-formatted text that the server then re-parsed with fragile line-splits for the dashboard. These now compute structured dicts consumed directly by the dashboard, with thin formatting wrappers rendering the same data into text for the chat/MCP tool — eliminating an entire class of "a wording tweak silently breaks the UI" bugs.
-10. **Automated Deploy Pipeline, CI Lint Gate & 147-Test Suite**:
-    - Automated Google Cloud Run build & deploy CI/CD pipeline (`deploy.yml`) triggered on branch push. CI runs a `pyflakes` lint gate (unused imports, undefined names) plus **141 Python + 6 JavaScript unit tests** (routes, caching, the shared data.gov.sg fetch/cache loader, structured stats, "why" explanations, RAG retrieval, XSS/`safeURL`, pydantic structures, OLS forecasts, allowlists) on every push.
+10. **CI, Hourly Seed Refresh & 147-Test Suite**:
+    - **Deploy:** the canonical demo auto-deploys to **Render** on every push to `main` (Render's GitHub integration). A Google Cloud Run pipeline (`deploy.yml`) is retained as a manual-only cold backup. CI runs a `pyflakes` lint gate (unused imports, undefined names) plus **141 Python + 6 JavaScript unit tests** (routes, caching, the shared data.gov.sg fetch/cache loader, structured stats, "why" explanations, RAG retrieval, XSS/`safeURL`, pydantic structures, OLS forecasts, allowlists).
+    - **Hourly seed refresh (`refresh-seeds.yml`):** re-scrapes the WAF-sensitive `.gov.sg` sources (HDB newsroom, MOM OWS) from a GitHub runner and commits the refreshed `data_seed/*.json` only when the underlying data changes, so the shipped fallback seeds never drift stale; the commit is picked up by Render's auto-deploy.
 11. **Chat Rate Limiting**:
     - Per-IP request caps (8/min, in-memory sliding window) on `/api/chat` and `/api/chat/stream`, so a single client can't drain the shared Gemini free-tier quota on the public demo link.
 12. **Intent-Based Portal Search & Plain-English Glossary**:

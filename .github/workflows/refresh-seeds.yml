@@ -1,27 +1,25 @@
 name: Refresh data seeds
 
-# The HDB newsroom and MOM OWS sources WAF-block GCP Cloud Run's IPs, so the app falls back to
-# committed seeds (data_seed/*.json). Those seeds go stale on GCP because the container can never
-# refresh them itself. This job runs from a GitHub-hosted runner (an IP the WAFs generally allow),
-# re-scrapes each source, and — only when a seed actually changed — commits it and triggers a
-# redeploy so the GCP demo stays within a day of live.
+# The HDB newsroom and MOM OWS sources ship committed fallback seeds (data_seed/*.json) that the
+# app serves when a live fetch fails. This job re-scrapes them from a GitHub-hosted runner (an IP
+# the .gov.sg WAFs generally allow) and — only when the scraped DATA actually changes — commits the
+# refreshed seed. The push to main is picked up by Render's auto-deploy; no explicit deploy call.
 #
-# Caveat: if the runner IP is also blocked, scripts/refresh_seeds.py skips that source and leaves
-# its seed untouched (never clobbers good data). If GitHub runners turn out to be blocked for a
-# source, point this at a self-hosted runner on an allowed network (e.g. Render/residential).
+# On Render (the canonical deployment) the app fetches these sources LIVE — AWS egress IPs aren't
+# WAF-blocked like GCP's were — so the seed is mainly a safety net; keeping it fresh just means the
+# fallback is never far off if a live fetch ever fails. If the runner IP is blocked for a source,
+# scripts/refresh_seeds.py skips it and leaves the good seed untouched (never clobbers good data).
 
 on:
   schedule:
-    # Hourly. The commit/deploy step only fires when the scraped DATA actually changes
-    # (refresh_seeds.py compares payloads and ignores timestamps), so most hourly runs are a
-    # cheap no-op — HDB posts a few times a week, MOM OWS is annual. Widen the interval if you
-    # want fewer runs, e.g. "0 */6 * * *" for every 6 hours.
+    # Hourly. The commit only fires when the scraped DATA actually changes (refresh_seeds.py
+    # compares payloads and ignores timestamps), so most runs are a cheap no-op — HDB posts a few
+    # times a week, MOM OWS is annual. Widen the interval any time, e.g. "0 */6 * * *".
     - cron: "0 * * * *"
   workflow_dispatch: {}
 
 permissions:
-  contents: write   # commit the refreshed seeds
-  actions: write    # trigger the deploy workflow
+  contents: write   # commit the refreshed seeds (Render auto-deploy picks up the push)
 
 jobs:
   refresh:
@@ -39,18 +37,15 @@ jobs:
       - name: Refresh seeds
         run: python scripts/refresh_seeds.py
 
-      - name: Commit refreshed seeds and redeploy
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Commit refreshed seeds
         run: |
           if git diff --quiet -- data_seed/; then
-            echo "No seed changes this run — nothing to deploy."
+            echo "No seed changes this run — nothing to commit."
             exit 0
           fi
           git config user.name "merlion-seed-bot"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data_seed/
-          git commit -m "chore: refresh WAF-blocked .gov.sg data seeds"
+          git commit -m "chore: refresh .gov.sg data seeds"
           git push
-          echo "Seeds changed — triggering Cloud Run deploy."
-          gh workflow run deploy.yml --ref main
+          echo "Seeds changed — pushed to main; Render auto-deploy will pick it up."

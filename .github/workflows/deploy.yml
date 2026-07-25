@@ -1,11 +1,9 @@
-﻿name: Deploy to Google Cloud Run
+﻿name: Deploy to Google Cloud Run (backup — manual only)
 
+# Render is the canonical deployment (the .gov.sg WAFs block GCP Cloud Run's egress IPs, so LTA /
+# HDB / MOM data 403s there). This workflow is kept only as a manual cold backup — it no longer
+# auto-deploys on push. Run it by hand from the Actions tab if you ever need the GCP fallback up.
 on:
-  push:
-    branches:
-      - main
-  # Allows the refresh-seeds workflow (and manual runs) to trigger a deploy after it commits
-  # fresh .gov.sg seeds — a commit pushed with GITHUB_TOKEN does not itself re-fire `on: push`.
   workflow_dispatch: {}
 
 env:
