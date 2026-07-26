@@ -2558,28 +2558,31 @@ function initSgHub() {
 
         const chatSectorBtn = jobsContent.querySelector(".chat-sector-btn");
         if (chatSectorBtn) {
-            chatSectorBtn.addEventListener("click", () => {
-                const prompt = chatSectorBtn.getAttribute("data-prompt");
-                const portalsBtn = document.getElementById("main-tab-portals-btn");
-                if (portalsBtn) portalsBtn.click();
+            chatSectorBtn.addEventListener("click", askCopilotWithPrompt);
+        }
+    }
 
-                const widget = document.getElementById("chat-widget");
-                const trigger = document.getElementById("chat-trigger");
-                if (widget && widget.classList.contains("hidden")) {
-                    if (trigger) trigger.click();
-                }
+    function askCopilotWithPrompt(e) {
+        const btn = e.currentTarget || e.target;
+        if (!btn) return;
+        const prompt = btn.getAttribute("data-prompt");
+        if (!prompt) return;
 
-                const input = document.getElementById("user-input");
-                if (input) {
-                    input.value = prompt;
-                    const form = document.getElementById("chat-form");
-                    if (form) {
-                        setTimeout(() => {
-                            form.dispatchEvent(new Event("submit"));
-                        }, 300);
-                    }
-                }
-            });
+        const widget = document.getElementById("chat-widget");
+        const trigger = document.getElementById("chat-trigger");
+        if (widget && widget.classList.contains("hidden")) {
+            if (trigger) trigger.click();
+        }
+
+        const input = document.getElementById("user-input");
+        if (input) {
+            input.value = prompt;
+            const form = document.getElementById("chat-form");
+            if (form) {
+                setTimeout(() => {
+                    form.dispatchEvent(new Event("submit"));
+                }, 300);
+            }
         }
     }
 
