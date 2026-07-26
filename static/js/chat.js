@@ -353,20 +353,31 @@ document.addEventListener("DOMContentLoaded", () => {
                                 arguments: event.arguments,
                                 result: event.result
                             });
+                        } else if (event.tool === "search_knowledge_base") {
+                            logType = "search"; tagLabel = "rag";
+                            const queryText = event.arguments ? (event.arguments.query || event.arguments.user_query || JSON.stringify(event.arguments)) : "";
+                            appendLog(logType, tagLabel, `Queried RAG Civic Knowledge Base (gemini-embedding-001 vector similarity matching) for: "<code>${escapeHTML(queryText)}</code>"`, {
+                                arguments: event.arguments,
+                                results: event.result
+                            });
                         } else if (event.tool === "search_singapore_government") {
-                            logType = "search"; tagLabel = "search";
-                            appendLog(logType, tagLabel, `Executed directory lookup search for matched query`, {
-                                arguments: event.arguments, results: event.result
+                            logType = "search"; tagLabel = "directory";
+                            const queryText = event.arguments ? (event.arguments.query || JSON.stringify(event.arguments)) : "";
+                            appendLog(logType, tagLabel, `Executed 82 Statutory Directory lookup search for: "<code>${escapeHTML(queryText)}</code>"`, {
+                                arguments: event.arguments,
+                                results: event.result
                             });
                         } else if (event.tool === "scrape_government_page") {
                             logType = "scrape"; tagLabel = "scrape";
                             appendLog(logType, tagLabel, `Scraped official content matching: <code>${escapeHTML(event.arguments.url || "")}</code>`, {
-                                extracted_char_count: event.result.length,
-                                content_preview: event.result.substring(0, 300) + "..."
+                                extracted_char_count: typeof event.result === "string" ? event.result.length : JSON.stringify(event.result).length,
+                                content_preview: typeof event.result === "string" ? (event.result.substring(0, 300) + "...") : event.result
                             });
                         } else {
-                            appendLog(logType, tagLabel, `Intercepted static database query: <code>${escapeHTML(event.tool || "")}</code>`, {
-                                arguments: event.arguments, result: event.result
+                            logType = "system"; tagLabel = "tool";
+                            appendLog(logType, tagLabel, `Executed statutory tool query: <code>${escapeHTML(event.tool || "")}</code>`, {
+                                arguments: event.arguments,
+                                result: event.result
                             });
                         }
 

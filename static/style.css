@@ -1593,6 +1593,13 @@ body {
 .tag-search { background: #fff4dc; color: var(--text-warning); }
 .tag-scrape { background: #eaf7ee; color: var(--text-success); }
 .tag-error { background: #fff1f0; color: var(--text-error); }
+.tag-rag { background: #e0f2fe; color: #0284c7; }
+.tag-vision { background: #f3e8ff; color: #7e22ce; }
+.tag-upload { background: #fee2e2; color: #dc2626; }
+.tag-tool { background: #fef3c7; color: #d97706; }
+.tag-agent { background: #e0e7ff; color: #4338ca; }
+.tag-directory { background: #f0fdf4; color: #16a34a; }
+.tag-success { background: #dcfce7; color: #15803d; }
 
 .log-detail {
     display: block;
