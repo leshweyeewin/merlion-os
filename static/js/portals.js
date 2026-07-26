@@ -485,6 +485,14 @@ function initPortalVisibility() {
             showAllGlobalBtn.addEventListener("click", () => {
                 const list = allCards().map(c => c.dataset.agency);
                 bulkApply(list, showPortal);
+
+                // Clear active intent search input & chips
+                const searchInp = document.getElementById("portal-search-input");
+                if (searchInp) searchInp.value = "";
+                document.querySelectorAll("#quick-task-chips .quick-task-chip").forEach(c => c.classList.remove("active-chip"));
+                if (typeof window.applyPortalSearch === "function") {
+                    window.applyPortalSearch("");
+                }
             });
         }
         const hideAllGlobalBtn = document.getElementById("mp-hide-all-global");
