@@ -1,14 +1,14 @@
 # 🏛️ Singapore Government Digital Services & Portals Directory
 
-MerlionOS features a drag-and-drop reorderable grid representing all **81 digital portals** required for citizen life. Rather than being limited strictly to statutory boards, this directory is a curated compilation of the major public touchpoints in Singapore.
+MerlionOS features a drag-and-drop reorderable grid representing all **82 digital portals** required for citizen life. Rather than being limited strictly to statutory boards, this directory is a curated compilation of the major public touchpoints in Singapore.
 
-## 📊 Classification of the 81 Portals
+## 📊 Classification of the 82 Portals
 
 The directory is divided into four main administrative categories:
 1. **Ministries & Executive Offices (16)** — The main policy-making government bodies headed by Cabinet Ministers.
 2. **Statutory Boards & Key Operational Departments (48)** — Autonomous agencies established by Acts of Parliament to execute operational mandates, alongside major departments.
 3. **Organs of State & Constitutional Bodies (8)** — Independent oversight and constitutional organs.
-4. **Key Citizen Digital Services & Platforms (9)** — Corporatized entities, cross-agency digital tools, and citizen initiatives.
+4. **Key Citizen Digital Services & Platforms (10)** — Corporatized entities, cross-agency digital tools, and citizen initiatives.
 
 ---
 
@@ -92,16 +92,17 @@ The directory is divided into four main administrative categories:
 71. **Istana** (President's Office) — Presidential community projects & Istana Open House visitor info
 72. **AGC** (Attorney-General's Chambers) — Legal advice to the Government & public prosecution registries
 
-### 4. Key Citizen Digital Services & Platforms (9)
+### 4. Key Citizen Digital Services & Platforms (10)
 73. **RedeemSG** — CDC voucher claims & Climate voucher redemptions
-74. **SP Group** — Home electricity, water, and gas utilities setup
-75. **MySkillsFuture** — Mid-career subsidies & course registries
-76. **Gov.sg** — Budget announcements and key national policies
-77. **SG Journey** — Mandatory Citizenship Journey programme & new citizen resources
-78. **OneMap** — National mapping service for GRC/SMC boundaries & school proximity checks
-79. **HealthHub** — Health records, clinic bookings, MediShield Life & CPF MediSave usage
-80. **ActiveSG** — Complimentary credits for public gyms, pools, and sporting facilities
-81. **OneNS** (MINDEF National Service Portal) — NS status, ORD countdown & ICT schedules
+74. **GovBenefits** — Singapore Government cash benefits, Assurance Package, GST Voucher, and NS payouts
+75. **SP Group** — Home electricity, water, and gas utilities setup
+76. **MySkillsFuture** — Mid-career subsidies & course registries
+77. **Gov.sg** — Budget announcements and key national policies
+78. **SG Journey** — Mandatory Citizenship Journey programme & new citizen resources
+79. **OneMap** — National mapping service for GRC/SMC boundaries & school proximity checks
+80. **HealthHub** — Health records, clinic bookings, MediShield Life & CPF MediSave usage
+81. **ActiveSG** — Complimentary credits for public gyms, pools, and sporting facilities
+82. **OneNS** (MINDEF National Service Portal) — NS status, ORD countdown & ICT schedules
 
 ---
 
@@ -111,4 +112,4 @@ A search box sits above the portal grid: `What do you need? Try "renew passport"
 
 ## Manage Portals & Visibility
 
-Since the directory includes 81 portals, you can hide cards you do not need by hovering over a card and clicking the eye icon. The **Manage Portals** panel at the top of the grid lets you search by name or description, switch between Hidden/Visible sets, multi-select portals, and bulk add-back or hide them. A **Sort A–Z** toolbar button re-orders the whole grid alphabetically by agency name — a one-click alternative to a manual drag-reorder — and a **star** on each card bookmarks it into a compact "My Matters" strip pinned above the grid. Layout order, bookmarks, and hidden/visible state are all automatically persisted across sessions in browser `localStorage`.
+Since the directory includes 82 portals, you can hide cards you do not need by hovering over a card and clicking the eye icon. The **Manage Portals** panel at the top of the grid lets you search by name or description, switch between Hidden/Visible sets, multi-select portals, and bulk add-back or hide them. A **Sort A–Z** toolbar button re-orders the whole grid alphabetically by agency name — a one-click alternative to a manual drag-reorder — and a **star** on each card bookmarks it into a compact "My Matters" strip pinned above the grid. Layout order, bookmarks, and hidden/visible state are all automatically persisted across sessions in browser `localStorage`.

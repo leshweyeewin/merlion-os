@@ -4,7 +4,7 @@
 // ── Demo personas ────────────────────────────────────────────────────────────
 // Mocked life-stage profiles for the demo — NO real SingPass/identity data. Selecting one
 // tailors the Co-Pilot's guidance (sent as `persona` context to the backend) and surfaces the
-// agencies most relevant to that person, so the "one portal across 81 boards" story lands with
+// agencies most relevant to that person, so the "one portal across 82 boards" story lands with
 // a concrete user in mind instead of a generic wall of cards.
 const PERSONA_STORAGE_KEY = "merlionos-demo-persona";
 const PERSONAS = [
