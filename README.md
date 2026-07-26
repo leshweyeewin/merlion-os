@@ -18,7 +18,7 @@ serves cached/seed fallbacks for the WAF-blocked sources.)*
 **MerlionOS** is a unified, secure, redirect-hardened Singapore public sector AI coordination brain and live dashboard. 
 
 ### The Problem
-Singapore's digital public service landscape is highly advanced but fragmented across **82 distinct statutory boards and agencies** (CPF, IRAS, ELD, HDB, RedeemSG, GovPayouts, SkillsFuture, HealthHub, ActiveSG, and more). A resident transition to full citizenship exposes a massive spike in administrative complexity—moving from basic tax filing (IRAS) to checking electoral registers (ELD), claiming CDC voucher tranches (RedeemSG), checking cash benefits (GovPayouts), checking SkillsFuture credits, and navigating complex HDB BTO launches. Searching for these portal endpoints individually via search engines is inefficient, prone to malicious redirect hijacking, and lacks a centralized view.
+Singapore's digital public service landscape is highly advanced but fragmented across **82 distinct statutory boards and agencies** (CPF, IRAS, ELD, HDB, RedeemSG, GovBenefits, SkillsFuture, HealthHub, ActiveSG, and more). A resident transition to full citizenship exposes a massive spike in administrative complexity—moving from basic tax filing (IRAS) to checking electoral registers (ELD), claiming CDC voucher tranches (RedeemSG), checking cash benefits (GovBenefits), checking SkillsFuture credits, and navigating complex HDB BTO launches. Searching for these portal endpoints individually via search engines is inefficient, prone to malicious redirect hijacking, and lacks a centralized view.
 
 ### The Solution
 MerlionOS aggregates this entire ecosystem into a single-pane-of-glass daily utility portal:

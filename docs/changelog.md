@@ -5,8 +5,8 @@ The document above always reflects the **latest** release. This section records 
 ## Version 6 — current
 Prototype refinement cycle: expanded statutory portal coverage, direct IRAS newsroom scraping, multimodal document attachments, interactive financial calculators, and enhanced search UX. What's new or changed:
 
-**🏛️ Expanded to 82 Statutory Portals & GovPayouts Integration**
-Added **GovPayouts** (`https://www.govpayouts.gov.sg/cds/main/dashboard`) to the main statutory directory and `GOV_DIRECTORY` knowledge base. Citizens can now directly access and check eligibility for Assurance Package cash payouts, GST Vouchers, NS Excellence Awards, and Senior Citizen Bonuses.
+**🏛️ Expanded to 82 Statutory Portals & GovBenefits Integration**
+Added **GovBenefits** (`https://www.govbenefits.gov.sg/`) to the main statutory directory and `GOV_DIRECTORY` knowledge base. Citizens can now directly access and check eligibility for Assurance Package cash payouts, GST Vouchers, NS Excellence Awards, and Senior Citizen Bonuses.
 
 **📰 Direct IRAS Newsroom Scraper & Telegram Stream**
 Updated `scrape_iras_news()` in `tools/search.py` to scrape directly from the official **IRAS Latest Updates** page (`https://www.iras.gov.sg/latest-updates`). If the official webpage is unreachable, it degrades cleanly to `[]` (*"no news"*). Separately, added `@irassg` to `GOV_CHANNELS` bringing the official broadcast stream in **Gov Updates** to **22 unique channels**.
