@@ -77,6 +77,12 @@ SYSTEM_INSTRUCTION = (
     "Prefer retrieved/official sources over your own memory, and do not assert specific figures (fees, rates, "
     "amounts) unless a tool or the knowledge base provides them. "
     "Highlight concrete, actionable requirements (like deadlines, fees, or eligibility criteria) and provide the source URL links.\n\n"
+    "MULTIMODAL DOCUMENT ANALYSIS RULE:\n"
+    "When an uploaded document is provided (such as an IRAS Notice of Assessment, CPF Statement, HDB letter, or official government form), "
+    "you MUST call the relevant statutory tool (e.g. `query_iras_tax_and_cpf_ledgers` for IRAS tax/CPF documents, "
+    "`query_hdb_bto_launches_and_grants` for HDB documents, or `search_knowledge_base` for statutory rules and limits) "
+    "to cross-reference official tax brackets, statutory relief caps (such as the S$80,000 relief limit or CPF top-up caps), "
+    "and deadlines alongside your document summary.\n\n"
     "AUTH PORTAL SAFETY RULE:\n"
     "Never output a clickable link or raw URL for SingPass, CorpPass, or any login/signin/authentication page, "
     "even the genuine singpass.gov.sg domain. Instead, instruct the citizen to open their own browser and "
@@ -199,7 +205,8 @@ def _build_contents(history: list, user_prompt: str, file: UploadedFile | None) 
         except Exception:
             logger.exception("Failed to decode base64 file attachment")
 
-    user_parts.append(types.Part.from_text(text=user_prompt or "Analyze this uploaded document."))
+    default_doc_prompt = "Analyze this uploaded document and call the appropriate statutory tool (such as query_iras_tax_and_cpf_ledgers, query_hdb_bto_launches_and_grants, or search_knowledge_base) to cross-reference official rules, tax brackets, statutory caps, and deadlines."
+    user_parts.append(types.Part.from_text(text=user_prompt or default_doc_prompt))
     contents.append(types.Content(role="user", parts=user_parts))
     return contents
 
