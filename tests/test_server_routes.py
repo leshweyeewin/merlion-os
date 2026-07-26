@@ -326,7 +326,7 @@ def test_sg_hub_transit_coe_fallback_tier_shows_caveat(client, monkeypatch):
 
 
 def test_sg_hub_gov_updates(client, monkeypatch):
-    monkeypatch.setattr(server, "scrape_one_telegram_channel", lambda channel: [{"source": f"@{channel}", "iso_date": "2026-07-21"}])
+    monkeypatch.setattr(server, "scrape_one_telegram_channel", lambda channel, *a, **kw: [{"source": f"@{channel}", "iso_date": "2026-07-21"}])
     monkeypatch.setattr(server, "fetch_pub_flood_alerts", lambda: None)
     monkeypatch.setattr(server, "scrape_cdc_news", lambda: [{"date": "04 July 2026", "title": "CDC Vouchers 2026", "link": "https://www.cdc.gov.sg/x.pdf"}])
 
@@ -336,6 +336,62 @@ def test_sg_hub_gov_updates(client, monkeypatch):
     assert len(body["gov_events"]) == len(server.GOV_CHANNELS)
     assert body["cdc_news"][0]["title"] == "CDC Vouchers 2026"
     assert body["cdc_news_status"]["is_live"] is True
+
+
+def test_scrape_one_telegram_channel_72h_filtering(monkeypatch):
+    from tools.search import scrape_one_telegram_channel
+    import requests
+    from datetime import datetime, timezone, timedelta
+
+    now = datetime.now(timezone.utc)
+    recent_date = (now - timedelta(days=1)).isoformat()
+    old_date = "2026-03-20T15:12:00+00:00"
+
+    html = f"""
+    <div class="tgme_widget_message">
+        <a class="tgme_widget_message_date" href="https://t.me/s/test/1"></a>
+        <div class="tgme_widget_message_text">Old post from March</div>
+        <time datetime="{old_date}"></time>
+    </div>
+    <div class="tgme_widget_message">
+        <a class="tgme_widget_message_date" href="https://t.me/s/test/2"></a>
+        <div class="tgme_widget_message_text">Recent post within 72h</div>
+        <time datetime="{recent_date}"></time>
+    </div>
+    """
+
+    class DummyResponse:
+        status_code = 200
+        text = html
+        def close(self): pass
+
+    monkeypatch.setattr(requests, "get", lambda *a, **kw: DummyResponse())
+
+    # Without fallback: returns only recent post within 72h
+    events = scrape_one_telegram_channel("testchannel", allow_fallback=False)
+    assert len(events) == 1
+    assert "Recent post within 72h" in events[0]["content"]
+
+    # If no posts within 72h: without fallback returns []
+    html_old_only = f"""
+    <div class="tgme_widget_message">
+        <a class="tgme_widget_message_date" href="https://t.me/s/test/1"></a>
+        <div class="tgme_widget_message_text">Old post from March</div>
+        <time datetime="{old_date}"></time>
+    </div>
+    """
+    class DummyResponseOld:
+        status_code = 200
+        text = html_old_only
+        def close(self): pass
+
+    monkeypatch.setattr(requests, "get", lambda *a, **kw: DummyResponseOld())
+    events_no_fallback = scrape_one_telegram_channel("testchannel", allow_fallback=False)
+    assert len(events_no_fallback) == 0
+
+    events_with_fallback = scrape_one_telegram_channel("testchannel", allow_fallback=True)
+    assert len(events_with_fallback) == 1
+    assert "Old post from March" in events_with_fallback[0]["content"]
 
 
 def test_sg_hub_community(client, monkeypatch):

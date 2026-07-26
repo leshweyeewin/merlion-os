@@ -183,10 +183,9 @@ def call_tool_robustly(func, args: dict) -> str:
 
 GOV_CHANNELS = [
     "HealthHubSG", "scamshieldalert", "govsg", "LTAsg", "NEAsg", "MOEsg", "GovTechSG",
-    "MOHSingapore", "SPFsg", "SCDFsg", "momsg",
-    "ReachSingapore",
+    "MOHSingapore", "SPFsg", "SCDFsg", "momsg", "ReachSingapore",
     "ElectionsDepartmentSingapore", "neasingapore", "skillsfuturesg", "Skills_Workforce_Development",
-    "CPFBoard", "LTASingapore", "Govsg", "govtechbytes", "NLBsg", "urasingapore",
+    "CPFBoard", "LTASingapore", "govtechbytes", "NLBsg", "urasingapore",
 ]
 
 COMMUNITY_CHANNELS = [
@@ -196,7 +195,7 @@ COMMUNITY_CHANNELS = [
     "danielfooddiary", "allsgpromo", "sgmrt", "goodyfeedsg", "TSLMedia", "todayonlinesg"
 ]
 
-def scrape_one_telegram_channel(channel: str) -> list:
+def scrape_one_telegram_channel(channel: str, allow_fallback: bool = False) -> list:
     """Scrapes posts from the last 3 days (72 hours) from a Telegram channel (used for Gov Updates)."""
     url = f"https://t.me/s/{channel}"
     headers = _common_headers()
@@ -238,7 +237,8 @@ def scrape_one_telegram_channel(channel: str) -> list:
                             dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
                             sgt = dt.astimezone(timezone(timedelta(hours=8)))
                             date_str = sgt.strftime("%d %b %Y, %I:%M %p")
-                            is_within_3d = (now - dt) <= timedelta(days=3)
+                            diff = now - dt
+                            is_within_3d = timedelta(seconds=-300) <= diff <= timedelta(days=3)
                         except Exception as dt_err:
                             logger.warning(f"Failed to parse datetime '{dt_str}' for channel {channel}: {dt_err}")
                             continue
@@ -258,7 +258,12 @@ def scrape_one_telegram_channel(channel: str) -> list:
                         if is_within_3d:
                             within_3d_msgs.append(item)
 
-                    channel_events = within_3d_msgs if within_3d_msgs else (valid_msgs[-1:] if valid_msgs else [])
+                    if within_3d_msgs:
+                        channel_events = within_3d_msgs
+                    elif allow_fallback and valid_msgs:
+                        channel_events = valid_msgs[-1:]
+                    else:
+                        channel_events = []
                     print(f"  \033[32m✔\033[0m Parsed @{channel}: Found {len(messages)} messages, {len(within_3d_msgs)} within 3 days (returning {len(channel_events)}).")
                 finally:
                     soup.clear()
@@ -342,7 +347,7 @@ def scrape_iras_news() -> list:
     Returns a normalised [{date, title, link}] list (same shape as the CDC/HDB news feeds) so
     the SG Hub renderer can treat all agency news cards uniformly."""
     import re
-    events = scrape_one_telegram_channel("irassg")
+    events = scrape_one_telegram_channel("irassg", allow_fallback=True)
     news_items = []
     for event in events:
         content = event.get("content", "")

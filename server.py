@@ -657,7 +657,7 @@ async def get_sg_hub_gov_updates():
         gov_fallbacks = ["HealthHubSG", "scamshieldalert", "govsg"]
 
         async def fetch_gov_fallback(channel):
-            ch_events = await anyio.to_thread.run_sync(scrape_one_telegram_channel, channel)
+            ch_events = await anyio.to_thread.run_sync(lambda: scrape_one_telegram_channel(channel, allow_fallback=True))
             for ev in ch_events:
                 ev["source"] = f"@{channel} (Latest)"
             gov_events.extend(ch_events)
@@ -701,7 +701,7 @@ async def get_sg_hub_community():
         community_fallbacks = ["goodlobang", "kiasufoodies", "confirmgood", "allsgpromo"]
 
         async def fetch_comm_fallback(channel):
-            ch_events = await anyio.to_thread.run_sync(scrape_one_telegram_channel, channel)
+            ch_events = await anyio.to_thread.run_sync(lambda: scrape_one_telegram_channel(channel, allow_fallback=True))
             for ev in ch_events:
                 ev["source"] = f"@{channel} (Latest)"
             community_events.extend(ch_events)
