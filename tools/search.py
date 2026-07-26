@@ -185,7 +185,7 @@ GOV_CHANNELS = [
     "HealthHubSG", "scamshieldalert", "govsg", "LTAsg", "NEAsg", "MOEsg", "GovTechSG",
     "MOHSingapore", "SPFsg", "SCDFsg", "momsg", "ReachSingapore",
     "ElectionsDepartmentSingapore", "neasingapore", "skillsfuturesg", "Skills_Workforce_Development",
-    "CPFBoard", "LTASingapore", "govtechbytes", "NLBsg", "urasingapore",
+    "CPFBoard", "LTASingapore", "govtechbytes", "NLBsg", "urasingapore", "irassg",
 ]
 
 COMMUNITY_CHANNELS = [
@@ -342,29 +342,66 @@ def scrape_one_telegram_channel_24h(channel: str) -> list:
         logger.warning(f"Error scraping community channel {channel}: {e}")
     return channel_events
 
+_iras_news_cache: dict = {"data": None, "fetched_at": 0}
+_IRAS_NEWS_CACHE_TTL_SECONDS = 6 * 60 * 60
+
 def scrape_iras_news() -> list:
-    """Scrapes the latest IRAS updates from the official IRAS Telegram channel (t.me/irassg).
-    Returns a normalised [{date, title, link}] list (same shape as the CDC/HDB news feeds) so
-    the SG Hub renderer can treat all agency news cards uniformly."""
+    """Scrapes the official IRAS Latest Updates page (https://www.iras.gov.sg/latest-updates).
+    Returns a normalised [{date, title, link}] list. Cached for 6h. Returns [] if page is unreachable."""
     import re
-    events = scrape_one_telegram_channel("irassg", allow_fallback=True)
+
+    cached = _cache_get(_iras_news_cache, _IRAS_NEWS_CACHE_TTL_SECONDS)
+    if cached is not None:
+        print(f"  \033[90m[IRAS News Scraper] Serving {len(cached)} cached updates.\033[0m")
+        return cached
+
+    url = "https://www.iras.gov.sg/latest-updates"
+    headers = _common_headers()
+    print(f"  \033[90m[IRAS News Scraper] HTTP GET {url}\033[0m")
     news_items = []
-    for event in events:
-        content = event.get("content", "")
-        # Pick the first line that actually carries words — IRAS posts often open with a lone
-        # emoji/decorative line, which makes a useless card headline. Fall back to the collapsed
-        # full text if no line has letters.
-        lines = [ln.strip() for ln in content.split('\n') if ln.strip()]
-        title = next((ln for ln in lines if re.search(r'[A-Za-z0-9]', ln)), None)
-        if not title:
-            title = re.sub(r'\s+', ' ', content).strip()
-        news_items.append({
-            "date": event.get("date", ""),
-            "title": title[:140],
-            "link": event.get("link", ""),
-        })
-    # Newest first, matching how the Telegram page lists oldest→newest.
-    return list(reversed(news_items))
+
+    try:
+        r = requests.get(url, headers=headers, timeout=10)
+        print(f"  \033[90m[IRAS News Scraper] HTTP RESPONSE: {r.status_code} ({len(r.text)} bytes)\033[0m")
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.text, 'html.parser')
+            seen_links = set()
+            for a in soup.find_all("a", href=True):
+                href = a['href']
+                text = a.get_text(strip=True)
+                if not text or len(text) < 10 or text.startswith("http") or "cookie" in text.lower() or "login" in text.lower() or "skip to" in text.lower():
+                    continue
+
+                parent = a.parent
+                date_text = ""
+                for _ in range(4):
+                    if not parent:
+                        break
+                    p_text = parent.get_text(" ", strip=True)
+                    m = re.search(r'\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+20\d\d\b', p_text)
+                    if m:
+                        date_text = m.group(0)
+                        break
+                    parent = parent.parent
+
+                full_url = f"https://www.iras.gov.sg{href}" if href.startswith("/") else href
+                if date_text and full_url not in seen_links:
+                    seen_links.add(full_url)
+                    news_items.append({
+                        "date": date_text,
+                        "title": text[:140],
+                        "link": full_url
+                    })
+
+            if news_items:
+                _cache_set(_iras_news_cache, news_items)
+                return news_items
+    except Exception as e:
+        logger.warning(f"Error scraping IRAS latest-updates page: {e}")
+
+    # Return empty list if official webpage cannot be scraped
+    _cache_set(_iras_news_cache, [])
+    return []
 
 # CDC has no Telegram channel, so its media releases come from the newsroom page directly.
 # cdc.gov.sg is on the scraper's trusted-domain allowlist. Media releases are infrequent, so a

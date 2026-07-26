@@ -2,7 +2,25 @@
 
 The document above always reflects the **latest** release. This section records what changed between versions.
 
-## Version 5 — current
+## Version 6 — current
+Prototype refinement cycle: expanded statutory portal coverage, direct IRAS newsroom scraping, multimodal document attachments, interactive financial calculators, and enhanced search UX. What's new or changed:
+
+**🏛️ Expanded to 82 Statutory Portals & GovPayouts Integration**
+Added **GovPayouts** (`https://www.govpayouts.gov.sg/cds/main/dashboard`) to the main statutory directory and `GOV_DIRECTORY` knowledge base. Citizens can now directly access and check eligibility for Assurance Package cash payouts, GST Vouchers, NS Excellence Awards, and Senior Citizen Bonuses.
+
+**📰 Direct IRAS Newsroom Scraper & Telegram Stream**
+Updated `scrape_iras_news()` in `tools/search.py` to scrape directly from the official **IRAS Latest Updates** page (`https://www.iras.gov.sg/latest-updates`). If the official webpage is unreachable, it degrades cleanly to `[]` (*"no news"*). Separately, added `@irassg` to `GOV_CHANNELS` bringing the official broadcast stream in **Gov Updates** to **22 unique channels**.
+
+**📎 Multimodal Document Attachments in Co-Pilot**
+Added a paperclip attachment button (`#chat-file-btn`) to the Co-Pilot chat drawer. Users can upload images or PDFs of IRAS Tax Notices of Assessment, HDB letters, or government forms for instant Base64 decoding and Gemini 2.5 Flash document analysis.
+
+**🧮 Interactive Financial Calculators & 2km Taxi Map**
+Integrated the in-browser **IRAS Tax & SRS Relief Optimizer** (enforcing Singapore's statutory S$80,000 relief cap) and the **HDB Interest Rate & Loan Calculator** in SG Hub. Added a live 2km radius taxi density map (Leaflet.js LTA DataMall API) in the Transit & Transport tab.
+
+**🔍 Search UX Improvements**
+Updated the **Show All** button (`#mp-show-all-global`) in `static/js/portals.js` so that clicking it automatically clears the active intent search input (`#portal-search-input`) and deselects active quick-task chips, restoring all 82 statutory cards to full visibility.
+
+## Version 5
 A data-layer and coverage cycle: more agency news feeds, and moving the large tabular datasets off per-request downloads onto Google BigQuery. What's new or changed:
 
 **📰 New & expanded agency news feeds**

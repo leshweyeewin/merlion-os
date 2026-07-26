@@ -118,6 +118,11 @@ GOV_DIRECTORY = [
         "keywords": ["redeemsg", "cdc", "voucher", "vouchers", "climate", "claim"]
     },
     {
+        "title": "GovPayouts - Singapore Government Cash Payouts & Subsidies Dashboard",
+        "url": "https://www.govpayouts.gov.sg/cds/main/dashboard",
+        "keywords": ["govpayouts", "govbenefits", "cash payout", "assurance package", "gst voucher", "ns payout", "senior bonus", "subsidies"]
+    },
+    {
         "title": "SP Group - Electricity, Water, Gas Utilities Setup & Billing",
         "url": "https://www.spgroup.com.sg/",
         "keywords": ["sp group", "utilities", "electricity", "water", "gas", "utility", "bills"]

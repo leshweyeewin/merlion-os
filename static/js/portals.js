@@ -21,6 +21,7 @@ function initPortalSearch() {
         iras: "income tax file taxes pay tax property tax stamp duty refund tax relief notice of assessment noa tax bill season",
         cpf: "retirement savings top up medisave ordinary account special account housing withdrawal repayment loan repay nomination contribution",
         redeemsg: "cdc voucher climate voucher redeem vouchers claim free",
+        govpayouts: "cash payout gst voucher assurance package ns bonus senior bonus financial assistance cash credits credit refund payout status",
         spgroup: "electricity water gas utilities bill open account meter power",
         skillsfuture: "course subsidy credits learn upskill training claim skillsfuture find courses",
         wsg: "job search find job career change switch unemployed career coach mid career conversion",

@@ -18,12 +18,12 @@ serves cached/seed fallbacks for the WAF-blocked sources.)*
 **MerlionOS** is a unified, secure, redirect-hardened Singapore public sector AI coordination brain and live dashboard. 
 
 ### The Problem
-Singapore's digital public service landscape is highly advanced but fragmented across **81 distinct statutory boards and agencies** (CPF, IRAS, ELD, HDB, RedeemSG, SkillsFuture, HealthHub, ActiveSG, and more). A resident transition to full citizenship exposes a massive spike in administrative complexity—moving from basic tax filing (IRAS) to checking electoral registers (ELD), claiming CDC voucher tranches (RedeemSG), checking SkillsFuture credits, and navigating complex HDB BTO launches. Searching for these portal endpoints individually via search engines is inefficient, prone to malicious redirect hijacking, and lacks a centralized view.
+Singapore's digital public service landscape is highly advanced but fragmented across **82 distinct statutory boards and agencies** (CPF, IRAS, ELD, HDB, RedeemSG, GovPayouts, SkillsFuture, HealthHub, ActiveSG, and more). A resident transition to full citizenship exposes a massive spike in administrative complexity—moving from basic tax filing (IRAS) to checking electoral registers (ELD), claiming CDC voucher tranches (RedeemSG), checking cash benefits (GovPayouts), checking SkillsFuture credits, and navigating complex HDB BTO launches. Searching for these portal endpoints individually via search engines is inefficient, prone to malicious redirect hijacking, and lacks a centralized view.
 
 ### The Solution
 MerlionOS aggregates this entire ecosystem into a single-pane-of-glass daily utility portal:
-1. **Intelligent Co-Pilot**: Conversational agent that routes queries to 15 backend tools — including a retrieval-augmented civic knowledge base — to answer complex citizen questions, optionally tailored to a chosen demo persona.
-2. **Live Data Dashboard (SG Hub)**: Consolidated parameters showing real-time MRT statuses (LTA DataMall), air quality/weather forecasts (NEA API), BTO launches (HDB press releases), and community deals.
+1. **Intelligent Co-Pilot**: Conversational agent that routes queries to 15 backend tools — including a retrieval-augmented civic knowledge base and multimodal document upload — to answer complex citizen questions, optionally tailored to a chosen demo persona.
+2. **Live Data Dashboard (SG Hub)**: Consolidated parameters showing real-time MRT statuses (LTA DataMall), 2km taxi density map, air quality/weather forecasts (NEA API), BTO launches (HDB press releases), IRAS tax relief optimizer, and community deals.
 3. **Operations Terminal**: Full transparency logs streaming raw SQL queries, crawler requests, and backend execution statuses in real time.
 
 ---
@@ -42,7 +42,7 @@ flowchart TD
 
     API -->|Economic Analytics| BQ["📊 Google Cloud BigQuery"]
     API -->|x-api-key| DataGov["🌐 Data.gov.sg (NEA, LTA)"]
-    API -->|safeURL Domain Check| GovPortals["🏛️ 81 Statutory Portals"]
+    API -->|safeURL Domain Check| GovPortals["🏛️ 82 Statutory Portals"]
     API -->|Rule-Based Analysis| WhyEngines["🎯 Why Explanation Engines"]
 ```
 
