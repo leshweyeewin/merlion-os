@@ -201,6 +201,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Every label reflects a real step the Co-Pilot is executing right now — no fabricated
     // progress. Unknown tools fall back to a generic "Consulting live sources…".
     const TOOL_STATUS_LABELS = {
+        multimodal_vision_processor: "Processing uploaded document",
         search_knowledge_base: "Searching the knowledge base",
         search_singapore_government: "Searching the gov directory",
         scrape_government_page: "Reading gov.sg pages",
@@ -268,7 +269,19 @@ document.addEventListener("DOMContentLoaded", () => {
         userInput.disabled = true;
         showTypingIndicator();
 
-        appendLog("system", "agent", `User initiated query parameter matching: "${text}"`);
+        if (text.trim()) {
+            appendLog("system", "agent", `User initiated query parameter matching: "${escapeHTML(text)}"`);
+        } else if (activeUpload) {
+            appendLog("system", "agent", `User uploaded document for AI analysis: "<code>${escapeHTML(activeUpload.filename)}</code>"`);
+        }
+
+        if (activeUpload) {
+            appendLog("multimodal", "upload", `Attached document for analysis: <code>${escapeHTML(activeUpload.filename)}</code> (${escapeHTML(activeUpload.mime_type)})`, {
+                filename: activeUpload.filename,
+                mime_type: activeUpload.mime_type,
+                size_approx: Math.round((activeUpload.base64.length * 3) / 4) + " bytes"
+            });
+        }
 
         // Create the bot bubble early — tokens stream into it
         let accumulated = "";
@@ -282,7 +295,8 @@ document.addEventListener("DOMContentLoaded", () => {
             if (activeUpload) {
                 reqBody.file = {
                     base64: activeUpload.base64,
-                    mime_type: activeUpload.mime_type
+                    mime_type: activeUpload.mime_type,
+                    filename: activeUpload.filename
                 };
             }
             const activePersona = getActivePersona();
@@ -333,7 +347,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         // Tool execution log — render to Operations Terminal
                         let logType = "system", tagLabel = "integration";
-                        if (event.tool === "search_singapore_government") {
+                        if (event.tool === "multimodal_vision_processor") {
+                            logType = "multimodal"; tagLabel = "vision";
+                            appendLog(logType, tagLabel, `Decoded Base64 document payload for Gemini 2.5 Flash analysis: <code>${escapeHTML(event.arguments.filename || "document")}</code>`, {
+                                arguments: event.arguments,
+                                result: event.result
+                            });
+                        } else if (event.tool === "search_singapore_government") {
                             logType = "search"; tagLabel = "search";
                             appendLog(logType, tagLabel, `Executed directory lookup search for matched query`, {
                                 arguments: event.arguments, results: event.result

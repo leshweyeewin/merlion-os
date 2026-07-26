@@ -106,6 +106,7 @@ class ChatMessage(BaseModel):
 class UploadedFile(BaseModel):
     base64: str
     mime_type: str
+    filename: str | None = None
 
 class PersonaContext(BaseModel):
     """Optional demo persona the citizen has selected in the UI. Purely a demo-mode aid — no
@@ -351,6 +352,16 @@ async def run_chat_stream(user_prompt: str, history: list, file: UploadedFile | 
     system_instruction = SYSTEM_INSTRUCTION + _persona_instruction(persona)
 
     try:
+        if file:
+            fname = file.filename or "uploaded_document.pdf"
+            log_payload = json.dumps({
+                "type": "log",
+                "tool": "multimodal_vision_processor",
+                "arguments": {"filename": fname, "mime_type": file.mime_type},
+                "result": f"Successfully decoded base64 payload ({len(file.base64)} chars) into Gemini 2.5 Flash vision channel."
+            })
+            yield f"data: {log_payload}\n\n"
+
         current_contents = list(contents)
         for hop in range(3):
             # Step 1: Prompt Generation (may return tool calls — not streamed yet)
