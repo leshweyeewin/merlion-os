@@ -1253,6 +1253,27 @@ body {
     display: none !important;
 }
 
+.ai-disclaimer-banner {
+    background: #fffbeb;
+    border-bottom: 1px solid #fef3c7;
+    padding: 6px 12px;
+    font-size: 11px;
+    color: #92400e;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-weight: 600;
+    line-height: 1.35;
+    flex-shrink: 0;
+}
+
+.ai-disclaimer-banner i {
+    color: #d97706;
+    font-size: 11px;
+}
+
 .messages-container {
     flex: 1;
     overflow-y: auto;

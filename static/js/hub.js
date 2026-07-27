@@ -721,8 +721,8 @@ function initSgHub() {
                 const budget = parseFloat(taxTopupBudget.value) || 0;
                 const isForeigner = taxResidencyStatus.value === "foreigner";
 
-                if (income <= 0 || budget <= 0) {
-                    alert("Please enter a valid positive Assessable Income and Top-up Budget.");
+                if (income < 0 || budget < 0) {
+                    alert("Please enter valid non-negative values for Assessable Income and Top-up Budget.");
                     return;
                 }
 
