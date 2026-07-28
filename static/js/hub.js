@@ -2731,7 +2731,6 @@ function initSgHub() {
         }
     }
 
-    const hubPaneEl = document.getElementById("hub-pane");
     if (hubPaneEl) {
         let glossTimer = null;
         new MutationObserver(() => {
