@@ -1,3 +1,10 @@
+"""
+tools/security.py — PII scanning, image safety, and prompt guardrails
+---------------------------------------------------------------------
+Layer 1 (always-on): Pure-regex redaction of NRIC/email/phone/credit-card.
+Layer 2 (image): OCR → regex scan before bytes reach the LLM vision channel.
+Layer 3 (optional AI gate): Semantic safety classifier via Gemini (off by default).
+"""
 import os
 import base64
 import io
@@ -10,109 +17,86 @@ from google import genai
 
 logger = logging.getLogger(__name__)
 
-# Centralized Model Configuration (controlled centrally via Env Vars)
+# ── Model constants (shared with chat.py via import) ──────────────────────────
 PRIMARY_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 FALLBACK_MODEL = os.environ.get("GEMINI_FALLBACK_MODEL", "gemini-3.1-flash-lite")
 
 IMAGE_MIME_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
 
-# Pure regex patterns for PII detection (no spaCy model needed)
-NRIC_PATTERN = re.compile(r"\b[STFGM]\d{7}[A-Z]\b", re.IGNORECASE)
-EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", re.IGNORECASE)
-PHONE_PATTERN = re.compile(r"\b(?:\+?65)?[ -]?[689]\d{3}[ -]?\d{4}\b")
-CREDIT_CARD_PATTERN = re.compile(r"\b(?:\d[ -]*?){13,16}\b")
+# ── PII regex patterns ────────────────────────────────────────────────────────
+_NRIC  = re.compile(r"\b[STFGM]\d{7}[A-Z]\b", re.IGNORECASE)
+_EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
+_PHONE = re.compile(r"\b(?:\+?65)?[ -]?[689]\d{3}[ -]?\d{4}\b")
+_CC    = re.compile(r"\b(?:\d[ -]*?){13,16}\b")
+
+# Public aliases for tests that import these names directly
+NRIC_PATTERN        = _NRIC
+EMAIL_PATTERN       = _EMAIL
+PHONE_PATTERN       = _PHONE
+CREDIT_CARD_PATTERN = _CC
+
+# (label, pattern) — single source of truth for both text and image scanners.
+# Credit card IS included for images: an embossed 16-digit card number is PII.
+# Tax figures like "72,765.00" are NOT matched — the CC pattern needs 13-16
+# consecutive digit groups with no intervening decimal points.
+_PII_PATTERNS = [
+    ("NRIC/FIN detected",     _NRIC),
+    ("Email detected",        _EMAIL),
+    ("Phone number detected", _PHONE),
+    ("Credit card detected",  _CC),
+]
 
 # Only block credential-sharing phrases related to authentication.
-# Generic service questions like "SingPass is down" should be allowed.
+# Generic questions like "SingPass is down" should be allowed.
 SINGPASS_CREDENTIAL_PHRASES = [
-    "my singpass",
-    "singpass password",
-    "singpass login",
-    "singpass username",
-    "singpass otp",
-    "singpass one-time password",
-    "singpass code",
-    "singpass passcode",
-    "singpass token",
-    "singpass credentials",
+    "my singpass", "singpass password", "singpass login",
+    "singpass username", "singpass otp", "singpass one-time password",
+    "singpass code", "singpass passcode", "singpass token", "singpass credentials",
 ]
 
+# ── AI classifier system prompt (module-level constant — SOLID SRP) ───────────
+_SAFETY_SYSTEM_INSTRUCTION = (
+    "You are a safety classifier for a Singapore government AI assistant. "
+    "Your task is to determine if a user's query is safe to process. "
+    "A query is UNSAFE if it asks for or shares sensitive authentication credentials, "
+    "passwords, OTPs, or asks the assistant to help with login/authentication. "
+    "A query is SAFE if it asks legitimate questions about government services, "
+    "status checks, deadlines, or general policy information (even if mentioning "
+    "SingPass, CorpPass, or other auth portals in a non-credential context). "
+    "Respond with exactly one word: SAFE or UNSAFE. Do not add any explanation."
+)
+
+
+# ── DRY helper ────────────────────────────────────────────────────────────────
+def _redact_matches(text: str, pattern: re.Pattern) -> str:
+    """Replace all *pattern* matches in *text* with '[REDACTED]' (right-to-left)."""
+    for match in reversed(list(pattern.finditer(text))):
+        text = text[:match.start()] + "[REDACTED]" + text[match.end():]
+    return text
+
+
+# ── Layer 1: text PII scan ────────────────────────────────────────────────────
 def scan_and_redact_pii(text: str) -> tuple[bool, str, list[str]]:
-    """
-    Scans for NRIC/FIN, email, phone, credit card and credential-sharing phrases.
-    Returns: (is_redacted, redacted_text, findings)
-    """
+    """Scan *text* for PII and credential phrases. Returns (found, redacted_text, findings)."""
     findings = []
-    lower_text = text.lower()
-    
-    # 1. Check for high-risk credential-sharing phrases
-    for phrase in SINGPASS_CREDENTIAL_PHRASES:
-        if phrase in lower_text:
-            findings.append(f"High-risk phrase: {phrase}")
-    
-    # 2. Detect and redact PII using regex patterns
-    redacted_text = text
-    
-    # Detect NRIC/FIN
-    nric_matches = list(NRIC_PATTERN.finditer(text))
-    if nric_matches:
-        findings.append("NRIC/FIN detected")
-        # Redact from end to start to preserve positions
-        for match in reversed(nric_matches):
-            redacted_text = redacted_text[:match.start()] + "[REDACTED]" + redacted_text[match.end():]
-    
-    # Detect email
-    email_matches = list(EMAIL_PATTERN.finditer(text))
-    if email_matches:
-        findings.append("Email detected")
-        for match in reversed(email_matches):
-            redacted_text = redacted_text[:match.start()] + "[REDACTED]" + redacted_text[match.end():]
-    
-    # Detect phone (Singapore format)
-    phone_matches = list(PHONE_PATTERN.finditer(text))
-    if phone_matches:
-        findings.append("Phone number detected")
-        for match in reversed(phone_matches):
-            redacted_text = redacted_text[:match.start()] + "[REDACTED]" + redacted_text[match.end():]
-    
-    # Detect credit card (for raw text input only)
-    cc_matches = list(CREDIT_CARD_PATTERN.finditer(text))
-    if cc_matches:
-        findings.append("Credit card detected")
-        for match in reversed(cc_matches):
-            redacted_text = redacted_text[:match.start()] + "[REDACTED]" + redacted_text[match.end():]
-    
-    return (len(findings) > 0, redacted_text, findings)
-
-
-# Entities used when scanning OCR text from images. CREDIT_CARD is intentionally
-# excluded: tax figures (e.g. $72,765.00, $1,379.64) are not PII — only identity
-# tokens like NRIC, email, or phone numbers are.
-_IMAGE_PATTERNS = [NRIC_PATTERN, EMAIL_PATTERN, PHONE_PATTERN]
-
-# Document-type keywords that indicate a sensitive identity document
-_IDENTITY_DOC_HEADERS = [
-    "notice of assessment", "year of assessment",
-    "cpf statement", "cpf contribution",
-    "national registration", "nric",
-    "singpass", "myinfo",
-    "income tax",
-]
-
-def _ocr_contains_personal_identifier(text: str) -> bool:
-    """Return True if the OCR text contains at least one genuine personal identifier
-    (NRIC/FIN, personal email, or phone number) — as opposed to mere financial figures."""
-    return any(pattern.search(text) for pattern in _IMAGE_PATTERNS)
-
-def _is_identity_document(text: str) -> bool:
-    """Return True if OCR text looks like an IRAS NOA, CPF statement, or ID card
-    header (document type alone, without requiring personal data to be present).
-    Used to give a clearer error message when we decide to block an upload."""
     lower = text.lower()
-    return any(kw in lower for kw in _IDENTITY_DOC_HEADERS)
+
+    for phrase in SINGPASS_CREDENTIAL_PHRASES:
+        if phrase in lower:
+            findings.append(f"High-risk phrase: {phrase}")
+
+    # Single loop replaces 4 copy-paste blocks (DRY)
+    redacted = text
+    for label, pattern in _PII_PATTERNS:
+        if pattern.search(redacted):
+            findings.append(label)
+            redacted = _redact_matches(redacted, pattern)
+
+    return (len(findings) > 0, redacted, findings)
 
 
 # ── Heuristic Safety Bypass and Caching ──────────────────────────────────────────
+
 
 _safety_cache = {}
 _MAX_CACHE_SIZE = 1000
@@ -232,44 +216,33 @@ def classify_prompt_safety(user_prompt: str) -> tuple[bool, str]:
         return False, f"Safety classifier unavailable - rejecting as precaution ({type(err).__name__})"
 
 
+
+# ── Layer 2: image OCR scan ───────────────────────────────────────────────────
 def scan_uploaded_image(base64_data: str, mime_type: str) -> tuple[bool, list[str]]:
-    """OCR-scan an uploaded image and reject it if it contains personal identifiers.
+    """OCR-scan an uploaded image; block it if personal identifiers are detected.
 
-    Policy:
-    - Tax figures / financial amounts alone (NOA income, tax payable) are NOT PII
-      and should NOT block the upload — the user may legitimately want to discuss them.
-    - An NRIC, email address, or phone number extracted from the image IS PII and
-      must be blocked.
-    - A document that appears to be an ID card (contains NRIC header text + any
-      personal identifier) is blocked with a specific message.
+    Policy
+    ------
+    Tax figures (dollar amounts) are NOT blocked — users may want to discuss their NOA.
+    NRIC, email, phone, or credit-card numbers in the image ARE blocked.
+    OCR failure is fail-open: the LLM's own safety filters still apply.
 
-    Returns (is_safe, findings). ``is_safe=False`` means the upload must be blocked.
-    If OCR cannot run, the upload is allowed (fail-open) — the model's own safety
-    filters still apply.
+    Returns (is_safe, findings).
     """
     if mime_type not in IMAGE_MIME_TYPES:
         return False, [f"Unsupported upload type: {mime_type}"]
 
     try:
         image_bytes = base64.b64decode(base64_data)
-        extracted_text = pytesseract.image_to_string(Image.open(io.BytesIO(image_bytes)))
+        ocr_text = pytesseract.image_to_string(Image.open(io.BytesIO(image_bytes)))
     except Exception as err:
         logger.warning("Image OCR failed — allowing upload (fail-open): %s", err)
-        # Fail-open: if OCR can't run we can't verify, but the model's built-in
-        # safety filters still apply. Don't block on a tool failure.
         return True, []
 
-    # Check for personal identifiers using regex patterns (no CREDIT_CARD false-positives)
-    if _ocr_contains_personal_identifier(extracted_text):
-        entity_types = []
-        if NRIC_PATTERN.search(extracted_text):
-            entity_types.append("NRIC")
-        if EMAIL_PATTERN.search(extracted_text):
-            entity_types.append("EMAIL")
-        if PHONE_PATTERN.search(extracted_text):
-            entity_types.append("PHONE")
-        
-        logger.warning("Image upload blocked — personal identifier found: %s", entity_types)
-        return False, [f"Personal identifier detected in image: {', '.join(entity_types)}"]
+    # Single pass — DRY, CC included for photographed credit cards
+    found = [label for label, pat in _PII_PATTERNS if pat.search(ocr_text)]
+    if found:
+        logger.warning("Image upload blocked — PII detected: %s", found)
+        return False, [f"Personal identifier detected in image: {', '.join(found)}"]
 
     return True, []

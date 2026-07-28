@@ -484,6 +484,13 @@ GOV_DIRECTORY = [
     }
 ]
 
+# ── Scraper constants (DRY: avoid URL/UA repetition across ICA and IRAS scrapers) ─
+_ICA_BASE        = "https://www.ica.gov.sg"
+_ICA_NEWS_URL    = f"{_ICA_BASE}/news-and-publications/media-releases"
+_ICA_DEFAULT_IMG = f"{_ICA_BASE}/Cwp/assets/ica/images/news/mediareleases-default.jpg"
+_IRAS_BASE       = "https://www.iras.gov.sg"
+_SCRAPER_UA      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+
 _ica_cache = {"data": None, "fetched_at": 0}
 _ICA_CACHE_TTL_SECONDS = 5 * 60
 
@@ -497,9 +504,9 @@ def fetch_ica_media_releases() -> list:
     if cached is not None:
         return cached
 
-    url = "https://www.ica.gov.sg/ICAContentInterface/MediaReleasesList/FindMediaReleases"
+    url = f"{_ICA_BASE}/ICAContentInterface/MediaReleasesList/FindMediaReleases"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        "User-Agent": _SCRAPER_UA,
         "Content-Type": "application/json",
     }
     payload = {
@@ -522,10 +529,10 @@ def fetch_ica_media_releases() -> list:
                 date = item.get("date", "").strip()
                 category = item.get("category", "").strip()
                 rel_url = item.get("url", "").strip()
-                full_url = f"https://www.ica.gov.sg{rel_url}" if rel_url.startswith("/") else rel_url
+                full_url = f"{_ICA_BASE}{rel_url}" if rel_url.startswith("/") else rel_url
                 img_url = item.get("image", "").strip()
                 if img_url.startswith("/"):
-                    img_url = f"https://www.ica.gov.sg{img_url}"
+                    img_url = f"{_ICA_BASE}{img_url}"
                 
                 news_items.append({
                     "title": title,
@@ -547,22 +554,22 @@ def fetch_ica_media_releases() -> list:
             "title": "Heavy departure traffic at Woodlands Checkpoint due to tailback from Malaysia.",
             "date": "19 Jul 2026",
             "category": "Advisories",
-            "url": "https://www.ica.gov.sg/news-and-publications/media-releases",
-            "image": "https://www.ica.gov.sg/Cwp/assets/ica/images/news/mediareleases-default.jpg",
+            "url": _ICA_NEWS_URL,
+            "image": _ICA_DEFAULT_IMG,
         },
         {
             "title": "52 Motorists Caught for Traffic Offences at Woodlands Checkpoint over the June School Holidays",
             "date": "08 Jul 2026",
             "category": "Media Releases",
-            "url": "https://www.ica.gov.sg/news-and-publications/media-releases",
-            "image": "https://www.ica.gov.sg/Cwp/assets/ica/images/news/mediareleases-default.jpg",
+            "url": _ICA_NEWS_URL,
+            "image": _ICA_DEFAULT_IMG,
         },
         {
             "title": "Introduction of a New Passenger Clearance Hall in the Departure Cargo Zone to Improve Traveller Flow at Woodlands Checkpoint",
             "date": "30 Jun 2026",
             "category": "Media Releases",
-            "url": "https://www.ica.gov.sg/news-and-publications/media-releases",
-            "image": "https://www.ica.gov.sg/Cwp/assets/ica/images/news/mediareleases-default.jpg",
+            "url": _ICA_NEWS_URL,
+            "image": _ICA_DEFAULT_IMG,
         },
     ]
     _cache_set(_ica_cache, fallback_data)
@@ -580,10 +587,8 @@ def fetch_iras_due_dates() -> list:
     if cached is not None:
         return cached
 
-    url = "https://www.iras.gov.sg/due-dates"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
-    }
+    url = f"{_IRAS_BASE}/due-dates"
+    headers = {"User-Agent": _SCRAPER_UA}
     print(f"  \033[90m[IRAS Scraper] HTTP GET {url}\033[0m")
     try:
         r = requests.get(url, headers=headers, timeout=10)
@@ -627,12 +632,12 @@ def fetch_iras_due_dates() -> list:
 
     _iras_status = make_feed_status(False, note="IRAS due-dates page unreachable — showing the standard filing calendar")
     fallback_data = [
-        {"date": "01 Mar 2026", "category": "Auto-Inclusion/ E-Submission", "label": "Submit Self-Employment Income Records", "link": "https://www.iras.gov.sg"},
-        {"date": "01 Mar 2026", "category": "Auto-Inclusion/ E-Submission", "label": "Submit Employment Income Records", "link": "https://www.iras.gov.sg"},
-        {"date": "18 Apr 2026", "category": "Individual Income Tax", "label": "File Individual & Partnership Income Tax Return", "link": "https://www.iras.gov.sg/taxes/individual-income-tax/basics-of-individual-income-tax/understanding-my-income-tax-filing/individuals-required-to-file-tax"},
-        {"date": "30 Apr 2026", "category": "Goods And Services Tax (GST)", "label": "File GST return (period ending in Mar)", "link": "https://www.iras.gov.sg"},
-        {"date": "31 May 2026", "category": "International Tax", "label": "Submit Common Reporting Standard (CRS) return", "link": "https://www.iras.gov.sg"},
-        {"date": "30 Jun 2026", "category": "Corporate Income Tax", "label": "File Estimated Chargeable Income (ECI) (Mar financial year-end)", "link": "https://www.iras.gov.sg"}
+        {"date": "01 Mar 2026", "category": "Auto-Inclusion/ E-Submission", "label": "Submit Self-Employment Income Records", "link": _IRAS_BASE},
+        {"date": "01 Mar 2026", "category": "Auto-Inclusion/ E-Submission", "label": "Submit Employment Income Records", "link": _IRAS_BASE},
+        {"date": "18 Apr 2026", "category": "Individual Income Tax", "label": "File Individual & Partnership Income Tax Return", "link": f"{_IRAS_BASE}/taxes/individual-income-tax/basics-of-individual-income-tax/understanding-my-income-tax-filing/individuals-required-to-file-tax"},
+        {"date": "30 Apr 2026", "category": "Goods And Services Tax (GST)", "label": "File GST return (period ending in Mar)", "link": _IRAS_BASE},
+        {"date": "31 May 2026", "category": "International Tax", "label": "Submit Common Reporting Standard (CRS) return", "link": _IRAS_BASE},
+        {"date": "30 Jun 2026", "category": "Corporate Income Tax", "label": "File Estimated Chargeable Income (ECI) (Mar financial year-end)", "link": _IRAS_BASE}
     ]
     _cache_set(_tax_cache, fallback_data)
     return fallback_data
