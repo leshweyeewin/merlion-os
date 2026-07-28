@@ -34,9 +34,9 @@ MerlionOS aggregates this entire ecosystem into a single-pane-of-glass daily uti
 flowchart TD
     User["👤 Citizen User"] -->|Browser / Mobile| FE["💻 Web Frontend & Dashboard"]
     FE -->|Preferences| LocalStorage["💾 LocalStorage"]
-    FE -->|FastAPI SSE / REST| API["🚀 FastAPI Backend (Google Cloud Run)"]
+    FE -->|FastAPI SSE / REST| API["🚀 FastAPI Backend (Render)"]
 
-    API -->|Parallel Tool Calling| Gemini["🤖 Google Gemini 2.5 Flash"]
+    API -->|Parallel Tool Calling & Multimodal Upload| Gemini["🤖 Google Gemini 2.5 Flash"]
     API -->|RAG Vector Search| Embed["📚 gemini-embedding-001"]
     Gemini -->|429 Rate Limit Fallback| FlashLite["⚡ Gemini 3.1 Flash-Lite + Search Grounding"]
 
