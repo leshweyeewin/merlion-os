@@ -53,7 +53,7 @@ flowchart TD
 **🤖 AI & Agentic Core**
 * **Primary Engine (Gemini 2.5 Flash):** The default high-speed reasoning core powering the agent.
 * **Multi-Hop Reasoning:** The Co-Pilot orchestrates multi-turn reasoning loops—querying APIs, analyzing results, and deciding next steps before synthesizing a final answer.
-* **Multimodal Vision:** Natively decodes uploaded images and PDFs (CPF statements, tax notices) via Gemini's vision channel for instant data extraction.
+* **Multimodal Vision:** Natively decodes uploaded images (e.g., photos of CPF statements or tax notices) via Gemini's vision channel for instant data extraction and analysis.
 * **RAG Civic Knowledge Base:** Uses `gemini-embedding-001` and pure-Python cosine similarity over a curated civic corpus to accurately ground open-ended policy questions.
 * **SSE Streaming:** Delivers real-time, token-by-token streaming responses with a dynamic typing cursor.
 
