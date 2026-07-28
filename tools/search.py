@@ -244,8 +244,8 @@ def scrape_one_telegram_channel(channel: str, allow_fallback: bool = False) -> l
                             continue
 
                         display_content = content
-                        if len(display_content) > 180:
-                            display_content = display_content[:177] + "..."
+                        if len(display_content) > 1200:
+                            display_content = display_content[:1197] + "..."
 
                         item = {
                             "source": f"@{channel}",
@@ -304,8 +304,9 @@ def scrape_one_telegram_channel_24h(channel: str) -> list:
                         if not time_el or not time_el.has_attr("datetime"):
                             continue
 
-                        content = text_el.get_text(separator=' ').strip()
-                        content = re.sub(r'\s+', ' ', content)
+                        content = text_el.get_text(separator='\n').strip()
+                        lines = [re.sub(r'[ \t]+', ' ', line).strip() for line in content.split('\n')]
+                        content = '\n'.join(line for line in lines if line)
 
                         dt_str = time_el["datetime"]
                         iso_date = dt_str
@@ -322,8 +323,8 @@ def scrape_one_telegram_channel_24h(channel: str) -> list:
                             continue
 
                         display_content = content
-                        if len(display_content) > 180:
-                            display_content = display_content[:177] + "..."
+                        if len(display_content) > 1200:
+                            display_content = display_content[:1197] + "..."
 
                         channel_events.append({
                             "source": f"@{channel}",

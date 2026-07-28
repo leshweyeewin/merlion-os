@@ -177,24 +177,42 @@ function initSgHub() {
         btn.addEventListener("click", () => activateHubSubTab(btn));
     });
 
-    // Dashboard View Mode switcher: Focused View vs Full Explorer
-    const btnFocusedMode = document.getElementById("view-mode-focused");
-    const btnExplorerMode = document.getElementById("view-mode-explorer");
-    const hubPaneEl = document.getElementById("hub-pane");
+    // Dashboard Card Panel Collapsible Logic
+    const btnCollapseAll = document.getElementById("view-mode-collapse-all");
+    const btnExpandAll = document.getElementById("view-mode-expand-all");
 
-    function setHubViewMode(mode) {
-        const isFocused = mode === "focused";
-        if (btnFocusedMode) btnFocusedMode.classList.toggle("active-view-mode", isFocused);
-        if (btnExplorerMode) btnExplorerMode.classList.toggle("active-view-mode", !isFocused);
-        if (hubPaneEl) hubPaneEl.classList.toggle("hub-pane-focused", isFocused);
-        try { localStorage.setItem("merlionos-hub-view-mode", mode); } catch (_) {}
+    function initCollapsibleCards() {
+        const hubCards = document.querySelectorAll(".hub-card");
+        hubCards.forEach(card => {
+            const h3 = card.querySelector("h3");
+            if (!h3 || h3.querySelector(".hub-card-toggle")) return;
+
+            const toggleBtn = document.createElement("button");
+            toggleBtn.className = "hub-card-toggle";
+            toggleBtn.type = "button";
+            toggleBtn.title = "Collapse/Expand panel";
+            toggleBtn.innerHTML = '<i class="fa-solid fa-chevron-up"></i>';
+            h3.appendChild(toggleBtn);
+
+            h3.addEventListener("click", () => {
+                card.classList.toggle("collapsed-card");
+            });
+        });
     }
+    initCollapsibleCards();
 
-    if (btnFocusedMode && btnExplorerMode) {
-        btnFocusedMode.addEventListener("click", () => setHubViewMode("focused"));
-        btnExplorerMode.addEventListener("click", () => setHubViewMode("explorer"));
-        const savedViewMode = (function() { try { return localStorage.getItem("merlionos-hub-view-mode"); } catch (_) { return "focused"; } })() || "focused";
-        setHubViewMode(savedViewMode);
+    if (btnCollapseAll && btnExpandAll) {
+        btnCollapseAll.addEventListener("click", () => {
+            document.querySelectorAll(".hub-card").forEach(c => c.classList.add("collapsed-card"));
+            btnCollapseAll.classList.add("active-view-mode");
+            btnExpandAll.classList.remove("active-view-mode");
+        });
+
+        btnExpandAll.addEventListener("click", () => {
+            document.querySelectorAll(".hub-card").forEach(c => c.classList.remove("collapsed-card"));
+            btnExpandAll.classList.add("active-view-mode");
+            btnCollapseAll.classList.remove("active-view-mode");
+        });
     }
 
     // ArrowLeft/ArrowRight cycle (wrapping), Home/End jump to first/last —
@@ -1656,7 +1674,7 @@ function initSgHub() {
                     </span>
                     <a href="${safeURL(evt.link)}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Post</a>
                 </div>
-                <div style="color: var(--text-main); line-height:1.45;">${escapeHTML(evt.content)}</div>
+                <div style="color: var(--text-main); line-height:1.45; white-space: pre-wrap;">${escapeHTML(evt.content)}</div>
             </div>`;
         });
         communityEventsContent.innerHTML = banner + windowChip + (commHtml || "<p style='color: var(--text-subtle); margin:0;'>No community updates.</p>");

@@ -2530,13 +2530,38 @@ body {
     box-shadow: var(--shadow-sm);
 }
 
-/* Compact Focused View adjustments to reduce visual clutter */
-.hub-pane-focused .hub-card {
-    max-height: 480px;
-    overflow-y: auto;
-    transition: max-height 0.25s ease;
+/* Collapsible Card Panel Styles */
+.hub-card h3 {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: color 0.15s ease;
 }
 
-.hub-pane-focused .hub-card:hover {
-    max-height: 800px;
+.hub-card h3:hover {
+    color: var(--primary);
+}
+
+.hub-card-toggle {
+    background: transparent;
+    border: none;
+    color: var(--text-subtle);
+    font-size: 12px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    padding: 2px 6px;
+}
+
+.hub-card.collapsed-card > *:not(h3):not(.hub-card-header) {
+    display: none !important;
+}
+
+.hub-card.collapsed-card {
+    padding-bottom: 12px;
+}
+
+.hub-card.collapsed-card .hub-card-toggle {
+    transform: rotate(180deg);
 }

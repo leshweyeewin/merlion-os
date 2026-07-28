@@ -1665,18 +1665,19 @@
             <div id="hub-pane" class="main-pane hidden">
                 <!-- Personalized demo banner — populated by JS when a demo persona is active -->
                 <div class="persona-portal-banner hidden" id="persona-hub-banner"></div>
-                <!-- Dashboard View Mode Control Bar (Focused View vs Full Explorer) -->
+                <!-- Dashboard Card Density Control Bar (Collapsible Panels) -->
                 <div class="hub-view-mode-bar" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
                     <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text-main);">
-                        <i class="fa-solid fa-sliders" style="color: var(--primary);"></i>
-                        <span>Dashboard Density:</span>
+                        <i class="fa-solid fa-square-minus" style="color: var(--primary);"></i>
+                        <span>Card Panels:</span>
+                        <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">(Click any card title to collapse/expand)</span>
                     </div>
                     <div class="view-mode-toggle-group" style="display: flex; gap: 6px;">
-                        <button type="button" class="view-mode-btn active-view-mode" id="view-mode-focused" title="Shows key highlights & collapses detailed long lists">
-                            <i class="fa-solid fa-bullseye"></i> Focused View
+                        <button type="button" class="view-mode-btn" id="view-mode-collapse-all" title="Collapse all dashboard card panels">
+                            <i class="fa-solid fa-chevron-up"></i> Collapse All
                         </button>
-                        <button type="button" class="view-mode-btn" id="view-mode-explorer" title="Expands all raw tables, feeds, and analytics logs">
-                            <i class="fa-solid fa-border-all"></i> Full Explorer
+                        <button type="button" class="view-mode-btn active-view-mode" id="view-mode-expand-all" title="Expand all dashboard card panels">
+                            <i class="fa-solid fa-chevron-down"></i> Expand All
                         </button>
                     </div>
                 </div>
