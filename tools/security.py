@@ -19,8 +19,9 @@ FALLBACK_MODEL = os.environ.get("GEMINI_FALLBACK_MODEL", "gemini-3.1-flash-lite"
 
 IMAGE_MIME_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
 
-# Initialize Presidio
-analyzer = AnalyzerEngine()
+# Initialize Presidio without NLP engine to avoid large spaCy model download
+# We use custom recognizers (SingaporeNRICRecognizer) and regex patterns instead
+analyzer = AnalyzerEngine(nlp_engine=None)
 analyzer.registry.add_recognizer(SingaporeNRICRecognizer())
 anonymizer = AnonymizerEngine()
 
