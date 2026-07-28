@@ -6,9 +6,6 @@ import re
 
 from PIL import Image
 import pytesseract
-from presidio_analyzer import AnalyzerEngine
-from presidio_anonymizer import AnonymizerEngine
-from tools.security_nric import SingaporeNRICRecognizer
 from google import genai
 
 logger = logging.getLogger(__name__)
@@ -19,11 +16,11 @@ FALLBACK_MODEL = os.environ.get("GEMINI_FALLBACK_MODEL", "gemini-3.1-flash-lite"
 
 IMAGE_MIME_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
 
-# Initialize Presidio without NLP engine to avoid large spaCy model download
-# We use custom recognizers (SingaporeNRICRecognizer) and regex patterns instead
-analyzer = AnalyzerEngine(nlp_engine=None)
-analyzer.registry.add_recognizer(SingaporeNRICRecognizer())
-anonymizer = AnonymizerEngine()
+# Pure regex patterns for PII detection (no spaCy model needed)
+NRIC_PATTERN = re.compile(r"\b[STFGM]\d{7}[A-Z]\b")
+EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")
+PHONE_PATTERN = re.compile(r"\b(?:\+?65)?[689]\d{7}\b")
+CREDIT_CARD_PATTERN = re.compile(r"\b(?:\d[ -]*?){13,16}\b")
 
 # Only block credential-sharing phrases related to authentication.
 # Generic service questions like "SingPass is down" should be allowed.
@@ -42,7 +39,7 @@ SINGPASS_CREDENTIAL_PHRASES = [
 
 def scan_and_redact_pii(text: str) -> tuple[bool, str, list[str]]:
     """
-    Scans for NRIC/FIN and credential-sharing phrases.
+    Scans for NRIC/FIN, email, phone, credit card and credential-sharing phrases.
     Returns: (is_redacted, redacted_text, findings)
     """
     findings = []
@@ -52,30 +49,46 @@ def scan_and_redact_pii(text: str) -> tuple[bool, str, list[str]]:
     for phrase in SINGPASS_CREDENTIAL_PHRASES:
         if phrase in lower_text:
             findings.append(f"High-risk phrase: {phrase}")
-            
-    # 2. Analyze for NRIC/FIN via Presidio
-    results = analyzer.analyze(text=text, language="en")
     
-    # Filter to only actual PII entities. CREDIT_CARD is included for raw text input
-    # (where a user might paste a card number) but excluded from image OCR scanning
-    # (where tax figures like 72,765.00 trigger false positives).
-    sensitive_entities = {"NRIC", "EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT_CARD"}
-    pii_results = [r for r in results if r.entity_type in sensitive_entities]
+    # 2. Detect and redact PII using regex patterns
+    redacted_text = text
     
-    if pii_results:
+    # Detect NRIC/FIN
+    nric_matches = list(NRIC_PATTERN.finditer(text))
+    if nric_matches:
         findings.append("NRIC/FIN detected")
-    # 3. Anonymize (only anonymize the sensitive entities we found)
-    anonymized = anonymizer.anonymize(text=text, analyzer_results=pii_results)
+        # Redact from end to start to preserve positions
+        for match in reversed(nric_matches):
+            redacted_text = redacted_text[:match.start()] + "[REDACTED]" + redacted_text[match.end():]
     
-    final_text = anonymized.text
+    # Detect email
+    email_matches = list(EMAIL_PATTERN.finditer(text))
+    if email_matches:
+        findings.append("Email detected")
+        for match in reversed(email_matches):
+            redacted_text = redacted_text[:match.start()] + "[REDACTED]" + redacted_text[match.end():]
     
-    return (len(findings) > 0, final_text, findings)
+    # Detect phone (Singapore format)
+    phone_matches = list(PHONE_PATTERN.finditer(text))
+    if phone_matches:
+        findings.append("Phone number detected")
+        for match in reversed(phone_matches):
+            redacted_text = redacted_text[:match.start()] + "[REDACTED]" + redacted_text[match.end():]
+    
+    # Detect credit card (for raw text input only)
+    cc_matches = list(CREDIT_CARD_PATTERN.finditer(text))
+    if cc_matches:
+        findings.append("Credit card detected")
+        for match in reversed(cc_matches):
+            redacted_text = redacted_text[:match.start()] + "[REDACTED]" + redacted_text[match.end():]
+    
+    return (len(findings) > 0, redacted_text, findings)
 
 
 # Entities used when scanning OCR text from images. CREDIT_CARD is intentionally
 # excluded: tax figures (e.g. $72,765.00, $1,379.64) are not PII — only identity
 # tokens like NRIC, email, or phone numbers are.
-_IMAGE_SENSITIVE_ENTITIES = {"NRIC", "EMAIL_ADDRESS", "PHONE_NUMBER"}
+_IMAGE_PATTERNS = [NRIC_PATTERN, EMAIL_PATTERN, PHONE_PATTERN]
 
 # Document-type keywords that indicate a sensitive identity document
 _IDENTITY_DOC_HEADERS = [
@@ -86,10 +99,10 @@ _IDENTITY_DOC_HEADERS = [
     "income tax",
 ]
 
-def _ocr_contains_personal_identifier(text: str, results: list) -> bool:
+def _ocr_contains_personal_identifier(text: str) -> bool:
     """Return True if the OCR text contains at least one genuine personal identifier
     (NRIC/FIN, personal email, or phone number) — as opposed to mere financial figures."""
-    return any(r.entity_type in _IMAGE_SENSITIVE_ENTITIES for r in results)
+    return any(pattern.search(text) for pattern in _IMAGE_PATTERNS)
 
 def _is_identity_document(text: str) -> bool:
     """Return True if OCR text looks like an IRAS NOA, CPF statement, or ID card
@@ -247,12 +260,16 @@ def scan_uploaded_image(base64_data: str, mime_type: str) -> tuple[bool, list[st
         # safety filters still apply. Don't block on a tool failure.
         return True, []
 
-    # Run Presidio with the relaxed image entity set (no CREDIT_CARD false-positives)
-    results = analyzer.analyze(text=extracted_text, language="en")
-    pii_results = [r for r in results if r.entity_type in _IMAGE_SENSITIVE_ENTITIES]
-
-    if pii_results:
-        entity_types = list({r.entity_type for r in pii_results})
+    # Check for personal identifiers using regex patterns (no CREDIT_CARD false-positives)
+    if _ocr_contains_personal_identifier(extracted_text):
+        entity_types = []
+        if NRIC_PATTERN.search(extracted_text):
+            entity_types.append("NRIC")
+        if EMAIL_PATTERN.search(extracted_text):
+            entity_types.append("EMAIL")
+        if PHONE_PATTERN.search(extracted_text):
+            entity_types.append("PHONE")
+        
         logger.warning("Image upload blocked — personal identifier found: %s", entity_types)
         return False, [f"Personal identifier detected in image: {', '.join(entity_types)}"]
 
