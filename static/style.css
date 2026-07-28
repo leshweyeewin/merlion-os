@@ -2499,3 +2499,44 @@ body {
     border-radius: 6px;
     transition: box-shadow 0.2s ease;
 }
+
+/* Dashboard View Mode toggle buttons (Focused View vs Full Explorer) */
+.view-mode-btn {
+    background: transparent;
+    border: 1px solid var(--border-btn);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-primary);
+}
+
+.view-mode-btn:hover {
+    background: var(--bg-muted);
+    color: var(--text-main);
+    border-color: var(--border-hover);
+}
+
+.view-mode-btn.active-view-mode {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #ffffff;
+    box-shadow: var(--shadow-sm);
+}
+
+/* Compact Focused View adjustments to reduce visual clutter */
+.hub-pane-focused .hub-card {
+    max-height: 480px;
+    overflow-y: auto;
+    transition: max-height 0.25s ease;
+}
+
+.hub-pane-focused .hub-card:hover {
+    max-height: 800px;
+}

@@ -177,6 +177,26 @@ function initSgHub() {
         btn.addEventListener("click", () => activateHubSubTab(btn));
     });
 
+    // Dashboard View Mode switcher: Focused View vs Full Explorer
+    const btnFocusedMode = document.getElementById("view-mode-focused");
+    const btnExplorerMode = document.getElementById("view-mode-explorer");
+    const hubPaneEl = document.getElementById("hub-pane");
+
+    function setHubViewMode(mode) {
+        const isFocused = mode === "focused";
+        if (btnFocusedMode) btnFocusedMode.classList.toggle("active-view-mode", isFocused);
+        if (btnExplorerMode) btnExplorerMode.classList.toggle("active-view-mode", !isFocused);
+        if (hubPaneEl) hubPaneEl.classList.toggle("hub-pane-focused", isFocused);
+        try { localStorage.setItem("merlionos-hub-view-mode", mode); } catch (_) {}
+    }
+
+    if (btnFocusedMode && btnExplorerMode) {
+        btnFocusedMode.addEventListener("click", () => setHubViewMode("focused"));
+        btnExplorerMode.addEventListener("click", () => setHubViewMode("explorer"));
+        const savedViewMode = (function() { try { return localStorage.getItem("merlionos-hub-view-mode"); } catch (_) { return "focused"; } })() || "focused";
+        setHubViewMode(savedViewMode);
+    }
+
     // ArrowLeft/ArrowRight cycle (wrapping), Home/End jump to first/last —
     // moving focus and activating the tab in one step (automatic activation).
     if (hubSubTabList) {
