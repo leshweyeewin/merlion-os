@@ -58,7 +58,10 @@ def test_chat_rejects_oversized_message(client):
 def test_chat_happy_path(client, monkeypatch):
     async def fake_run_chat_loop(user_prompt, history, file=None, persona=None):
         return "Test response", [], []
+    async def fake_guardrails(user_prompt, file=None):
+        return None
     monkeypatch.setattr(server, "run_chat_loop", fake_run_chat_loop)
+    monkeypatch.setattr(server, "enforce_chat_guardrails", fake_guardrails)
 
     resp = client.post("/api/chat", json={"message": "Hello"})
     assert resp.status_code == 200
@@ -68,10 +71,83 @@ def test_chat_happy_path(client, monkeypatch):
     assert body["citations"] == []
 
 
+def test_chat_blocks_unsafe_prompt(client, monkeypatch):
+    async def fake_run_chat_loop(user_prompt, history, file=None, persona=None):
+        return "Should not reach here", [], []
+    async def fake_guardrails(user_prompt, file=None):
+        raise server.HTTPException(status_code=400, detail=server.SECURITY_FILTER_DETAIL)
+    monkeypatch.setattr(server, "run_chat_loop", fake_run_chat_loop)
+    monkeypatch.setattr(server, "enforce_chat_guardrails", fake_guardrails)
+
+    resp = client.post("/api/chat", json={"message": "My NRIC is S1234567A"})
+    assert resp.status_code == 400
+    assert "Security Filter" in resp.json()["detail"]
+
+
+def test_chat_blocks_nric_via_local_scan(client, monkeypatch):
+    """Layer-1 regex must block NRIC even when the AI gate would allow the prompt."""
+    async def fake_run_chat_loop(user_prompt, history, file=None, persona=None):
+        return "Should not reach here", [], []
+    async def fake_ai_gate(_prompt):
+        return True
+    monkeypatch.setattr(server, "run_chat_loop", fake_run_chat_loop)
+    monkeypatch.setattr(server, "check_text_safety_with_ai", fake_ai_gate)
+
+    resp = client.post("/api/chat", json={"message": "My NRIC is S1234567A"})
+    assert resp.status_code == 400
+    assert "Security Filter" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_check_text_safety_fail_closed_on_error(monkeypatch):
+    class BrokenClient:
+        class aio:
+            class models:
+                @staticmethod
+                async def generate_content(*_args, **_kwargs):
+                    raise RuntimeError("API unavailable")
+
+    monkeypatch.setattr(server, "_get_safety_client", lambda: BrokenClient())
+
+    assert await server.check_text_safety_with_ai("What is the CPF contribution rate in 2026?") is False
+
+
+@pytest.mark.asyncio
+async def test_check_text_safety_rejects_unexpected_output(monkeypatch):
+    class OddClient:
+        class aio:
+            class models:
+                @staticmethod
+                async def generate_content(*_args, **_kwargs):
+                    class Response:
+                        text = "This looks safe to me."
+                    return Response()
+
+    monkeypatch.setattr(server, "_get_safety_client", lambda: OddClient())
+
+    assert await server.check_text_safety_with_ai("Summarize my 2026 tax return line by line and show figures") is False
+
+
+def test_chat_allows_service_status_prompt(client, monkeypatch):
+    async def fake_run_chat_loop(user_prompt, history, file=None, persona=None):
+        return "Service status answer", [], []
+    async def fake_guardrails(user_prompt, file=None):
+        return None
+    monkeypatch.setattr(server, "run_chat_loop", fake_run_chat_loop)
+    monkeypatch.setattr(server, "enforce_chat_guardrails", fake_guardrails)
+
+    resp = client.post("/api/chat", json={"message": "SingPass is down, what should I do?"})
+    assert resp.status_code == 200
+    assert resp.json()["response"] == "Service status answer"
+
+
 def test_chat_maps_quota_errors_to_429(client, monkeypatch):
     async def fake_run_chat_loop(user_prompt, history, file=None, persona=None):
         raise RuntimeError("429 quota exceeded")
+    async def fake_guardrails(user_prompt, file=None):
+        return None
     monkeypatch.setattr(server, "run_chat_loop", fake_run_chat_loop)
+    monkeypatch.setattr(server, "enforce_chat_guardrails", fake_guardrails)
 
     resp = client.post("/api/chat", json={"message": "Hello"})
     assert resp.status_code == 429
@@ -80,7 +156,10 @@ def test_chat_maps_quota_errors_to_429(client, monkeypatch):
 def test_chat_rate_limit_blocks_after_threshold(client, monkeypatch):
     async def fake_run_chat_loop(user_prompt, history, file=None, persona=None):
         return "ok", [], []
+    async def fake_guardrails(user_prompt, file=None):
+        return None
     monkeypatch.setattr(server, "run_chat_loop", fake_run_chat_loop)
+    monkeypatch.setattr(server, "enforce_chat_guardrails", fake_guardrails)
 
     for _ in range(server._RATE_LIMIT_MAX_REQUESTS):
         resp = client.post("/api/chat", json={"message": "Hello"})

@@ -4,6 +4,8 @@ tools/chat.py — Chat orchestration & Gemini agent loop
 Orchestrates conversation history, automatic tool execution turns, and grounding fallback.
 """
 
+import os
+import re
 import json
 import base64
 import logging
@@ -12,6 +14,10 @@ from pydantic import BaseModel
 from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types
+from tools.security import scan_and_redact_pii, scan_uploaded_image, PRIMARY_MODEL, FALLBACK_MODEL
+import pytesseract
+from PIL import Image
+import io
 
 # Import tools
 from tools import (
@@ -35,6 +41,8 @@ from tools import (
 
 logger = logging.getLogger("merlion-os-chat")
 
+
+
 # Lazily constructed — importing this module (and therefore `tools`, which nearly everything
 # else in the codebase imports, including the test suite) must not require live Gemini
 # credentials just to define TOOL_MAP and the request/response models.
@@ -43,7 +51,11 @@ _client = None
 def _get_client():
     global _client
     if _client is None:
-        _client = genai.Client()
+        # Explicitly pass GEMINI_API_KEY so the SDK never falls back to GOOGLE_API_KEY
+        # (the SDK prefers GOOGLE_API_KEY when both are set, which can silently use a
+        # different project with lower quota).
+        api_key = os.environ.get("GEMINI_API_KEY")
+        _client = genai.Client(api_key=api_key)
     return _client
 
 TOOL_MAP = {
@@ -87,7 +99,13 @@ SYSTEM_INSTRUCTION = (
     "Never output a clickable link or raw URL for SingPass, CorpPass, or any login/signin/authentication page, "
     "even the genuine singpass.gov.sg domain. Instead, instruct the citizen to open their own browser and "
     "navigate there manually (e.g. 'Open a new browser tab and go to singpass.gov.sg yourself — never follow "
-    "login links from a chat assistant'). This protects citizens from phishing habits and link-spoofing risks."
+    "login links from a chat assistant'). This protects citizens from phishing habits and link-spoofing risks.\n\n"
+    "PRIVACY & PII GUARDRAIL:\n"
+    "If an uploaded image contains an NRIC, FIN, passport number, or unredacted confidential identity document, "
+    "REFUSE to process the identity details and instruct the citizen to redact/blur out personal identifiers before uploading. "
+    "Never extract, retain, or analyse unmasked personal identification numbers from documents. "
+    "If the user provides sensitive personal information (NRIC, FIN, passport) in their text query, "
+    "politely decline to process it and advise them to consult official agencies directly through authenticated channels."
 )
 
 GROUNDING_SYSTEM_INSTRUCTION = (
@@ -196,14 +214,36 @@ def _build_contents(history: list, user_prompt: str, file: UploadedFile | None) 
 
     user_parts = []
     if file:
+        # Defense-in-depth: route-level guardrails already verified the upload; re-check here
+        # before attaching bytes to the LLM context.
         try:
-            file_bytes = base64.b64decode(file.base64)
-            user_parts.append(
-                types.Part.from_bytes(data=file_bytes, mime_type=file.mime_type)
-            )
-            print(f"[MerlionOS Multimodal] Decoded attachment of type {file.mime_type} for vision analysis.")
-        except Exception:
-            logger.exception("Failed to decode base64 file attachment")
+            is_safe, img_findings = scan_uploaded_image(file.base64, file.mime_type)
+            if not is_safe:
+                logger.warning("[PII GUARDRAIL] Blocked attachment in _build_contents: %s", img_findings)
+                user_parts.append(types.Part.from_text(
+                    text="🔒 **UPLOAD BLOCKED:** This image could not be verified clean and was not sent for analysis."
+                ))
+            else:
+                extracted_text = ""
+                if "text" in file.mime_type:
+                    extracted_text = base64.b64decode(file.base64).decode("utf-8")
+                else:
+                    image_bytes = base64.b64decode(file.base64)
+                    extracted_text = pytesseract.image_to_string(Image.open(io.BytesIO(image_bytes)))
+
+                _, redacted_text, _ = scan_and_redact_pii(extracted_text)
+                if extracted_text.strip():
+                    user_parts.append(types.Part.from_text(text=f"[CLEANED DOCUMENT TEXT]: {redacted_text}"))
+
+                file_bytes = base64.b64decode(file.base64)
+                blob = types.Blob(mime_type=file.mime_type, data=file_bytes)
+                user_parts.append(types.Part(inline_data=blob))
+                print(f"[MerlionOS Multimodal] Attached {file.mime_type} ({len(file_bytes)} bytes) for vision analysis.")
+        except Exception as e:
+            logger.exception("Error processing uploaded file for PII scanning: %s", e)
+            user_parts.append(types.Part.from_text(
+                text="🔒 **UPLOAD BLOCKED:** This attachment could not be verified and was not sent for analysis."
+            ))
 
     default_doc_prompt = "Analyze this uploaded document and call the appropriate statutory tool (such as query_iras_tax_and_cpf_ledgers, query_hdb_bto_launches_and_grants, or search_knowledge_base) to cross-reference official rules, tax brackets, statutory caps, and deadlines."
     user_parts.append(types.Part.from_text(text=user_prompt or default_doc_prompt))
@@ -229,6 +269,7 @@ def _grounding_config(persona: "PersonaContext | None" = None) -> "types.Generat
         system_instruction=GROUNDING_SYSTEM_INSTRUCTION + _persona_instruction(persona),
         tools=[types.Tool(google_search=types.GoogleSearch())],
         temperature=0.1,
+        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
     )
 
 
@@ -244,6 +285,29 @@ def _collect_citations(grounding_metadata, seen_uris: set) -> list:
     return found
 
 
+_SOURCE_LINE_RE = re.compile(r"Source:\s*(https?://[^\s]+)", re.IGNORECASE)
+
+def _extract_tool_citations(tool_results: list[str], seen_uris: set) -> list:
+    """Parse 'Source: https://...' lines emitted by knowledge base / scraper tools
+    and return citation dicts in the same shape as _collect_citations, deduplicated
+    against seen_uris (shared with the grounding citations set)."""
+    found = []
+    for result_text in tool_results:
+        if not isinstance(result_text, str):
+            continue
+        for match in _SOURCE_LINE_RE.finditer(result_text):
+            uri = match.group(1).rstrip(").,")
+            if uri not in seen_uris:
+                seen_uris.add(uri)
+                try:
+                    from urllib.parse import urlparse
+                    title = urlparse(uri).hostname or uri
+                except Exception:
+                    title = uri
+                found.append({"uri": uri, "title": title})
+    return found
+
+
 async def run_chat_loop(user_prompt: str, history: list, file: UploadedFile | None = None,
                         persona: "PersonaContext | None" = None) -> tuple[str, list, list]:
     available_tools = list(TOOL_MAP.values())
@@ -256,7 +320,7 @@ async def run_chat_loop(user_prompt: str, history: list, file: UploadedFile | No
         for hop in range(3):
             # Step 1: Prompt Generation Loop (Asynchronous)
             response = await _get_client().aio.models.generate_content(
-                model='gemini-2.5-flash',
+                model=PRIMARY_MODEL,
                 contents=current_contents,
                 config=types.GenerateContentConfig(
                     system_instruction=system_instruction,
@@ -297,7 +361,7 @@ async def run_chat_loop(user_prompt: str, history: list, file: UploadedFile | No
 
         # If we exhausted all hops, compile a final synthesis answer
         final_response = await _get_client().aio.models.generate_content(
-            model='gemini-2.5-flash',
+            model=PRIMARY_MODEL,
             contents=current_contents,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
@@ -312,7 +376,7 @@ async def run_chat_loop(user_prompt: str, history: list, file: UploadedFile | No
             try:
                 print("\n\033[93m[MerlionOS Fallback] Primary quota exceeded — activating Google Search Grounding mode...\033[0m")
                 fallback_response = await _get_client().aio.models.generate_content(
-                    model="gemini-3.1-flash-lite",
+                    model=FALLBACK_MODEL,
                     contents=contents,
                     config=_grounding_config(persona),
                 )
@@ -325,15 +389,33 @@ async def run_chat_loop(user_prompt: str, history: list, file: UploadedFile | No
                 print("\033[93m[MerlionOS Fallback] Google Search Grounding response compiled successfully.\033[0m")
                 return fallback_text + FALLBACK_NOTE, [{
                     "tool": "google_search_grounding",
-                    "arguments": {"query": user_prompt, "model": "gemini-3.1-flash-lite"},
+                    "arguments": {"query": user_prompt, "model": FALLBACK_MODEL},
                     "result": "[Google Search grounding activated — web-cited response returned]"
                 }], citations
             except Exception as fallback_err:
-                logger.exception(f"Google Search grounding fallback also failed: {fallback_err}")
-                raise genai_errors.ClientError(
-                    message="MerlionOS has hit the Gemini API's free-tier request limit. Google Search fallback also failed. Please wait a minute and try again.",
-                    code=429
-                )
+                logger.warning(f"Google Search grounding fallback failed: {fallback_err}. Retrying simple failover model without search grounding...")
+                try:
+                    print("\n\033[93m[MerlionOS Failover] Activating simple text failover mode (no search grounding)...\033[0m")
+                    failover_response = await _get_client().aio.models.generate_content(
+                        model=FALLBACK_MODEL,
+                        contents=contents,
+                        config=types.GenerateContentConfig(
+                            system_instruction=SYSTEM_INSTRUCTION + _persona_instruction(persona),
+                            temperature=0.2,
+                        )
+                    )
+                    failover_text = failover_response.text or "Could not compile response."
+                    return failover_text + "\n\n---\n> ⚡ **Failover Mode:** Primary quota exceeded and Search Grounding unavailable. Running in simplified text-only mode.", [{
+                        "tool": "failover_text_model",
+                        "arguments": {"model": FALLBACK_MODEL},
+                        "result": "[Simple text failover activated]"
+                    }], []
+                except Exception as final_err:
+                    logger.exception(f"All failover pathways collapsed. Final error: {final_err}")
+                    raise genai_errors.ClientError(
+                        message=f"All model paths failed. Primary hit 429, Search fallback failed with: {fallback_err}, and simple text fallback failed with: {final_err}.",
+                        code=429
+                    )
         logger.exception("Gemini client error occurred in chat_endpoint handler")
         raise
     except Exception:
@@ -357,6 +439,7 @@ async def run_chat_stream(user_prompt: str, history: list, file: UploadedFile | 
     available_tools = list(TOOL_MAP.values())
     contents = _build_contents(history, user_prompt, file)
     system_instruction = SYSTEM_INSTRUCTION + _persona_instruction(persona)
+    _tool_citation_seen: set = set()  # per-request dedup for RAG source URLs
 
     try:
         if file:
@@ -373,7 +456,7 @@ async def run_chat_stream(user_prompt: str, history: list, file: UploadedFile | 
         for hop in range(3):
             # Step 1: Prompt Generation (may return tool calls — not streamed yet)
             response = await _get_client().aio.models.generate_content(
-                model='gemini-2.5-flash',
+                model=PRIMARY_MODEL,
                 contents=current_contents,
                 config=types.GenerateContentConfig(
                     system_instruction=system_instruction,
@@ -386,10 +469,12 @@ async def run_chat_stream(user_prompt: str, history: list, file: UploadedFile | 
             # Step 2: Execute any tool calls and emit log events
             if response.function_calls:
                 tool_responses = []
+                raw_results = []
                 for call in response.function_calls:
                     tool_name = call.name
                     args = call.args or {}
                     executed_text = await anyio.to_thread.run_sync(_execute_tool_call, tool_name, args)
+                    raw_results.append(executed_text)
 
                     log_payload = json.dumps({
                         "type": "log",
@@ -406,6 +491,11 @@ async def run_chat_stream(user_prompt: str, history: list, file: UploadedFile | 
                         )
                     )
 
+                # Emit tool-sourced citations (RAG / scraper source URLs)
+                tool_cits = _extract_tool_citations(raw_results, _tool_citation_seen)
+                if tool_cits:
+                    yield f"data: {json.dumps({'type': 'citations', 'citations': tool_cits})}\n\n"
+
                 current_contents.extend([
                     types.Content(role="model", parts=response.parts),
                     types.Content(role="tool", parts=tool_responses),
@@ -414,14 +504,18 @@ async def run_chat_stream(user_prompt: str, history: list, file: UploadedFile | 
                 # No more function calls, ready to stream the final answer
                 break
 
-        # Step 3: Stream the final synthesis token-by-token
+        # Step 3: Stream the final synthesis token-by-token.
+        # AFC is explicitly disabled here — all tool calls are already resolved by the manual
+        # loop above. Keeping AFC off ensures any unexpected late tool call is surfaced as a
+        # plain-text response rather than silently bypassing the Operations Trace log pipeline.
         async for chunk in await _get_client().aio.models.generate_content_stream(
-            model='gemini-2.5-flash',
+            model=PRIMARY_MODEL,
             contents=current_contents,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
                 tools=available_tools,
                 temperature=0.1,
+                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
             )
         ):
             if chunk.text:
@@ -436,7 +530,7 @@ async def run_chat_stream(user_prompt: str, history: list, file: UploadedFile | 
                 log_payload = json.dumps({
                     "type": "log",
                     "tool": "google_search_grounding",
-                    "arguments": {"query": user_prompt, "model": "gemini-3.1-flash-lite"},
+                    "arguments": {"query": user_prompt, "model": FALLBACK_MODEL},
                     "result": "[Google Search grounding activated — streaming fallback started]"
                 })
                 yield f"data: {log_payload}\n\n"
@@ -445,7 +539,7 @@ async def run_chat_stream(user_prompt: str, history: list, file: UploadedFile | 
                 seen_uris = set()
 
                 async for chunk in await _get_client().aio.models.generate_content_stream(
-                    model="gemini-3.1-flash-lite",
+                    model=FALLBACK_MODEL,
                     contents=contents,
                     config=_grounding_config(persona),
                 ):
@@ -463,12 +557,43 @@ async def run_chat_stream(user_prompt: str, history: list, file: UploadedFile | 
                 yield f"data: {json.dumps({'type': 'token', 'text': FALLBACK_NOTE})}\n\n"
                 yield "data: {\"type\":\"done\"}\n\n"
             except Exception as fallback_err:
-                logger.exception(f"Google Search grounding fallback also failed: {fallback_err}")
-                error_payload = json.dumps({
-                    "type": "error",
-                    "message": "MerlionOS has hit the Gemini API rate limit. Google Search fallback also failed."
-                })
-                yield f"data: {error_payload}\n\n"
+                logger.warning(f"Google Search grounding fallback failed: {fallback_err}. Retrying simple streaming failover model without search grounding...")
+                try:
+                    log_payload = json.dumps({
+                        "type": "log",
+                        "tool": "failover_text_model",
+                        "arguments": {"model": FALLBACK_MODEL},
+                        "result": "[Search grounding failed — activating simple text streaming fallback]"
+                    })
+                    yield f"data: {log_payload}\n\n"
+
+                    async for chunk in await _get_client().aio.models.generate_content_stream(
+                        model=FALLBACK_MODEL,
+                        contents=contents,
+                        config=types.GenerateContentConfig(
+                            system_instruction=SYSTEM_INSTRUCTION + _persona_instruction(persona),
+                            temperature=0.2,
+                            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+                        )
+                    ):
+                        if chunk.text:
+                            token_payload = json.dumps({"type": "token", "text": chunk.text})
+                            yield f"data: {token_payload}\n\n"
+
+                    failover_note = "\n\n---\n> ⚡ **Failover Mode:** Primary quota exceeded and Search Grounding unavailable. Running in simplified text-only mode."
+                    yield f"data: {json.dumps({'type': 'token', 'text': failover_note})}\n\n"
+                    yield "data: {\"type\":\"done\"}\n\n"
+                except Exception as final_err:
+                    logger.exception(f"All failover pathways collapsed. Final error: {final_err}")
+                    # Yield a visible token first so the bot bubble is created before the error
+                    # renders — without this, the typing indicator is gone but no bubble exists,
+                    # giving the user a blank "no answer" gap.
+                    yield f"data: {json.dumps({'type': 'token', 'text': ''})}\n\n"
+                    error_payload = json.dumps({
+                        "type": "error",
+                        "message": "MerlionOS is currently experiencing high demand. All AI paths are temporarily unavailable. Please wait a moment and try again."
+                    })
+                    yield f"data: {error_payload}\n\n"
 
         else:
             error_payload = json.dumps({"type": "error", "message": "AI service error. Please try again."})

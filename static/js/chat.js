@@ -18,6 +18,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const chatTrigger = document.getElementById("chat-trigger");
     const chatWidget = document.getElementById("chat-widget");
     const minimizeBtn = document.getElementById("minimize-btn");
+    const resetChatBtn = document.getElementById("reset-chat-btn");
+    const resetConfirmModal = document.getElementById("reset-confirm-modal");
+    const cancelResetBtn = document.getElementById("cancel-reset-btn");
+    const confirmResetBtn = document.getElementById("confirm-reset-btn");
     const tabButtons = document.querySelectorAll(".tab-btn");
     const widgetPanes = document.querySelectorAll(".widget-pane");
 
@@ -36,6 +40,64 @@ document.addEventListener("DOMContentLoaded", () => {
         chatWidget.classList.add("hidden");
         chatTrigger.style.display = "flex";
     });
+
+    if (resetChatBtn && resetConfirmModal) {
+        resetChatBtn.addEventListener("click", () => {
+            resetConfirmModal.classList.remove("hidden");
+        });
+    }
+
+    if (cancelResetBtn && resetConfirmModal) {
+        cancelResetBtn.addEventListener("click", () => {
+            resetConfirmModal.classList.add("hidden");
+        });
+    }
+
+    if (confirmResetBtn && resetConfirmModal) {
+        confirmResetBtn.addEventListener("click", () => {
+            resetConfirmModal.classList.add("hidden");
+            resetChat();
+        });
+    }
+
+    function resetChat() {
+        // 1. Clear conversation history
+        conversationHistory.length = 0;
+
+        // 2. Restore initial welcome message in chat-messages container
+        chatMessages.innerHTML = `
+            <div class="message bot-message">
+                <div class="message-avatar"><i class="fa-solid fa-landmark"></i></div>
+                <div class="message-content">
+                    <p>Welcome, Citizen. I am <strong>MerlionOS</strong>, your unified Singapore government assistant.</p>
+                    <p>Ask me anything — e.g. <em>"What are the HDB grant limits?"</em> or <em>"How much SkillsFuture credit do I have?"</em> — and I'll look it up across all relevant agencies.</p>
+                </div>
+            </div>
+        `;
+
+        // 3. Clear logs container and restore initial system log entries
+        const nowTime = getTimestamp();
+        logsContainer.innerHTML = `
+            <div class="log-entry system-entry">
+                <span class="log-time">${nowTime}</span>
+                <span class="log-tag tag-system">system</span>
+                <span class="log-text">MerlionOS unified routing brain active.</span>
+            </div>
+            <div class="log-entry system-entry">
+                <span class="log-time">${nowTime}</span>
+                <span class="log-tag tag-system">system</span>
+                <span class="log-text">Live data retrieval active for all official *.gov.sg domains.</span>
+            </div>
+        `;
+
+        // 4. Reset input field
+        userInput.value = "";
+
+        // 5. If there is an active file upload, clear it
+        if (typeof clearActiveUpload === "function") {
+            clearActiveUpload();
+        }
+    }
 
     // Tab switcher logic
     tabButtons.forEach(btn => {
@@ -71,6 +133,22 @@ document.addEventListener("DOMContentLoaded", () => {
     function isAuthURL(url) {
         const u = String(url).toLowerCase();
         return AUTH_URL_KEYWORDS.some(k => u.includes(k));
+    }
+
+    // Map raw server/network error strings to friendly, user-facing messages.
+    // Internal exception details (stack traces, model names, Python errors) must never
+    // be shown to users — log them in the Operations Trace panel instead.
+    function friendlyErrorMessage(raw) {
+        const msg = String(raw || "").toLowerCase();
+        if (msg.includes("429") || msg.includes("quota") || msg.includes("rate limit") || msg.includes("high demand"))
+            return "MerlionOS is experiencing high demand right now. Please wait a moment and try again.";
+        if (msg.includes("security filter") || msg.includes("privacy") || msg.includes("pii") || msg.includes("blocked"))
+            return "Your message was flagged by the security filter. Please rephrase your question and avoid sharing personal identifiers.";
+        if (msg.includes("2000") || msg.includes("maximum allowed length"))
+            return "Your message is too long. Please keep queries under 2,000 characters.";
+        if (msg.includes("network") || msg.includes("failed to fetch"))
+            return "A network error occurred. Please check your connection and try again.";
+        return "Something went wrong while processing your request. Please try again.";
     }
 
     // Link policy (anti-phishing): only OFFICIAL Singapore government domains stay clickable —
@@ -110,18 +188,47 @@ document.addEventListener("DOMContentLoaded", () => {
         // Links: [label](url) — clickable ONLY for official *.gov.sg sources; every other link is
         // rendered as plain, non-clickable text with its source domain in muted text so the reader
         // can see where it came from and open it themselves (anti-phishing; see isTrustedGovURL).
-        // `label` is already HTML-escaped above; `host` is derived via URL() so it is safe to inline.
-        html = html.replace(/\[(.*?)\]\((.*?)\)/g, (match, label, url) => {
+        // Note: HTML is already escaped, so &amp; in URLs must be decoded before passing to URL().
+        html = html.replace(/\[(.*?)\]\((.*?)\)/g, (match, label, rawUrl) => {
+            // Decode &amp; back to & for URL parsing (HTML was escaped before this pass)
+            const url = rawUrl.replace(/&amp;/g, "&");
             if (isTrustedGovURL(url)) {
                 return `<a href="${safeURL(url)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
             }
             let host = "";
             try {
                 host = new URL(url).hostname.replace("www.", "");
-            } catch (err) {}
+            } catch (err) { }
             const src = host ? ` <span class="inline-source-host">(${host})</span>` : "";
             return `<span class="inline-source">${label}</span>${src}`;
         });
+
+        // Bare URL auto-linker — catches raw https://... URLs the model outputs without markdown
+        // formatting (e.g. "Source: https://www.hdb.gov.sg/..."). Same domain policy as above:
+        // trusted gov.sg URLs → clickable link; all others → plain muted domain label.
+        // Must run AFTER the [label](url) pass so it doesn't re-process already-rendered <a> tags.
+        html = html.replace(/https?:\/\/[^\s<>"')\]]+/g, (rawUrl) => {
+            // Decode &amp; that the HTML-escape pass may have introduced
+            const url = rawUrl.replace(/&amp;/g, "&").replace(/[.,;:!?)\]]+$/, ""); // strip trailing punctuation
+            if (isTrustedGovURL(url)) {
+                let label = "";
+                try {
+                    const parsed = new URL(url);
+                    // Show hostname + first path segment if present, to give useful context
+                    const path = parsed.pathname.replace(/\/$/, "").split("/").slice(0, 2).join("/");
+                    label = parsed.hostname.replace("www.", "") + (path || "");
+                } catch (err) {
+                    label = url;
+                }
+                return `<a href="${safeURL(url)}" target="_blank" rel="noopener noreferrer" class="auto-link">${escapeHTML(label)} <i class="fa-solid fa-up-right-from-square" style="font-size:10px;"></i></a>`;
+            }
+            // Non-trusted domain: show domain in muted text, no clickable link
+            let host = "";
+            try { host = new URL(url).hostname.replace("www.", ""); } catch (err) { }
+            return host ? `<span class="inline-source-host">${escapeHTML(host)}</span>` : rawUrl;
+        });
+
+
 
         // Lists: lines starting with * or -
         let lines = html.split('\n');
@@ -309,10 +416,20 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             if (!response.ok) {
-                if (response.status === 429) {
-                    throw Object.assign(new Error("Rate limit reached. Please wait a minute and try again."), { isRateLimit: true });
+                let errorMessage = `HTTP Error Status: ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    if (errorData.detail) {
+                        errorMessage = errorData.detail;
+                    }
+                } catch (e) {
+                    // If parsing fails, use the status-based message
                 }
-                throw new Error(`HTTP Error Status: ${response.status}`);
+                
+                if (response.status === 429) {
+                    throw Object.assign(new Error(errorMessage), { isRateLimit: true });
+                }
+                throw new Error(errorMessage);
             }
 
             const reader = response.body.getReader();
@@ -400,53 +517,39 @@ document.addEventListener("DOMContentLoaded", () => {
                         scrollToBottom();
 
                     } else if (event.type === "citations") {
-                        // Render citation list below the streaming content inside the same bubble
+                        // Render citation chips inline inside the message-content, right after the text
                         if (botBubbleContent) {
-                            const parentBubble = botBubbleContent.closest(".bot-message");
-                            if (parentBubble) {
-                                // Prevent duplicate citations block if received multiple times
-                                let citBlock = parentBubble.querySelector(".message-citations");
-                                if (!citBlock) {
-                                    citBlock = document.createElement("div");
-                                    citBlock.className = "message-citations";
-                                    parentBubble.appendChild(citBlock);
-                                }
-                                citBlock.innerHTML = `
-                                    <div class="citations-header"><i class="fa-solid fa-link"></i> Grounded Web Sources</div>
-                                    <div class="citations-list">
-                                        ${event.citations.map((c, idx) => {
-                                            let domain = c.title;
-                                            try {
-                                                domain = new URL(c.uri).hostname.replace("www.", "");
-                                            } catch (err) {}
-                                            // Link policy (anti-phishing): official *.gov.sg sources stay
-                                            // clickable; auth/login pages and every non-gov source are shown
-                                            // as plain, non-clickable text so users open them themselves.
-                                            if (isTrustedGovURL(c.uri)) {
-                                                return `
-                                                    <a href="${safeURL(c.uri)}" target="_blank" rel="noopener noreferrer" class="citation-pill" title="${escapeHTML(c.title)}">
-                                                        <strong>[${idx + 1}]</strong> ${escapeHTML(domain)}
-                                                    </a>
-                                                `;
-                                            }
-                                            // Auth/login sources additionally carry a shield marker as an extra caution cue.
-                                            const isAuth = isAuthURL(c.uri);
-                                            const shield = isAuth
-                                                ? ' <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>'
-                                                : '';
-                                            const tip = isAuth
-                                                ? "Open this yourself in a new browser tab — never follow login links from a chat assistant"
-                                                : escapeHTML(c.title);
-                                            return `
-                                                <span class="citation-pill citation-pill-noauth" title="${tip}">
-                                                    <strong>[${idx + 1}]</strong> ${escapeHTML(domain)}${shield}
-                                                </span>
-                                            `;
-                                        }).join("")}
-                                    </div>
-                                `;
-                                scrollToBottom();
+                            // Prevent duplicate citations block across multiple citation events
+                            let citBlock = botBubbleContent.querySelector(".message-citations");
+                            if (!citBlock) {
+                                citBlock = document.createElement("div");
+                                citBlock.className = "message-citations";
+                                botBubbleContent.appendChild(citBlock);
                             }
+                            citBlock.innerHTML = `
+                                <div class="citations-list">
+                                    ${event.citations.map((c, idx) => {
+                                let domain = c.title;
+                                try {
+                                    const parsed = new URL(c.uri);
+                                    // Show hostname + first meaningful path segment for context
+                                    const seg = parsed.pathname.replace(/\/$/, "").split("/").filter(Boolean)[0];
+                                    domain = parsed.hostname.replace("www.", "") + (seg ? "/" + seg : "");
+                                } catch (err) { }
+                                // Link policy: official *.gov.sg sources → clickable; auth/login/non-gov → plain chip
+                                if (isTrustedGovURL(c.uri)) {
+                                    return `<a href="${safeURL(c.uri)}" target="_blank" rel="noopener noreferrer" class="citation-pill" title="${escapeHTML(c.title)}">[${idx + 1}] ${escapeHTML(domain)} <i class="fa-solid fa-up-right-from-square" style="font-size:9px;opacity:0.7"></i></a>`;
+                                }
+                                const isAuth = isAuthURL(c.uri);
+                                const shield = isAuth ? ' <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>' : '';
+                                const tip = isAuth
+                                    ? "Open this yourself in a new browser tab — never follow login links from a chat assistant"
+                                    : escapeHTML(c.title);
+                                return `<span class="citation-pill citation-pill-noauth" title="${tip}">[${idx + 1}] ${escapeHTML(domain)}${shield}</span>`;
+                            }).join("")}
+                                </div>
+                            `;
+                            scrollToBottom();
                         }
 
                     } else if (event.type === "done") {
@@ -461,8 +564,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     } else if (event.type === "error") {
                         removeTypingIndicator();
-                        throw Object.assign(new Error(event.message || "Streaming error."), {
-                            isRateLimit: event.message && event.message.includes("rate limit")
+                        const friendly = friendlyErrorMessage(event.message);
+                        // Log the raw message to the Operations Trace for debugging, but only
+                        // show the friendly version in the chat bubble.
+                        appendLog("error", "error", `Request failed: ${escapeHTML(event.message || "Unknown error")}`);
+                        throw Object.assign(new Error(friendly), {
+                            isRateLimit: event.message && (event.message.includes("rate limit") || event.message.includes("demand") || event.message.includes("429")),
+                            alreadyLogged: true
                         });
                     }
                 }
@@ -473,22 +581,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
         } catch (error) {
             removeTypingIndicator();
-            appendLog("error", "error", `API handshake failed: ${escapeHTML(error.message)}`);
+            // Only log to Operations Trace if the error hasn't been logged already (SSE errors
+            // are logged inline above so we avoid a duplicate entry).
+            if (!error.alreadyLogged) {
+                appendLog("error", "error", `Request failed: ${escapeHTML(error.message)}`);
+            }
 
+            const displayMsg = friendlyErrorMessage(error.message);
             const errorMsg = document.createElement("div");
             errorMsg.className = "message bot-message";
             if (error.isRateLimit) {
                 errorMsg.innerHTML = `
                     <div class="message-avatar"><i class="fa-solid fa-landmark"></i></div>
                     <div class="message-content">
-                        <p style="color: var(--text-warning);"><i class="fa-solid fa-clock"></i> <strong>Rate Limited:</strong> ${escapeHTML(error.message)}</p>
+                        <p style="color: var(--text-warning);"><i class="fa-solid fa-clock"></i> <strong>Service Busy:</strong> ${escapeHTML(displayMsg)}</p>
                     </div>
                 `;
             } else {
                 errorMsg.innerHTML = `
                     <div class="message-avatar"><i class="fa-solid fa-landmark"></i></div>
                     <div class="message-content">
-                        <p style="color: var(--text-error);"><i class="fa-solid fa-triangle-exclamation"></i> <strong>Execution Error:</strong> Failed to fetch guidance coordinates. Please check your network or server logs.</p>
+                        <p style="color: var(--text-error);"><i class="fa-solid fa-triangle-exclamation"></i> <strong>Unable to process request:</strong> ${escapeHTML(displayMsg)}</p>
                     </div>
                 `;
             }
@@ -530,6 +643,25 @@ document.addEventListener("DOMContentLoaded", () => {
             const file = chatFileInput.files[0];
             if (!file) return;
 
+            // 1. Define strict validation rules
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            const maxSizeBytes = 5 * 1024 * 1024; // 5MB limit
+
+            // 2. Validate File Type (Blocks PDFs and raw docs)
+            if (!allowedTypes.includes(file.type)) {
+                alert("🚨 Document formats (like PDFs) are not allowed. Please upload an image (.jpg, .png, .webp) instead.");
+                chatFileInput.value = ''; // Reset the input field
+                return; // Terminate execution immediately
+            }
+
+            // 3. Validate File Size
+            if (file.size > maxSizeBytes) {
+                alert("⚠️ File is too large. Please upload an image smaller than 5MB to prevent processing large document sets.");
+                chatFileInput.value = ''; // Reset the input field
+                return; // Terminate execution immediately
+            }
+
+            // 4. Proceed with processing if validations pass
             const reader = new FileReader();
             reader.onload = () => {
                 const parts = reader.result.split(",");
@@ -546,7 +678,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     previewFilename.textContent = file.name;
                     uploadPreview.classList.remove("hidden");
                 }
-                userInput.required = false;
+                if (userInput) userInput.required = false;
             };
             reader.readAsDataURL(file);
         });

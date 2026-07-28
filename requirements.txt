@@ -7,3 +7,7 @@ requests>=2.31.0
 pydantic>=2.7.0
 openpyxl>=3.1.0
 mcp>=1.0.0
+presidio-analyzer>=2.2.0
+presidio-anonymizer>=2.2.0
+Pillow>=10.0.0
+pytesseract>=0.3.10

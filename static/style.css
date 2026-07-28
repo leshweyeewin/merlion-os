@@ -1264,6 +1264,130 @@ body {
     color: var(--text-main);
 }
 
+/* Custom Reset Chat Button spin animation and circular shape */
+#reset-chat-btn {
+    border-radius: 50%;
+    transition: background-color 0.2s, color 0.2s, transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#reset-chat-btn:hover {
+    transform: rotate(-180deg);
+}
+
+/* Custom Reset Confirmation Modal overlay */
+.custom-modal {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.38); /* Elegant, highly translucent frosted white glass (38% opacity) */
+    backdrop-filter: blur(8px);           /* Premium blur effect */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+.custom-modal:not(.hidden) {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Modal Content Card */
+.custom-modal-content {
+    background: var(--bg-panel); /* Solid 100% opaque white to clearly obscure background messages */
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    width: 85%;
+    max-width: 320px;
+    padding: 24px;
+    text-align: center;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+    transform: scale(0.9);
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.custom-modal:not(.hidden) .custom-modal-content {
+    transform: scale(1);
+}
+
+/* Modal Icon */
+.custom-modal-icon {
+    font-size: 32px;
+    color: var(--text-warning, #eab308);
+    margin-bottom: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    animation: bounceSlow 2s infinite;
+}
+
+@keyframes bounceSlow {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+}
+
+/* Modal text styling */
+.custom-modal-content h4 {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.custom-modal-content p {
+    margin: 0 0 20px 0;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+
+/* Modal Buttons wrapper */
+.custom-modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+/* Modal Buttons */
+.modal-btn {
+    flex: 1;
+    padding: 10px 16px;
+    font-size: 13.5px;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.modal-btn:active {
+    transform: scale(0.97);
+}
+
+.btn-secondary {
+    background: var(--bg-muted);
+    color: var(--text-main);
+    border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+    background: var(--border);
+}
+
+.btn-danger {
+    background: #dc2626; /* Crimson Red */
+    color: #ffffff;
+}
+
+.btn-danger:hover {
+    background: #b91c1c;
+}
+
 .widget-tabs {
     display: flex;
     border-bottom: 1px solid var(--border);
@@ -1424,43 +1548,39 @@ body {
 }
 
 .message-citations {
-    margin-top: 10px;
-    padding-top: 8px;
-    border-top: 1px dashed var(--border);
-    font-size: 11.5px;
-}
-
-.citations-header {
-    font-weight: 700;
-    color: var(--text-muted);
-    margin-bottom: 6px;
-    display: flex;
-    align-items: center;
-    gap: 4px;
+    margin-top: 8px;
+    font-size: 11px;
 }
 
 .citations-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 5px;
+    align-items: center;
 }
 
 .citation-pill {
     background: var(--bg-muted);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 3px 8px;
+    border-radius: 10px;
+    padding: 2px 8px;
     color: var(--primary) !important;
     text-decoration: none;
-    transition: all 0.2s ease;
+    font-size: 10.5px;
+    font-weight: 500;
+    transition: all 0.15s ease;
     display: inline-flex;
     align-items: center;
+    gap: 4px;
+    white-space: nowrap;
 }
 
 .citation-pill:hover {
     background: var(--primary);
     border-color: var(--primary);
     color: #ffffff !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
 
 /* De-linked login/SingPass source: reads as informational, not clickable. */
@@ -1474,7 +1594,21 @@ body {
     background: var(--bg-muted);
     border-color: var(--border);
     color: var(--text-muted) !important;
+    transform: none;
+    box-shadow: none;
 }
+
+/* Auto-linked bare gov.sg URLs rendered inline by renderMarkdown() */
+.auto-link {
+    color: var(--primary);
+    text-decoration: none;
+    font-size: 0.875em;
+    font-weight: 500;
+    border-bottom: 1px dashed var(--primary);
+    opacity: 0.85;
+    transition: opacity 0.15s ease;
+}
+.auto-link:hover { opacity: 1; }
 
 /* Inline source reference from the answer text: plain, non-clickable label + muted domain. */
 .inline-source {

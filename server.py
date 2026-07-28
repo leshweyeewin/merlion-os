@@ -10,6 +10,17 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 import anyio
+from google import genai
+from google.genai import types
+from tools.security import (
+    scan_and_redact_pii,
+    scan_uploaded_image,
+    is_obviously_safe,
+    get_cached_safety,
+    set_cached_safety,
+    PRIMARY_MODEL,
+    FALLBACK_MODEL
+)
 
 # Set up logging format
 logging.basicConfig(
@@ -158,7 +169,10 @@ app = FastAPI(title="MerlionOS Portal API", lifespan=lifespan)
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 _RATE_LIMITED_PATHS = {"/api/chat", "/api/chat/stream"}
-_RATE_LIMIT_MAX_REQUESTS = 8
+# Automatically relax the rate limit to 100 requests/minute for local development, keeping a safe 20 req/minute for production demos.
+_is_local_dev = os.environ.get("RELOAD", "false").lower() == "true" or os.environ.get("PORT") is None
+_default_max_requests = 100 if _is_local_dev else 20
+_RATE_LIMIT_MAX_REQUESTS = int(os.environ.get("RATE_LIMIT_MAX_REQUESTS", _default_max_requests))
 _RATE_LIMIT_WINDOW_SECONDS = 60
 _rate_limit_hits: dict[str, deque] = defaultdict(deque)
 _rate_limit_cleanup_interval = 0
@@ -172,6 +186,9 @@ class ChatRateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         if request.url.path in _RATE_LIMITED_PATHS:
+            if _RATE_LIMIT_MAX_REQUESTS <= 0:
+                return await call_next(request)
+
             client_ip = request.client.host if request.client else "unknown"
             now = time.time()
             hits = _rate_limit_hits[client_ip]
@@ -200,6 +217,89 @@ class ChatRateLimitMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(ChatRateLimitMiddleware)
 
+_safety_client = None
+
+def _get_safety_client():
+    global _safety_client
+    if _safety_client is None:
+        _safety_client = genai.Client()
+    return _safety_client
+
+SAFETY_SYSTEM_RULE = (
+    "You are an automated corporate security filter. Your sole job is to classify "
+    "if a user is attempting to paste raw personal PII data or make the AI process "
+    "an actual personal document (like an IRAS tax form or CPF statement). "
+    "Respond with exactly one word: SAFE or UNSAFE. Do not add any explanation. "
+    "ALLOW general conceptual policy questions, service status questions, and high-level "
+    "regulatory questions. BLOCK anything that looks like a pasted identity number, table of values, "
+    "or request to summarize a personal document."
+)
+
+SECURITY_FILTER_DETAIL = (
+    "Security Filter: Direct processing of raw financial/tax document data is disabled "
+    "to protect your privacy. Please phrase your question conceptually."
+)
+
+async def check_text_safety_with_ai(user_prompt: str) -> bool:
+    """Uses Gemini 3.1 Flash-Lite as a contextual safety filter (second layer after regex)."""
+    if is_obviously_safe(user_prompt):
+        return True
+
+    cached = get_cached_safety(user_prompt)
+    if cached is not None:
+        return cached
+
+    try:
+        response = await _get_safety_client().aio.models.generate_content(
+            model=FALLBACK_MODEL,
+            contents=[
+                types.Content(
+                    role="user",
+                    parts=[types.Part.from_text(text=user_prompt)]
+                )
+            ],
+            config=types.GenerateContentConfig(
+                system_instruction=SAFETY_SYSTEM_RULE,
+                temperature=0.0,
+            )
+        )
+        output = (response.text or "").strip().upper()
+        if output == "SAFE":
+            set_cached_safety(user_prompt, True)
+            return True
+        if output == "UNSAFE":
+            set_cached_safety(user_prompt, False)
+            return False
+        logger.warning("Safety filter returned unexpected output: %r", response.text)
+    except Exception as err:
+        # Fail-open: a rate-limited or unavailable safety classifier should not block
+        # legitimate users. Presidio + heuristics (Layer 1) already handle hard PII.
+        logger.warning("Safety evaluation failed (fail-open): %s", err)
+        return True
+    # Unexpected output from classifier — treat as safe to avoid false blocks
+    return True
+
+
+async def enforce_chat_guardrails(user_prompt: str, file=None) -> None:
+    """Three-layer guardrail: local regex → image OCR → Gemini semantic gate."""
+    has_pii, _, findings = scan_and_redact_pii(user_prompt)
+    if has_pii:
+        logger.warning("Local PII scan blocked prompt: %s", findings)
+        raise HTTPException(status_code=400, detail=SECURITY_FILTER_DETAIL)
+
+    if file:
+        is_safe, img_findings = scan_uploaded_image(file.base64, file.mime_type)
+        if not is_safe:
+            logger.warning("Image upload blocked: %s", img_findings)
+            raise HTTPException(status_code=400, detail=SECURITY_FILTER_DETAIL)
+
+    # AI safety classifier is OFF by default — Presidio + heuristics (Layer 1 & 2) handle PII.
+    # Enable only in controlled environments: set ENABLE_AI_SAFETY_CLASSIFIER=true in .env
+    if os.environ.get("ENABLE_AI_SAFETY_CLASSIFIER", "false").lower() == "true":
+        is_safe = await check_text_safety_with_ai(user_prompt)
+        if not is_safe:
+            raise HTTPException(status_code=400, detail=SECURITY_FILTER_DETAIL)
+
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     user_prompt = request.message
@@ -210,9 +310,13 @@ async def chat_endpoint(request: ChatRequest):
             detail="Request message exceeds the maximum allowed length of 2000 characters."
         )
 
+    await enforce_chat_guardrails(user_prompt, request.file)
+
     try:
         history_list = [{"role": h.role, "content": h.content} for h in request.history]
-        response_text, logs, citations = await run_chat_loop(user_prompt, history_list, file=request.file, persona=request.persona)
+        response_text, logs, citations = await run_chat_loop(
+            user_prompt, history_list, file=request.file, persona=request.persona
+        )
         return ChatResponse(
             response=response_text,
             logs=[ToolLog(tool=l["tool"], arguments=l["arguments"], result=l["result"]) for l in logs],
@@ -250,6 +354,9 @@ async def chat_stream_endpoint(request: ChatRequest):
             detail="Request message exceeds the maximum allowed length of 2000 characters."
         )
 
+    await enforce_chat_guardrails(user_prompt, request.file)
+
+    # PII guardrail: enforced above; _build_contents() adds defense-in-depth for attachments
     history_list = [{"role": h.role, "content": h.content} for h in request.history]
 
     return StreamingResponse(
@@ -260,7 +367,6 @@ async def chat_stream_endpoint(request: ChatRequest):
             "X-Accel-Buffering": "no",  # Disable Nginx buffering for SSE
         }
     )
-
 
 _weather_cache = {"data": None, "fetched_at": 0}
 _WEATHER_CACHE_TTL_SECONDS = 3 * 60  # NEA's unauthenticated real-time APIs have a tight burst rate limit

@@ -2123,7 +2123,8 @@
                                 style="font-size:11px; font-weight:800; letter-spacing:0.6px; text-transform:uppercase; color:var(--primary); margin-bottom:10px;">
                                 <i class="fa-solid fa-table-list"></i> Progressive Tax Tiers <span
                                     style="font-weight:500; text-transform:none; letter-spacing:0; color:var(--text-muted);">(YA
-                                    2026)</span></div>
+                                    2026)</span>
+                            </div>
                             <div
                                 style="background:var(--bg-muted); border:1px solid var(--border); border-radius:10px; padding:12px 14px;">
                                 <table style="width:100%; border-collapse:collapse;">
@@ -2298,6 +2299,21 @@
 
         <!-- Floating Expandable Chat Panel Widget -->
         <div class="chat-widget hidden" id="chat-widget" aria-label="AI Assistant Co-Pilot">
+            <!-- Custom Styled Confirm Modal for Reset Chat -->
+            <div id="reset-confirm-modal" class="custom-modal hidden">
+                <div class="custom-modal-content">
+                    <div class="custom-modal-icon">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <h4>Clear Conversation?</h4>
+                    <p>Are you sure you want to start a new chat? This will clear your current conversation and trace history.</p>
+                    <div class="custom-modal-actions">
+                        <button id="cancel-reset-btn" class="modal-btn btn-secondary">Cancel</button>
+                        <button id="confirm-reset-btn" class="modal-btn btn-danger">Yes, Clear</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Widget Header -->
             <div class="widget-header">
                 <div class="widget-title">
@@ -2309,9 +2325,14 @@
                     </div>
                     <span>GovAI Coordination Brain</span>
                 </div>
-                <button class="minimize-btn" id="minimize-btn" aria-label="Minimize Assistant">
-                    <i class="fa-solid fa-chevron-down"></i>
-                </button>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button class="minimize-btn" id="reset-chat-btn" title="Start New Chat" aria-label="Start New Chat">
+                        <i class="fa-solid fa-arrow-rotate-left"></i>
+                    </button>
+                    <button class="minimize-btn" id="minimize-btn" aria-label="Minimize Assistant">
+                        <i class="fa-solid fa-chevron-down"></i>
+                    </button>
+                </div>
             </div> <!-- Tab Switcher Navigation -->
             <div class="widget-tabs">
                 <button class="tab-btn active" data-tab="assistant-pane">
@@ -2331,12 +2352,6 @@
                         <i class="fa-solid fa-triangle-exclamation"></i>
                         <span>AI can make mistakes. Please double-check responses against official government
                             portals.</span>
-                    </div>
-                    <!-- PII document notice -->
-                    <div class="ai-disclaimer-banner">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                        <span>🔒 Privacy Note: Do not upload ID cards, passports, tax returns, or sensitive personal
-                            statements.</span>
                     </div>
                     <!-- Demo persona selector — no real identity data; tailors Co-Pilot guidance to a life-stage -->
                     <div class="persona-bar" id="persona-bar">
@@ -2405,16 +2420,25 @@
                         </div>
                         <div class="input-wrapper">
                             <button type="button" class="chat-file-btn" id="chat-file-btn"
-                                title="Upload document (CPF/IRAS statement)"
-                                style="background:transparent; border:none; color:var(--text-muted); padding:0 12px; cursor:pointer; font-size:16px; transition:color 0.2s;"><i
-                                    class="fa-solid fa-paperclip"></i></button>
+                                title="Upload image only (Do NOT upload official CPF/IRAS statements)"
+                                style="background:transparent; border:none; color:var(--text-muted); padding:0 12px; cursor:pointer; font-size:16px; transition:color 0.2s;">
+                                <i class="fa-solid fa-paperclip"></i>
+                            </button>
+
+                            <!-- REMOVED application/pdf AND ADDED MAX FILE SIZE HINT -->
                             <input type="file" id="chat-file-input" style="display:none;"
-                                accept="image/jpeg,image/png,image/webp,application/pdf">
+                                accept="image/jpeg,image/png,image/webp">
                             <input type="text" id="user-input" placeholder="Type query or paste gov.sg URL..." required
                                 autocomplete="off" aria-label="User query">
                             <button type="submit" class="send-btn" aria-label="Send message">
                                 <i class="fa-solid fa-paper-plane"></i>
                             </button>
+                        </div>
+                        <!-- Privacy Warning Note -->
+                        <div
+                            style="margin-top:8px; padding:8px 12px; background:rgba(255,193,7,0.1); border-left:3px solid #ffc107; border-radius:3px; font-size:12px; color:var(--text-muted);">
+                            🔒 <strong>Privacy Note:</strong> Do not upload ID cards, passports, tax returns, or
+                            sensitive personal statements. Uploaded images are processed by AI for analysis only.
                         </div>
                     </form>
 
