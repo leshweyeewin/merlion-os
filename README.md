@@ -72,7 +72,7 @@ flowchart TD
 * **Operations Terminal:** A live-streaming debug console surfaces raw BigQuery SQL, crawler requests, and tool execution logs directly in the UI.
 * **Intent-Based Routing & Glossary:** Search maps everyday phrasing to specific statutory services. A semantic engine automatically underlines civic jargon with plain-English tooltips.
 * **Considered UX & Accessibility:** Fully responsive, keyboard-navigable ARIA tabs, skeleton loaders, and deterministic demo personas that tailor the dashboard layout.
-* **Robust CI/CD:** Guarded by a **179-test suite (173 Python, 6 JS)**, pyflakes linting, and an hourly GitHub Action that refreshes fallback data seeds.
+* **Robust CI/CD:** Guarded by a **182-test suite (176 Python, 6 JS)**, pyflakes linting, and an hourly GitHub Action that refreshes fallback data seeds.
 
 ---
 

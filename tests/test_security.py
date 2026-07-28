@@ -1,4 +1,4 @@
-﻿"""
+"""
 tests/test_security.py — XSS protection & safeURL hardening
 ------------------------------------------------------------
 Tests the client-side security helpers re-implemented in Python equivalents
@@ -426,3 +426,50 @@ def test_is_obviously_safe_with_numbers():
     assert is_obviously_safe("Total: 500\nSubtotal: 100\nBalance: 400") is False
     # Single-line with more than 2 separate digit groups should NOT be fast-pathed (sent to Gemini just to be safe)
     assert is_obviously_safe("My figures are 10, 20, 30, and 40") is False
+
+
+def test_scan_pii_redacts_mixed_pii_entities_in_single_pass():
+    """Test that a mixed payload containing NRIC, email, phone, and credit card is redacted in one pass."""
+    from tools.security import scan_and_redact_pii
+    mixed_text = (
+        "User S1234567A contact john.doe@gov.sg phone 91234567 card 4532111122223333"
+    )
+    is_redacted, redacted_text, findings = scan_and_redact_pii(mixed_text)
+    assert is_redacted is True
+    assert len(findings) == 4
+    assert "S1234567A" not in redacted_text
+    assert "john.doe@gov.sg" not in redacted_text
+    assert "91234567" not in redacted_text
+    assert "4532111122223333" not in redacted_text
+    assert redacted_text.count("[REDACTED]") == 4
+
+
+def test_scan_uploaded_image_blocks_credit_card_photo_ocr(monkeypatch):
+    """Test that an image containing an embossed 16-digit credit card number is blocked by OCR scan."""
+    from tools.security import scan_uploaded_image
+
+    monkeypatch.setattr("tools.security.Image.open", lambda _buf: object())
+    monkeypatch.setattr(
+        "tools.security.pytesseract.image_to_string",
+        lambda _img: "VISA CREDIT CARD\n4532 1111 2222 3333\nEXP 12/28",
+    )
+
+    is_safe, findings = scan_uploaded_image("dGVzdA==", "image/png")
+    assert is_safe is False
+    assert any("Credit card" in f for f in findings)
+
+
+def test_scan_uploaded_image_allows_tax_figures_and_dollar_amounts(monkeypatch):
+    """Test that an image with monetary figures ($72,765.00, $1,379.64) is NOT falsely blocked as a credit card."""
+    from tools.security import scan_uploaded_image
+
+    monkeypatch.setattr("tools.security.Image.open", lambda _buf: object())
+    monkeypatch.setattr(
+        "tools.security.pytesseract.image_to_string",
+        lambda _img: "IRAS Notice of Assessment\nAssessable Income: $72,765.00\nNet Tax Payable: $1,379.64",
+    )
+
+    is_safe, findings = scan_uploaded_image("dGVzdA==", "image/png")
+    assert is_safe is True
+    assert findings == []
+
