@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 import anyio
 from google import genai
-from google.genai import types
+from google.genai import types, errors as genai_errors
 from tools.security import (
     scan_and_redact_pii,
     scan_uploaded_image,
@@ -241,7 +241,8 @@ SECURITY_FILTER_DETAIL = (
 )
 
 async def check_text_safety_with_ai(user_prompt: str) -> bool:
-    """Uses Gemini 3.1 Flash-Lite as a contextual safety filter (second layer after regex)."""
+    """Uses Gemini as a contextual safety filter (second layer after regex).
+    Tries PRIMARY_MODEL first, falls back to FALLBACK_MODEL on 429 errors."""
     if is_obviously_safe(user_prompt):
         return True
 
@@ -249,35 +250,45 @@ async def check_text_safety_with_ai(user_prompt: str) -> bool:
     if cached is not None:
         return cached
 
-    try:
-        response = await _get_safety_client().aio.models.generate_content(
-            model=FALLBACK_MODEL,
-            contents=[
-                types.Content(
-                    role="user",
-                    parts=[types.Part.from_text(text=user_prompt)]
+    # Try PRIMARY_MODEL first, then FALLBACK_MODEL on 429
+    for model in [PRIMARY_MODEL, FALLBACK_MODEL]:
+        try:
+            response = await _get_safety_client().aio.models.generate_content(
+                model=model,
+                contents=[
+                    types.Content(
+                        role="user",
+                        parts=[types.Part.from_text(text=user_prompt)]
+                    )
+                ],
+                config=types.GenerateContentConfig(
+                    system_instruction=SAFETY_SYSTEM_RULE,
+                    temperature=0.0,
                 )
-            ],
-            config=types.GenerateContentConfig(
-                system_instruction=SAFETY_SYSTEM_RULE,
-                temperature=0.0,
             )
-        )
-        output = (response.text or "").strip().upper()
-        if output == "SAFE":
-            set_cached_safety(user_prompt, True)
-            return True
-        if output == "UNSAFE":
-            set_cached_safety(user_prompt, False)
+            output = (response.text or "").strip().upper()
+            if output == "SAFE":
+                set_cached_safety(user_prompt, True)
+                return True
+            if output == "UNSAFE":
+                set_cached_safety(user_prompt, False)
+                return False
+            logger.warning("Safety filter returned unexpected output: %r", response.text)
             return False
-        logger.warning("Safety filter returned unexpected output: %r", response.text)
-    except Exception as err:
-        # Fail-open: a rate-limited or unavailable safety classifier should not block
-        # legitimate users. Presidio + heuristics (Layer 1) already handle hard PII.
-        logger.warning("Safety evaluation failed (fail-open): %s", err)
-        return True
-    # Unexpected output from classifier — treat as safe to avoid false blocks
-    return True
+        except genai_errors.ClientError as e:
+            if e.code == 429 and model == PRIMARY_MODEL:
+                logger.warning(f"Primary model quota exceeded for safety check, trying fallback: {e.message}")
+                continue
+            # For other errors or if fallback also fails, fail-closed
+            logger.warning("Safety evaluation failed (fail-closed): %s", e)
+            return False
+        except Exception as err:
+            logger.warning("Safety evaluation failed (fail-closed): %s", err)
+            return False
+
+    # Both models failed - fail-closed to avoid bypassing security on error
+    logger.warning("Both safety models failed, blocking request (fail-closed)")
+    return False
 
 
 async def enforce_chat_guardrails(user_prompt: str, file=None) -> None:

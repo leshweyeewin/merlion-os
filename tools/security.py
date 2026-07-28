@@ -17,9 +17,9 @@ FALLBACK_MODEL = os.environ.get("GEMINI_FALLBACK_MODEL", "gemini-3.1-flash-lite"
 IMAGE_MIME_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
 
 # Pure regex patterns for PII detection (no spaCy model needed)
-NRIC_PATTERN = re.compile(r"\b[STFGM]\d{7}[A-Z]\b")
-EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")
-PHONE_PATTERN = re.compile(r"\b(?:\+?65)?[689]\d{7}\b")
+NRIC_PATTERN = re.compile(r"\b[STFGM]\d{7}[A-Z]\b", re.IGNORECASE)
+EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", re.IGNORECASE)
+PHONE_PATTERN = re.compile(r"\b(?:\+?65)?[ -]?[689]\d{3}[ -]?\d{4}\b")
 CREDIT_CARD_PATTERN = re.compile(r"\b(?:\d[ -]*?){13,16}\b")
 
 # Only block credential-sharing phrases related to authentication.
@@ -123,7 +123,6 @@ def get_cached_safety(prompt: str) -> bool | None:
 
 def set_cached_safety(prompt: str, is_safe: bool) -> None:
     """Store safety classification result in cache with automatic cleanup."""
-    global _safety_cache
     if len(_safety_cache) >= _MAX_CACHE_SIZE:
         _safety_cache.clear()
     _safety_cache[prompt] = is_safe

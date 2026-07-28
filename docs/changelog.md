@@ -20,6 +20,12 @@ Integrated the in-browser **IRAS Tax & SRS Relief Optimizer** (enforcing Singapo
 **🔍 Search UX Improvements**
 Updated the **Show All** button (`#mp-show-all-global`) in `static/js/portals.js` so that clicking it automatically clears the active intent search input (`#portal-search-input`) and deselects active quick-task chips, restoring all 82 statutory cards to full visibility.
 
+**🛡️ Upgraded Conversational PII Fast-Path**
+Upgraded the security scanner's `is_obviously_safe` heuristic in `tools/security.py` to recognise and instantly fast-path single-line conversational queries containing at most two numeric figures (e.g. *"How do I claim my $500 SkillsFuture Credit?"* or *"CPF rate for a 55 year old"*). This prevents overly sensitive AI safety-gate false positives on common policy questions while continuing to strictly block multi-line dumps of personal documents or tax forms.
+
+**🔄 Universal Safety Model Fallbacks**
+Upgraded the default `FALLBACK_MODEL` in `tools/security.py` to seamlessly execute via `gemini-3.1-flash-lite`. This ensures the semantic PII guardrail and 429 quota streaming fallbacks run flawlessly on modern developer API keys, with failover logic to gracefully catch Search Grounding permission blocks. Also improved the chat client (`static/js/chat.js`) to unmask and explicitly print raw server exceptions in the chat pane, ending silent handshake failures.
+
 ## Version 5
 A data-layer and coverage cycle: more agency news feeds, and moving the large tabular datasets off per-request downloads onto Google BigQuery. What's new or changed:
 

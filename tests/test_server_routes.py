@@ -109,8 +109,7 @@ async def test_check_text_safety_fail_closed_on_error(monkeypatch):
 
     monkeypatch.setattr(server, "_get_safety_client", lambda: BrokenClient())
 
-    assert await server.check_text_safety_with_ai("What is the CPF contribution rate in 2026?") is False
-
+    assert await server.check_text_safety_with_ai("What is the CPF contribution rate in 2026?\nLine 2") is False
 
 @pytest.mark.asyncio
 async def test_check_text_safety_rejects_unexpected_output(monkeypatch):
@@ -125,7 +124,7 @@ async def test_check_text_safety_rejects_unexpected_output(monkeypatch):
 
     monkeypatch.setattr(server, "_get_safety_client", lambda: OddClient())
 
-    assert await server.check_text_safety_with_ai("Summarize my 2026 tax return line by line and show figures") is False
+    assert await server.check_text_safety_with_ai("Summarize my 2026 tax return line by line and show figures\nLine 2") is False
 
 
 def test_chat_allows_service_status_prompt(client, monkeypatch):
