@@ -22,7 +22,7 @@ Singapore's digital public service landscape is highly advanced but fragmented a
 
 ### The Solution
 MerlionOS aggregates this entire ecosystem into a single-pane-of-glass daily utility portal:
-1. **Intelligent Co-Pilot**: Conversational agent that routes queries to 15 backend tools — including a retrieval-augmented civic knowledge base and multimodal document upload — to answer complex citizen questions, optionally tailored to a chosen demo persona.
+1. **Intelligent Co-Pilot**: Conversational agent that routes queries to 15 backend tools — including a retrieval-augmented civic knowledge base and multimodal screenshot/notice analysis — to answer complex citizen questions, optionally tailored to a chosen demo persona.
 2. **Live Data Dashboard (SG Hub)**: Consolidated parameters showing real-time MRT statuses (LTA DataMall), 2km taxi density map, air quality/weather forecasts (NEA API), BTO launches (HDB press releases), IRAS tax relief optimizer, and community deals.
 3. **Operations Terminal**: Full transparency logs streaming raw SQL queries, crawler requests, and backend execution statuses in real time.
 
@@ -53,7 +53,7 @@ flowchart TD
 **🤖 AI & Agentic Core**
 * **Primary Engine (Gemini 2.5 Flash):** The default high-speed reasoning core powering the agent.
 * **Multi-Hop Reasoning:** The Co-Pilot orchestrates multi-turn reasoning loops—querying APIs, analyzing results, and deciding next steps before synthesizing a final answer.
-* **Multimodal Vision:** Natively decodes uploaded images (e.g., photos of CPF statements or tax notices) via Gemini's vision channel for instant data extraction and analysis.
+* **Multimodal Vision:** Reads an uploaded photo of a government notice/letter or a screenshot of a public gov page via Gemini's vision channel — surfacing the required action, deadline, and eligibility, and cross-referencing statutory caps. By policy it refuses to extract NRIC/FIN/passport numbers, prompting the user to redact identifiers first (the same privacy stance as the PII fast-path).
 * **RAG Civic Knowledge Base:** Uses `gemini-embedding-001` and pure-Python cosine similarity over a **100+ entry** curated civic corpus (spanning CPF, IRAS, HDB, MOM, MOH, MOE, LTA, ICA, NEA and benefits schemes) to accurately ground open-ended policy questions. Retrieval quality is measured by a golden-set test.
 * **SSE Streaming:** Delivers real-time, token-by-token streaming responses with a dynamic typing cursor.
 

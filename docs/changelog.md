@@ -27,7 +27,7 @@ Added **GovBenefits** (`https://www.govbenefits.gov.sg/`) to the main statutory 
 Updated `scrape_iras_news()` in `tools/search.py` to scrape directly from the official **IRAS Latest Updates** page (`https://www.iras.gov.sg/latest-updates`). If the official webpage is unreachable, it degrades cleanly to `[]` (*"no news"*). Separately, added `@irassg` to `GOV_CHANNELS` bringing the official broadcast stream in **Gov Updates** to **22 unique channels**.
 
 **📎 Multimodal Document Attachments in Co-Pilot**
-Added a paperclip attachment button (`#chat-file-btn`) to the Co-Pilot chat drawer. Users can upload images of IRAS Tax Notices of Assessment, HDB letters, or government forms for instant Base64 decoding and Gemini 2.5 Flash document analysis.
+Added a paperclip attachment button (`#chat-file-btn`) to the Co-Pilot chat drawer. Users can attach a photo of a government notice/letter or a screenshot of a public gov page for Base64 decoding and Gemini 2.5 Flash vision analysis — surfacing the required action, deadline, and eligibility and cross-referencing statutory caps. The privacy guardrail refuses to extract NRIC/FIN/passport numbers from an image and prompts the user to redact identifiers first.
 
 **🧮 Interactive Financial Calculators & 2km Taxi Map**
 Integrated the in-browser **IRAS Tax & SRS Relief Optimizer** (enforcing Singapore's statutory S$80,000 relief cap) and the **HDB Interest Rate & Loan Calculator** in SG Hub. Added a live 2km radius taxi density map (Leaflet.js LTA DataMall API) in the Transit & Transport tab.
