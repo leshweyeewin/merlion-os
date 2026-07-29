@@ -14,7 +14,7 @@ flowchart TD
 
     API -->|Economic Analytics| BQ["📊 Google Cloud BigQuery"]
     API -->|x-api-key| DataGov["🌐 Data.gov.sg (NEA, LTA)"]
-    API -->|safeURL Domain Check| GovPortals["🏛️ 82 Statutory Portals"]
+    API -->|safeURL Domain Check| GovPortals["🏛️ 93 Government Portals"]
     API -->|Rule-Based Analysis| WhyEngines["🎯 Why Explanation Engines"]
 ```
 
@@ -33,15 +33,15 @@ flowchart TD
 PII is stopped **before any bytes reach the LLM**, across three layers that fail in deliberately opposite directions. Mirrored in the root [`README.md`](../README.md) — keep in sync.
 
 ```mermaid
-flowchart TD
-    In["📥 Chat prompt (+ optional image)"] --> L1{"① Local regex scan — always on<br/>scan_pii()"}
-    L1 -- "NRIC/FIN, email, phone, Luhn-valid card, SingPass phrases" --> B1["⛔ HTTP 400 — BLOCK<br/>never forwarded to the LLM"]
-    L1 -- clean --> L2{"② Image OCR scan — always on<br/>scan_uploaded_image()"}
-    L2 -- "PII detected in pixels" --> B2["⛔ HTTP 400 — upload blocked"]
-    L2 -- "OCR failure" --> FO["⚠️ fail-OPEN → allow<br/>LLM vision safety still applies"]
-    L2 -- clean --> L3{"③ AI semantic gate — opt-in<br/>ENABLE_AI_SAFETY_CLASSIFIER"}
-    L3 -- "obviously-safe fast-path / SAFE" --> OK["✅ Forward to Gemini agent"]
-    L3 -- "UNSAFE or classifier error" --> B3["⛔ fail-CLOSED → block"]
+flowchart LR
+    In["📥 Prompt + optional image"] --> L1{"① Regex scan"}
+    L1 -->|hit| B1["⛔ Block (400)"]
+    L1 -->|clean| L2{"② Image OCR"}
+    L2 -->|hit| B2["⛔ Block (400)"]
+    L2 -->|OCR error| FO["⚠️ Fail-open"]
+    L2 -->|clean| L3{"③ AI gate · opt-in"}
+    L3 -->|UNSAFE / error| B3["⛔ Fail-closed"]
+    L3 -->|SAFE / fast-path| OK["✅ Forward to Gemini"]
     FO --> OK
 ```
 
@@ -54,14 +54,14 @@ flowchart TD
 When the primary model is rate-limited, the chat loop steps down through simpler modes rather than failing (`tools/chat.py::run_chat_loop` / `run_chat_stream`). Mirrored in the root [`README.md`](../README.md).
 
 ```mermaid
-flowchart TD
-    Q["📥 Guardrail-cleared prompt"] --> T1["① Gemini 2.5 Flash<br/>multi-hop tool-calling (≤3 hops)<br/>+ token-by-token streaming"]
-    T1 -- success --> Done["✅ Cited answer streamed to user"]
-    T1 -- "429 quota" --> T2["② Gemini 3.1 Flash-Lite<br/>+ Google Search Grounding<br/>(web-cited · ⚡ Fallback Mode)"]
-    T2 -- success --> Done
-    T2 -- error --> T3["③ Gemini 3.1 Flash-Lite<br/>plain text, no grounding<br/>(⚡ Failover Mode)"]
-    T3 -- success --> Done
-    T3 -- error --> T4["🛟 Graceful message<br/>'high demand — please try again'"]
+flowchart LR
+    Q["📥 Cleared prompt"] --> T1["① Gemini 2.5 Flash · agentic + streaming"]
+    T1 -->|success| Done["✅ Answer streamed"]
+    T1 -->|429 quota| T2["② Flash-Lite + Search Grounding ⚡"]
+    T2 -->|success| Done
+    T2 -->|error| T3["③ Flash-Lite · plain text ⚡"]
+    T3 -->|success| Done
+    T3 -->|error| T4["🛟 Retry message"]
 ```
 
 - Tiers 2 and 3 append a visible **⚡ Fallback / Failover Mode** note so a reduced-path answer is never passed off as a full one.

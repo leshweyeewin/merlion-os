@@ -20,7 +20,7 @@ Split two self-contained subsystems out of the ~2,800-line `initSgHub()` closure
 ## Version 6
 Prototype refinement cycle: expanded statutory portal coverage, direct IRAS newsroom scraping, multimodal document attachments, interactive financial calculators, and enhanced search UX. What's new or changed:
 
-**🏛️ Expanded to 82 Statutory Portals & GovBenefits Integration**
+**🏛️ Expanded to 93 Government Portals & GovBenefits Integration**
 Added **GovBenefits** (`https://www.govbenefits.gov.sg/`) to the main statutory directory and `GOV_DIRECTORY` knowledge base. Citizens can now directly access and check eligibility for Assurance Package cash payouts, GST Vouchers, NS Excellence Awards, and Senior Citizen Bonuses.
 
 **📰 Direct IRAS Newsroom Scraper & Telegram Stream**
@@ -33,7 +33,7 @@ Added a paperclip attachment button (`#chat-file-btn`) to the Co-Pilot chat draw
 Integrated the in-browser **IRAS Tax & SRS Relief Optimizer** (enforcing Singapore's statutory S$80,000 relief cap) and the **HDB Interest Rate & Loan Calculator** in SG Hub. Added a live 2km radius taxi density map (Leaflet.js LTA DataMall API) in the Transit & Transport tab.
 
 **🔍 Search UX Improvements**
-Updated the **Show All** button (`#mp-show-all-global`) in `static/js/portals.js` so that clicking it automatically clears the active intent search input (`#portal-search-input`) and deselects active quick-task chips, restoring all 82 statutory cards to full visibility.
+Updated the **Show All** button (`#mp-show-all-global`) in `static/js/portals.js` so that clicking it automatically clears the active intent search input (`#portal-search-input`) and deselects active quick-task chips, restoring all 93 portal cards to full visibility.
 
 **🛡️ Upgraded Conversational PII Fast-Path**
 Upgraded the security scanner's `is_obviously_safe` heuristic in `tools/security.py` to recognise and instantly fast-path single-line conversational queries containing at most two numeric figures (e.g. *"How do I claim my $500 SkillsFuture Credit?"* or *"CPF rate for a 55 year old"*). This prevents overly sensitive AI safety-gate false positives on common policy questions while continuing to strictly block multi-line dumps of personal documents or tax forms.
@@ -144,7 +144,7 @@ Release cycle building on the baseline. What's new or changed:
 - ⚖️ **IRAS Optimizer** — now ingests **itemised pre-existing reliefs** (auto-summed, capped at the **S$80k** total relief limit), including a **Life Insurance Relief** input (capped at S$5,000 minus CPF employee contributions). These reliefs are inputs that feed the cap — the optimizer still allocates only CPF SA vs. SRS. Max CPF/SRS caps sit in their own section, alongside a live progressive tax-tier table.
 
 **🏛️ Statutory Portals Directory**
-- Grown from **19 → 82** portals (+63 agencies: HPB, MSF, PUB, NLB, URA, NParks, MAS, IMDA, OneNS, GovBenefits, SPF, SCDF, ACRA, EnterpriseSG, IPOS, SLA, CEA, PA, STB, NHB, MinLaw, CDC, SFA, Judiciary, Parliament, MOF, GovTech, HSA, SG Enable, EDB, PMO, MHA, MDDI, MFA, MINDEF, MND, MCCY, MOT, MTI, MSE, EMA, A*STAR, BCA, CAAS, CSC, CDA, CCCS, DSTA, GRA, HTX, ISEAS, JTC, MPA, NAC, NCSS, PTC, SDC, SEAB, AGO, CPIB, PSC, Istana, AGC), with a dedicated portal index page.
+- Grown to **93** portals (+74 agencies: HPB, MSF, PUB, NLB, URA, NParks, MAS, IMDA, OneNS, GovBenefits, SPF, SCDF, ACRA, EnterpriseSG, IPOS, SLA, CEA, PA, STB, NHB, MinLaw, CDC, SFA, Judiciary, Parliament, MOF, GovTech, HSA, SG Enable, EDB, PMO, MHA, MDDI, MFA, MINDEF, MND, MCCY, MOT, MTI, MSE, EMA, A*STAR, BCA, CAAS, CSC, CDA, CCCS, DSTA, GRA, HTX, ISEAS, JTC, MPA, NAC, NCSS, PTC, SDC, SEAB, AGO, CPIB, PSC, Istana, AGC, ROM, CSA, AIC, MUIS, SSG, SportSG, PDPC, CNB, SPS, TADM, TAFEP), with a dedicated portal index page.
 - **Custom Visibility & Filtering**: Hovering any portal card lets you hide it using the eye icon. The **Manage Portals** panel (top of the grid) supports searching by name/description, a Hidden/Visible mode toggle, multi-select checkboxes with select-all, and bulk add-back / hide actions for selected portals or the entire filtered list — all persisted in `localStorage`.
 - **Intent-based search bar**: a top-of-grid search box matches everyday phrasing ("change shop address", "top up CPF", "renew passport") against a per-agency map of plain-language synonyms, not just each card's official name/description — so nobody needs to know the government term to find the right portal. Ships with quick-task chips for common searches and, when a query matches a live SG Hub panel instead of a static portal (e.g. "COE premium"), surfaces a clickable suggestion linking straight to that dashboard tab.
 

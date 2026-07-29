@@ -88,7 +88,7 @@ merlion-os/
 │   ├── changelog.md         # Release notes and version history
 │   ├── data_sources.md      # Data sources and APIs for SG Hub
 │   ├── iras_optimizer.md    # IRAS progressive tax optimizer logic
-│   ├── portals.md           # List of the 82 statutory agencies
+│   ├── portals.md           # List of the 93 government portals
 │   ├── quickstart.md        # Local quickstart, BigQuery, and MCP setup
 │   └── security_and_performance.md  # Hardening, caching, and safety strategy
 ├── static/               # Frontend assets (HTML, CSS, JS, and Logos)

@@ -1,12 +1,12 @@
 # 🏛️ Singapore Government Digital Services & Portals Directory
 
-MerlionOS features a drag-and-drop reorderable grid representing all **82 digital portals** required for citizen life. Rather than being limited strictly to statutory boards, this directory is a curated compilation of the major public touchpoints in Singapore.
+MerlionOS features a drag-and-drop reorderable grid representing all **93 digital portals** required for citizen life. Rather than being limited strictly to statutory boards, this directory is a curated compilation of the major public touchpoints in Singapore.
 
-## 📊 Classification of the 82 Portals
+## 📊 Classification of the 93 Portals
 
 The directory is divided into four main administrative categories:
 1. **Ministries & Executive Offices (16)** — The main policy-making government bodies headed by Cabinet Ministers.
-2. **Statutory Boards & Key Operational Departments (48)** — Autonomous agencies established by Acts of Parliament to execute operational mandates, alongside major departments.
+2. **Statutory Boards & Key Operational Departments (59)** — Autonomous agencies established by Acts of Parliament to execute operational mandates, alongside major departments.
 3. **Organs of State & Constitutional Bodies (8)** — Independent oversight and constitutional organs.
 4. **Key Citizen Digital Services & Platforms (10)** — Corporatized entities, cross-agency digital tools, and citizen initiatives.
 
@@ -81,28 +81,39 @@ The directory is divided into four main administrative categories:
 62. **PTC** (Public Transport Council) — Public bus & MRT fare adjustment exercises and commuter surveys
 63. **SDC** (Sentosa Development Corporation) — Sentosa Island attraction zoning and beach booking services
 64. **SEAB** (Singapore Examinations and Assessment Board) — National examinations logistics including PSLE, O-Levels, and A-Levels
+65. **ROM / ROMM** (Registry of Marriages / Muslim Marriages) — Civil & Muslim marriage solemnisation bookings, solemniser appointments & marriage certificates
+66. **CSA** (Cyber Security Agency of Singapore) — ScamShield scam reporting, suspicious-website checks & personal cybersecurity advisories
+67. **AIC** (Agency for Integrated Care) — Nursing homes, home & community care, caregiver grants and eldercare referrals
+68. **MUIS** (Islamic Religious Council of Singapore) — Halal certification, zakat & fitrah, haj registration and mosque services
+69. **SSG** (SkillsFuture Singapore) — SkillsFuture Credit administration, course funding, WSQ qualifications & training-provider accreditation
+70. **SportSG** (Sport Singapore) — National sports development, Team Singapore athletes, sports associations & SportCares programmes
+71. **PDPC** (Personal Data Protection Commission) — Do Not Call registry, PDPA data-breach reporting & personal data privacy complaints
+72. **CNB** (Central Narcotics Bureau) — Anti-drug enforcement, drug abuse reporting & preventive drug education
+73. **SPS** (Singapore Prison Service) — Inmate e-visit bookings, Yellow Ribbon rehabilitation & ex-offender reintegration
+74. **TADM** (Tripartite Alliance for Dispute Management) — Advisory & mediation services for employment claims, unpaid salary disputes & wrongful dismissal
+75. **TAFEP** (Tripartite Alliance for Fair & Progressive Employment) — Workplace discrimination reporting, fair employment guidelines & flexible work arrangements
 
 ### 3. Organs of State & Constitutional Bodies (8)
-65. **ELD** (Elections Department) — Voter registration & compulsory voting registers
-66. **Judiciary** (Judiciary of Singapore) — Supreme Court, State Courts & hearing registers
-67. **Parliament** (Parliament of Singapore) — Hansard debate transcripts, bills & MP directory
-68. **AGO** (Auditor-General's Office) — Public sector audits & government fiscal oversight
-69. **CPIB** (Corrupt Practices Investigation Bureau) — Corruption investigation & public integrity enforcement
-70. **PSC** (Public Service Commission) — Civil service scholarship selection & officer disciplinary boards
-71. **Istana** (President's Office) — Presidential community projects & Istana Open House visitor info
-72. **AGC** (Attorney-General's Chambers) — Legal advice to the Government & public prosecution registries
+76. **ELD** (Elections Department) — Voter registration & compulsory voting registers
+77. **Judiciary** (Judiciary of Singapore) — Supreme Court, State Courts & hearing registers
+78. **Parliament** (Parliament of Singapore) — Hansard debate transcripts, bills & MP directory
+79. **AGO** (Auditor-General's Office) — Public sector audits & government fiscal oversight
+80. **CPIB** (Corrupt Practices Investigation Bureau) — Corruption investigation & public integrity enforcement
+81. **PSC** (Public Service Commission) — Civil service scholarship selection & officer disciplinary boards
+82. **Istana** (President's Office) — Presidential community projects & Istana Open House visitor info
+83. **AGC** (Attorney-General's Chambers) — Legal advice to the Government & public prosecution registries
 
 ### 4. Key Citizen Digital Services & Platforms (10)
-73. **RedeemSG** — CDC voucher claims & Climate voucher redemptions
-74. **GovBenefits** — Singapore Government cash benefits, Assurance Package, GST Voucher, and NS payouts
-75. **SP Group** — Home electricity, water, and gas utilities setup
-76. **MySkillsFuture** — Mid-career subsidies & course registries
-77. **Gov.sg** — Budget announcements and key national policies
-78. **SG Journey** — Mandatory Citizenship Journey programme & new citizen resources
-79. **OneMap** — National mapping service for GRC/SMC boundaries & school proximity checks
-80. **HealthHub** — Health records, clinic bookings, MediShield Life & CPF MediSave usage
-81. **ActiveSG** — Complimentary credits for public gyms, pools, and sporting facilities
-82. **OneNS** (MINDEF National Service Portal) — NS status, ORD countdown & ICT schedules
+84. **RedeemSG** — CDC voucher claims & Climate voucher redemptions
+85. **GovBenefits** — Singapore Government cash benefits, Assurance Package, GST Voucher, and NS payouts
+86. **SP Group** — Home electricity, water, and gas utilities setup
+87. **MySkillsFuture** — Mid-career subsidies & course registries
+88. **Gov.sg** — Budget announcements and key national policies
+89. **SG Journey** — Mandatory Citizenship Journey programme & new citizen resources
+90. **OneMap** — National mapping service for GRC/SMC boundaries & school proximity checks
+91. **HealthHub** — Health records, clinic bookings, MediShield Life & CPF MediSave usage
+92. **ActiveSG** — Complimentary credits for public gyms, pools, and sporting facilities
+93. **OneNS** (MINDEF National Service Portal) — NS status, ORD countdown & ICT schedules
 
 ---
 
@@ -112,4 +123,4 @@ A search box sits above the portal grid: `What do you need? Try "renew passport"
 
 ## Manage Portals & Visibility
 
-Since the directory includes 82 portals, you can hide cards you do not need by hovering over a card and clicking the eye icon. The **Manage Portals** panel at the top of the grid lets you search by name or description, switch between Hidden/Visible sets, multi-select portals, and bulk add-back or hide them. A **Sort A–Z** toolbar button re-orders the whole grid alphabetically by agency name — a one-click alternative to a manual drag-reorder — and a **star** on each card bookmarks it into a compact "My Matters" strip pinned above the grid. Layout order, bookmarks, and hidden/visible state are all automatically persisted across sessions in browser `localStorage`.
+Since the directory includes 93 portals, you can hide cards you do not need by hovering over a card and clicking the eye icon. The **Manage Portals** panel at the top of the grid lets you search by name or description, switch between Hidden/Visible sets, multi-select portals, and bulk add-back or hide them. A **Sort A–Z** toolbar button re-orders the whole grid alphabetically by agency name — a one-click alternative to a manual drag-reorder — and a **star** on each card bookmarks it into a compact "My Matters" strip pinned above the grid. Layout order, bookmarks, and hidden/visible state are all automatically persisted across sessions in browser `localStorage`.

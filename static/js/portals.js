@@ -63,6 +63,17 @@ function initPortalSearch() {
         gra: "casino entry levy exclusion gambling",
         nac: "busking licence arts grant",
         mccy: "charity donation volunteer youth",
+        rom: "marriage register wedding solemnise solemnisation solemniser get married rom romm muslim marriage nikah marriage certificate book slot register of marriages",
+        csa: "scam scamshield report scam phishing hacked cyber security cybersecurity online safety fraud suspicious website block scam spoof",
+        aic: "eldercare nursing home caregiver senior care dementia home care community care elderly aged caregiving silver generation respite",
+        muis: "halal certification halal cert zakat fitrah haj hajj mosque islamic muslim madrasah fatwa wakaf religious",
+        ssg: "skillsfuture credit top up course funding wsq qualification training provider accreditation reskill upskill workfare adult education",
+        sportsg: "sport singapore team singapore athlete national sports association sports development sportcares physical activity coaching sports school",
+        pdpc: "personal data protection do not call registry dnc pdpa data breach privacy consent marketing calls telemarketing data protection officer",
+        cnb: "drug abuse narcotics anti drug rehabilitation drug test drug trafficking report drugs preventive drug education",
+        sps: "prison inmate visit booking yellow ribbon incarceration release rehabilitation ex offender reintegration prison visit captain of lives",
+        tadm: "salary dispute unpaid salary unpaid wage employment claim mediation dismissal retrenchment advisory tripartite dispute management",
+        tafep: "fair employment workplace discrimination grievance harassment age discrimination maternity protection flexible work arrangements workplace fairness",
     };
 
     // Live-data panels & calculators inside SG Hub that answer the same intents —
