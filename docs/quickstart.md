@@ -60,7 +60,7 @@ Each loader is re-runnable (`WRITE_TRUNCATE` replaces the table in place) — re
 **Deploying to a non-GCP host (e.g. Render):** the `google-cloud-bigquery` client authenticates via a service-account key, not `gcloud` login. Add the JSON key as a **Secret File** (Render exposes it at `/etc/secrets/<filename>`), then set `GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/<filename>` and `GCP_PROJECT_ID` as environment variables. The service account needs BigQuery **Data Viewer** + **Job User** roles (read-only — the loader scripts run separately from your own machine). Without the key, the host simply uses the data.gov.sg / seed fallback tiers.
 
 ## 4. Run Tests & Lint
-The test suite consists of **92 unit tests** spanning both Python and Node.js testing frameworks, plus a `pyflakes` lint gate:
+The test suite consists of **186 unit tests (180 Python + 6 JS)** spanning both Python and Node.js testing frameworks, plus a `pyflakes` lint gate:
 ```bash
 pip install -r requirements-dev.txt
 pyflakes server.py tools mcp_server.py tests  # Lint: unused imports, undefined names
@@ -96,7 +96,7 @@ merlion-os/
 │   ├── js/               # Frontend modules: utils, tax, persona, portals, chat, hub
 │   ├── index.html        # Main dashboard structure
 │   └── style.css         # Custom layout, animations, and dark mode rules
-├── tests/                # Unit tests run locally and in CI (141 Python + 6 JS)
+├── tests/                # Unit tests run locally and in CI (180 Python + 6 JS)
 │   ├── test_cache_helpers.py            # Shared TTL-cache helper (_cache_get/_cache_set) tests
 │   ├── test_chat_models.py              # Pydantic request/response schema tests
 │   ├── test_forecast.py                 # COE/HDB shared forecast math
