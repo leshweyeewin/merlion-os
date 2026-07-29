@@ -2577,6 +2577,13 @@ body {
     color: var(--primary);
 }
 
+/* Groups icon + title text + glossary term spans as a single flex item, so
+   justify-content:space-between on the h3 only separates title from chevron. */
+.hub-card-title {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 .hub-card-toggle {
     background: transparent;
     border: none;

@@ -208,6 +208,18 @@ function initSgHub() {
             const h3 = card.querySelector("h3");
             if (!h3 || h3.querySelector(".hub-card-toggle")) return;
 
+            // h3 is a flex row (title | chevron). Group the title content —
+            // icon, text, and any glossary term spans — into ONE flex item so
+            // justify-content:space-between only ever spreads [title] vs [chevron].
+            // Without this, each text run and glossary <span> is its own flex
+            // item and gets flung across the row (SG-Hub "COE"/"ICA" bug).
+            if (!h3.querySelector(".hub-card-title")) {
+                const titleSpan = document.createElement("span");
+                titleSpan.className = "hub-card-title";
+                while (h3.firstChild) titleSpan.appendChild(h3.firstChild);
+                h3.appendChild(titleSpan);
+            }
+
             const toggleBtn = document.createElement("button");
             toggleBtn.className = "hub-card-toggle";
             toggleBtn.type = "button";
