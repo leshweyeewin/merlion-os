@@ -27,7 +27,7 @@ IMAGE_MIME_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
 _NRIC  = re.compile(r"\b[STFGM]\d{7}[A-Z]\b", re.IGNORECASE)
 _EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 _PHONE = re.compile(r"\b(?:\+?65)?[ -]?[689]\d{3}[ -]?\d{4}\b")
-_CC    = re.compile(r"\b(?:\d[ -]*?){13,16}\b")
+_CC    = re.compile(r"\b(?:\d[ -]*?){13,19}\b")
 
 # Public aliases for tests that import these names directly
 NRIC_PATTERN        = _NRIC
@@ -35,15 +35,36 @@ EMAIL_PATTERN       = _EMAIL
 PHONE_PATTERN       = _PHONE
 CREDIT_CARD_PATTERN = _CC
 
-# (label, pattern) — single source of truth for both text and image scanners.
-# Credit card IS included for images: an embossed 16-digit card number is PII.
-# Tax figures like "72,765.00" are NOT matched — the CC pattern needs 13-16
-# consecutive digit groups with no intervening decimal points.
-_PII_PATTERNS = [
-    ("NRIC/FIN detected",     _NRIC),
-    ("Email detected",        _EMAIL),
-    ("Phone number detected", _PHONE),
-    ("Credit card detected",  _CC),
+def _luhn_valid(candidate: str) -> bool:
+    """True if *candidate*'s digits form a Luhn-valid 13-19 digit PAN.
+
+    Separators (spaces/hyphens) are ignored. The Luhn gate is what keeps plain
+    long numbers — order/reference IDs like '1234567890123' — from being flagged
+    as credit cards, while still catching real card numbers (embossed or typed).
+    """
+    digits = [int(c) for c in candidate if c.isdigit()]
+    if not (13 <= len(digits) <= 19):
+        return False
+    checksum, parity = 0, len(digits) % 2
+    for i, digit in enumerate(digits):
+        if i % 2 == parity:
+            digit *= 2
+            if digit > 9:
+                digit -= 9
+        checksum += digit
+    return checksum % 10 == 0
+
+
+# (label, pattern, validator) — single source of truth for both text and image
+# scanners. `validator` (optional) gates a raw regex match: the credit-card
+# pattern deliberately over-matches any 13-19 digit run, then Luhn rejects the
+# false positives. Tax figures like "72,765.00" never match at all (the decimal
+# point breaks the digit run). None ⇒ every regex match counts.
+_PII_DETECTORS = [
+    ("NRIC/FIN detected",     _NRIC,  None),
+    ("Email detected",        _EMAIL, None),
+    ("Phone number detected", _PHONE, None),
+    ("Credit card detected",  _CC,    _luhn_valid),
 ]
 
 # Only block credential-sharing phrases related to authentication.
@@ -67,30 +88,52 @@ _SAFETY_SYSTEM_INSTRUCTION = (
 )
 
 
-# ── DRY helper ────────────────────────────────────────────────────────────────
-def _redact_matches(text: str, pattern: re.Pattern) -> str:
-    """Replace all *pattern* matches in *text* with '[REDACTED]' (right-to-left)."""
+# ── DRY helpers ───────────────────────────────────────────────────────────────
+def _has_valid_match(text: str, pattern: re.Pattern, validator=None) -> bool:
+    """True if *pattern* has at least one match in *text* accepted by *validator*."""
+    return any(validator is None or validator(m.group()) for m in pattern.finditer(text))
+
+
+def _redact_matches(text: str, pattern: re.Pattern, validator=None) -> str:
+    """Replace *pattern* matches accepted by *validator* with '[REDACTED]' (right-to-left)."""
     for match in reversed(list(pattern.finditer(text))):
+        if validator is not None and not validator(match.group()):
+            continue
         text = text[:match.start()] + "[REDACTED]" + text[match.end():]
     return text
 
 
+def _scan_credential_phrases(text: str) -> list[str]:
+    """Findings for any authentication-credential phrase present in *text*."""
+    lower = text.lower()
+    return [f"High-risk phrase: {phrase}"
+            for phrase in SINGPASS_CREDENTIAL_PHRASES if phrase in lower]
+
+
 # ── Layer 1: text PII scan ────────────────────────────────────────────────────
+def scan_pii(text: str) -> tuple[bool, list[str]]:
+    """Detect PII/credential phrases in *text*. Returns (found, findings).
+
+    Detection-only — used by the request guardrail, which *blocks* on any hit and
+    so never needs a redacted copy. Use scan_and_redact_pii() when the caller
+    actually wants the masked text.
+    """
+    findings = _scan_credential_phrases(text)
+    findings += [label for label, pattern, validator in _PII_DETECTORS
+                 if _has_valid_match(text, pattern, validator)]
+    return (len(findings) > 0, findings)
+
+
 def scan_and_redact_pii(text: str) -> tuple[bool, str, list[str]]:
     """Scan *text* for PII and credential phrases. Returns (found, redacted_text, findings)."""
-    findings = []
-    lower = text.lower()
-
-    for phrase in SINGPASS_CREDENTIAL_PHRASES:
-        if phrase in lower:
-            findings.append(f"High-risk phrase: {phrase}")
+    findings = _scan_credential_phrases(text)
 
     # Single loop replaces 4 copy-paste blocks (DRY)
     redacted = text
-    for label, pattern in _PII_PATTERNS:
-        if pattern.search(redacted):
+    for label, pattern, validator in _PII_DETECTORS:
+        if _has_valid_match(redacted, pattern, validator):
             findings.append(label)
-            redacted = _redact_matches(redacted, pattern)
+            redacted = _redact_matches(redacted, pattern, validator)
 
     return (len(findings) > 0, redacted, findings)
 
@@ -177,25 +220,13 @@ def classify_prompt_safety(user_prompt: str) -> tuple[bool, str]:
         else:
             return False, "Prompt classified as UNSAFE (cached)"
 
-    safety_system_instruction = (
-        "You are a safety classifier for a Singapore government AI assistant. "
-        "Your task is to determine if a user's query is safe to process. "
-        "A query is UNSAFE if it asks for or shares sensitive authentication credentials, "
-        "passwords, OTPs, or asks the assistant to help with login/authentication. "
-        "A query is SAFE if it asks legitimate questions about government services, "
-        "status checks, deadlines, or general policy information (even if mentioning "
-        "SingPass, CorpPass, or other auth portals in a non-credential context). "
-        "Respond with exactly one word: SAFE or UNSAFE. Do not add any explanation."
-    )
-    
     try:
-        import os
         client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
         response = client.models.generate_content(
             model=FALLBACK_MODEL,
             contents=user_prompt,
             config=genai.types.GenerateContentConfig(
-                system_instruction=safety_system_instruction,
+                system_instruction=_SAFETY_SYSTEM_INSTRUCTION,
                 temperature=0.0,
             )
         )
@@ -239,8 +270,9 @@ def scan_uploaded_image(base64_data: str, mime_type: str) -> tuple[bool, list[st
         logger.warning("Image OCR failed — allowing upload (fail-open): %s", err)
         return True, []
 
-    # Single pass — DRY, CC included for photographed credit cards
-    found = [label for label, pat in _PII_PATTERNS if pat.search(ocr_text)]
+    # Single pass — DRY, CC (Luhn-gated) included for photographed credit cards
+    found = [label for label, pat, validator in _PII_DETECTORS
+             if _has_valid_match(ocr_text, pat, validator)]
     if found:
         logger.warning("Image upload blocked — PII detected: %s", found)
         return False, [f"Personal identifier detected in image: {', '.join(found)}"]

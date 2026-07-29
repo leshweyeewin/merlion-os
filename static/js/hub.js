@@ -181,6 +181,27 @@ function initSgHub() {
     const btnCollapseAll = document.getElementById("view-mode-collapse-all");
     const btnExpandAll = document.getElementById("view-mode-expand-all");
 
+    // Single source of truth for a card's collapsed state — keeps the CSS class,
+    // the toggle button's aria-expanded, and the mode buttons all in agreement.
+    function setCardCollapsed(card, collapsed) {
+        card.classList.toggle("collapsed-card", collapsed);
+        const toggleBtn = card.querySelector(".hub-card-toggle");
+        if (toggleBtn) toggleBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    }
+
+    // Reflect actual card state onto the Collapse All / Expand All buttons so the
+    // "active" indicator can't drift after a user toggles individual panels.
+    function syncViewModeButtons() {
+        if (!btnCollapseAll || !btnExpandAll) return;
+        const cards = document.querySelectorAll(".hub-card");
+        if (!cards.length) return;
+        const collapsed = [...cards].filter(c => c.classList.contains("collapsed-card")).length;
+        const allCollapsed = collapsed === cards.length;
+        const allExpanded = collapsed === 0;
+        btnCollapseAll.classList.toggle("active-view-mode", allCollapsed);
+        btnExpandAll.classList.toggle("active-view-mode", allExpanded);
+    }
+
     function initCollapsibleCards() {
         const hubCards = document.querySelectorAll(".hub-card");
         hubCards.forEach(card => {
@@ -191,27 +212,54 @@ function initSgHub() {
             toggleBtn.className = "hub-card-toggle";
             toggleBtn.type = "button";
             toggleBtn.title = "Collapse/Expand panel";
-            toggleBtn.innerHTML = '<i class="fa-solid fa-chevron-up"></i>';
+            toggleBtn.setAttribute("aria-label", "Collapse or expand this panel");
+            toggleBtn.setAttribute("aria-expanded", card.classList.contains("collapsed-card") ? "false" : "true");
+            toggleBtn.innerHTML = '<i class="fa-solid fa-chevron-up" aria-hidden="true"></i>';
             h3.appendChild(toggleBtn);
 
             h3.addEventListener("click", () => {
-                card.classList.toggle("collapsed-card");
+                setCardCollapsed(card, !card.classList.contains("collapsed-card"));
+                syncViewModeButtons();
             });
         });
     }
     initCollapsibleCards();
 
+    // Re-render guard: today's loaders only replace child status divs, so the h3
+    // and its toggle survive. But if a future loader ever rewrites a card's (or
+    // h3's) innerHTML wholesale, the toggle button would vanish silently. This
+    // observer re-injects it. initCollapsibleCards() is idempotent (it skips
+    // cards that already have a toggle), so the button we add here doesn't
+    // retrigger a meaningful pass — the observer settles after one quiet cycle.
+    const hubPane = document.getElementById("hub-pane");
+    if (hubPane && "MutationObserver" in window) {
+        let reinitQueued = false;
+        const observer = new MutationObserver(() => {
+            if (reinitQueued) return;
+            const needsReinit = [...hubPane.querySelectorAll(".hub-card")].some(card => {
+                const h3 = card.querySelector("h3");
+                return h3 && !h3.querySelector(".hub-card-toggle");
+            });
+            if (!needsReinit) return;
+            reinitQueued = true;
+            queueMicrotask(() => {
+                reinitQueued = false;
+                initCollapsibleCards();
+                syncViewModeButtons();
+            });
+        });
+        observer.observe(hubPane, { childList: true, subtree: true });
+    }
+
     if (btnCollapseAll && btnExpandAll) {
         btnCollapseAll.addEventListener("click", () => {
-            document.querySelectorAll(".hub-card").forEach(c => c.classList.add("collapsed-card"));
-            btnCollapseAll.classList.add("active-view-mode");
-            btnExpandAll.classList.remove("active-view-mode");
+            document.querySelectorAll(".hub-card").forEach(c => setCardCollapsed(c, true));
+            syncViewModeButtons();
         });
 
         btnExpandAll.addEventListener("click", () => {
-            document.querySelectorAll(".hub-card").forEach(c => c.classList.remove("collapsed-card"));
-            btnExpandAll.classList.add("active-view-mode");
-            btnCollapseAll.classList.remove("active-view-mode");
+            document.querySelectorAll(".hub-card").forEach(c => setCardCollapsed(c, false));
+            syncViewModeButtons();
         });
     }
 
@@ -1039,6 +1087,12 @@ function initSgHub() {
                             <li><strong>CPF SA Top-ups (RSTU)</strong> are <strong>irreversible</strong>. The cash is permanently transferred and locked until age 55, earning a guaranteed base rate of 4.08% per annum.</li>
                             <li><strong>SRS Contributions</strong> are flexible. You can invest these in Singapore bonds, blue-chip shares, or annuity plans. However, early cash withdrawals before statutory retirement age trigger a <strong>5% penalty</strong> and are taxed 100%. Post-retirement withdrawals are <strong>50% tax-free</strong>.</li>
                         </ul>
+                    </div>
+
+                    <!-- Not-advice reminder, shown right where the recommendation is acted on -->
+                    <div class="advice-disclaimer" role="note" style="margin-bottom:0;">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <span><strong>Educational estimate — not financial, tax or legal advice.</strong> Figures use published IRAS/CPF rates and statutory caps and may not reflect your full circumstances. Verify on <a href="https://www.iras.gov.sg/" target="_blank" rel="noopener noreferrer">iras.gov.sg</a> / <a href="https://www.cpf.gov.sg/" target="_blank" rel="noopener noreferrer">cpf.gov.sg</a> and consult a qualified adviser before topping up.</span>
                     </div>
                 `;
 
@@ -2671,111 +2725,7 @@ function initSgHub() {
         });
     });
 
-    // ==== Plain-English glossary =================================================
-    // Forum complaint: gov dashboards are "peppered with acronyms" that force users to
-    // open a separate Google tab to decode their own statements. Any known term rendered
-    // inside SG Hub gets a dashed underline with a one-sentence explanation on hover/tap.
-    const SG_GLOSSARY = {
-        "CPF": "Central Provident Fund — Singapore's mandatory savings scheme for retirement, housing and healthcare.",
-        "OA": "Ordinary Account — the CPF account usable for housing, insurance, investment and education.",
-        "SA": "Special Account — the CPF account reserved for retirement, earning higher interest (~4% p.a.).",
-        "MediSave": "The CPF account for hospital bills, approved outpatient treatments and medical insurance premiums.",
-        "RSTU": "Retirement Sum Topping-Up scheme — cash top-ups to CPF retirement savings, with tax relief of up to S$8,000/yr (self) + S$8,000/yr (family).",
-        "SRS": "Supplementary Retirement Scheme — a voluntary account giving dollar-for-dollar tax relief; only 50% of withdrawals are taxable after retirement age.",
-        "COE": "Certificate of Entitlement — the quota licence won at auction that lets you register and use a vehicle in Singapore for 10 years.",
-        "PSI": "Pollutant Standards Index — Singapore's air-quality measure: 0–50 good, 51–100 moderate, above 100 unhealthy.",
-        "PM2.5": "Fine airborne particles under 2.5 microns — the main pollutant during haze episodes.",
-        "BTO": "Build-To-Order — new HDB flats balloted and sold before construction, typically completed in 3–5 years.",
-        "EHG": "Enhanced CPF Housing Grant — an income-tiered grant of up to S$120,000 for eligible first-time flat buyers.",
-        "HDB": "Housing & Development Board — Singapore's public housing authority.",
-        "IRAS": "Inland Revenue Authority of Singapore — the national tax collector.",
-        "YA": "Year of Assessment — the tax year; YA 2026 assesses income earned during 2025.",
-        "GST": "Goods and Services Tax — Singapore's 9% consumption tax.",
-        "ECI": "Estimated Chargeable Income — a company's estimate of taxable profit, filed within 3 months of its financial year end.",
-        "CRS": "Common Reporting Standard — the international framework for exchanging financial account data between tax authorities.",
-        "SSOC": "Singapore Standard Occupational Classification — the official taxonomy of job titles used in national wage statistics.",
-        "MOM": "Ministry of Manpower — regulates employment, work passes and workplace safety.",
-        "LTA": "Land Transport Authority — plans and regulates Singapore's roads, rail and vehicle ownership.",
-        "NEA": "National Environment Agency — manages environmental health, weather and pollution monitoring.",
-        "SSB": "Singapore Savings Bonds — low-risk government bonds redeemable in any month without penalty.",
-        "CDC": "Community Development Council — district-level bodies that distribute local assistance like CDC vouchers.",
-        "ICA": "Immigration & Checkpoints Authority — handles passports, NRICs, PRs and border checkpoints.",
-        "IR8A": "The employer-issued form reporting your yearly employment income for tax filing.",
-        "UV Index": "Measure of sunburn-causing ultraviolet radiation: 0–2 low, 6–7 high, 11+ extreme (NEA scale).",
-        "CAGR": "Compound Annual Growth Rate — the steady yearly growth rate that would take a figure from its starting value to its ending value over the given number of years.",
-        "accrued interest": "The CPF interest you must refund (on top of the principal) to your own CPF account when you sell a property bought with CPF savings.",
-    };
-    const GLOSS_RE = new RegExp(
-        "(?<![\\w-])("
-        + Object.keys(SG_GLOSSARY).sort((a, b) => b.length - a.length)
-            .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")
-        + ")(?![\\w-])"
-    );
-
-    let glossAnnotating = false;
-    function annotateGlossary(root) {
-        if (!root || glossAnnotating) return;
-        glossAnnotating = true;
-        try {
-            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-                acceptNode(n) {
-                    if (!n.nodeValue || !GLOSS_RE.test(n.nodeValue)) return NodeFilter.FILTER_REJECT;
-                    const p = n.parentElement;
-                    if (!p || p.closest("script,style,svg,a,button,input,textarea,select,option,.gloss")) return NodeFilter.FILTER_REJECT;
-                    return NodeFilter.FILTER_ACCEPT;
-                }
-            });
-            const nodes = [];
-            while (walker.nextNode()) nodes.push(walker.currentNode);
-            nodes.forEach(node => {
-                const parts = node.nodeValue.split(new RegExp(GLOSS_RE.source, "g"));
-                if (parts.length < 2) return;
-                const frag = document.createDocumentFragment();
-                parts.forEach((part, i) => {
-                    if (i % 2 === 1 && SG_GLOSSARY[part]) {
-                        const s = document.createElement("span");
-                        s.className = "gloss";
-                        s.dataset.term = part;
-                        s.textContent = part;
-                        frag.appendChild(s);
-                    } else if (part) {
-                        frag.appendChild(document.createTextNode(part));
-                    }
-                });
-                node.parentNode.replaceChild(frag, node);
-            });
-        } finally {
-            glossAnnotating = false;
-        }
-    }
-
-    if (hubPaneEl) {
-        let glossTimer = null;
-        new MutationObserver(() => {
-            if (glossAnnotating) return;
-            clearTimeout(glossTimer);
-            glossTimer = setTimeout(() => annotateGlossary(hubPaneEl), 250);
-        }).observe(hubPaneEl, { childList: true, subtree: true });
-        annotateGlossary(hubPaneEl);
-
-        const glossTipHtml = g =>
-            `<div style="font-weight:700; margin-bottom:2px;">${escapeHTML(g.dataset.term)}</div>`
-            + `<div>${escapeHTML(SG_GLOSSARY[g.dataset.term] || "")}</div>`;
-        hubPaneEl.addEventListener("mouseover", e => {
-            const g = e.target.closest(".gloss");
-            if (g) showChartTooltip(glossTipHtml(g), e.clientX, e.clientY);
-        });
-        hubPaneEl.addEventListener("mouseout", e => {
-            if (e.target.closest(".gloss")) hideChartTooltip();
-        });
-        // Mobile: tap shows the explanation (no hover available); tapping elsewhere dismisses it
-        hubPaneEl.addEventListener("click", e => {
-            const g = e.target.closest(".gloss");
-            if (g) showChartTooltip(glossTipHtml(g), e.clientX, e.clientY);
-            else hideChartTooltip();
-        });
-    }
-    // ==== end glossary ===========================================================
+    // Plain-English glossary moved to its own module: static/js/glossary.js
 }
 
 // Initialize SG Hub features on load

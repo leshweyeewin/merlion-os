@@ -2,7 +2,22 @@
 
 The document above always reflects the **latest** release. This section records what changed between versions.
 
-## Version 6 — current
+## Version 7 — current
+Grounding, trust, and maintainability cycle: a much deeper RAG knowledge base with a measured retrieval-quality gate, clearer not-financial-advice disclaimers, and a frontend modularisation that also fixed a broken feature. What's new or changed:
+
+**📚 RAG Knowledge Base Expanded ~2.5× (43 → 109 chunks)**
+Grew the curated civic corpus in `tools/knowledge.py` from 42 to **109 grounded, cited chunks**, adding depth across CPF (retirement sums, interest, nomination, withdrawals), IRAS (NOA, ABSD/BSD, rental income, objections, tax residency), HDB (MOP, HFE letter, resale process, lease buyback, SERS/VERS), MOM (COMPASS, WICA, PWM, Workfare), healthcare (CareShield Life, Pioneer/Merdeka, MediFund), benefits (Assurance Package, GST Voucher, Silver Support, Majulah, SupportGoWhere), transport (SimplyGo, ERP, EV incentives, PMD rules), ICA (PR, LTVP/DP, Re-Entry Permit), and civic/business services (Corppass, Myinfo, ScamShield, ACRA, marriage registration, legal aid, Small Claims). Every chunk keeps an official `.gov.sg` source URL for citation.
+
+**🎯 Measured Retrieval Quality (golden-set test)**
+Added `test_retrieval_quality_meets_threshold` in `tests/test_knowledge_base.py`: a 20-question golden set (natural-language phrasings that avoid copying the chunk text) run against the **real Gemini embedder**, asserting recall@3 ≥ 80% and top-1 accuracy ≥ 55%. It self-skips when no API key is present, so CI stays green while any keyed environment gets a real, repeatable quality number. Also added a coverage test asserting the corpus spans the major agencies.
+
+**⚖️ Clear "Not Financial/Tax/Legal Advice" Disclaimers**
+Added a prominent disclaimer to the **CPF/SRS Tax Relief Optimizer** card noting the tool is an educational estimate — not advice — that CPF/SRS top-ups are generally irreversible, and linking to the official IRAS and CPF sites. Strengthened the Co-Pilot chat banner to state responses are "not financial, tax or legal advice."
+
+**🧩 Frontend Modularisation + Glossary Bug Fix**
+Extracted the plain-English civic glossary out of the 2,800-line `initSgHub()` closure in `hub.js` into its own self-contained `static/js/glossary.js` module (with its own tooltip, leaving the chart code untouched). In doing so, **fixed a latent `ReferenceError`**: the glossary referenced an undeclared `hubPaneEl`, which silently disabled the entire feature (0 terms annotated). It now resolves `#hub-pane` correctly and annotates 70+ acronyms live. `hub.js` shrank by ~100 lines.
+
+## Version 6
 Prototype refinement cycle: expanded statutory portal coverage, direct IRAS newsroom scraping, multimodal document attachments, interactive financial calculators, and enhanced search UX. What's new or changed:
 
 **🏛️ Expanded to 82 Statutory Portals & GovBenefits Integration**

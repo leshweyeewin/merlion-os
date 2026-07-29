@@ -16,7 +16,7 @@
     <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Style Sheet -->
-    <link rel="stylesheet" href="style.css?v=insight22">
+    <link rel="stylesheet" href="style.css?v=insight25">
     <!-- Leaflet JS & CSS for Interactive Maps -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
@@ -2041,9 +2041,18 @@
                         <h3>
                             <i class="fa-solid fa-scale-unbalanced-flip"></i> CPF / SRS Tax Relief Optimizer
                         </h3>
-                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Maximize your tax
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Maximize your tax
                             savings. Input your annual income and total budget to compute the optimal split between CPF
                             SA (RSTU) and SRS.</p>
+                        <div class="advice-disclaimer" role="note">
+                            <i class="fa-solid fa-circle-info"></i>
+                            <span><strong>Not financial, tax or legal advice.</strong> This is an educational estimate
+                                based on published IRAS rates and statutory caps. CPF top-ups and SRS contributions are
+                                generally irreversible — verify your figures on the official
+                                <a href="https://www.iras.gov.sg/" target="_blank" rel="noopener noreferrer">IRAS</a> and
+                                <a href="https://www.cpf.gov.sg/" target="_blank" rel="noopener noreferrer">CPF</a>
+                                sites and consult a qualified adviser before acting.</span>
+                        </div>
 
                         <!-- Section 1: Your Profile -->
                         <div style="margin-bottom:18px;">
@@ -2366,8 +2375,8 @@
                     <!-- AI disclaimer notice -->
                     <div class="ai-disclaimer-banner">
                         <i class="fa-solid fa-triangle-exclamation"></i>
-                        <span>AI can make mistakes. Please double-check responses against official government
-                            portals.</span>
+                        <span>AI can make mistakes and this is <strong>not financial, tax or legal advice</strong>.
+                            Please double-check responses against official government portals before acting.</span>
                     </div>
                     <!-- Demo persona selector — no real identity data; tailors Co-Pilot guidance to a life-stage -->
                     <div class="persona-bar" id="persona-bar">
@@ -2508,10 +2517,11 @@
     <!-- Front-end modules (load order = dependency order; all share global scope) -->
     <script src="js/utils.js?v=insight13"></script>
     <script src="js/tax.js?v=insight13"></script>
+    <script src="js/glossary.js?v=insight25"></script>
     <script src="js/persona.js?v=insight20"></script>
     <script src="js/portals.js?v=insight23"></script>
     <script src="js/chat.js?v=insight21"></script>
-    <script src="js/hub.js?v=insight24"></script>
+    <script src="js/hub.js?v=insight28"></script>
 </body>
 
 </html>

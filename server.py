@@ -13,7 +13,7 @@ import anyio
 from google import genai
 from google.genai import types, errors as genai_errors
 from tools.security import (
-    scan_and_redact_pii,
+    scan_pii,
     scan_uploaded_image,
     is_obviously_safe,
     get_cached_safety,
@@ -293,7 +293,7 @@ async def check_text_safety_with_ai(user_prompt: str) -> bool:
 
 async def enforce_chat_guardrails(user_prompt: str, file=None) -> None:
     """Three-layer guardrail: local regex → image OCR → Gemini semantic gate."""
-    has_pii, _, findings = scan_and_redact_pii(user_prompt)
+    has_pii, findings = scan_pii(user_prompt)
     if has_pii:
         logger.warning("Local PII scan blocked prompt: %s", findings)
         raise HTTPException(status_code=400, detail=SECURITY_FILTER_DETAIL)

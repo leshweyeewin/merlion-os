@@ -1464,6 +1464,39 @@ body {
     font-size: 11px;
 }
 
+/* Not-financial-advice note inside the tax optimizer card */
+.advice-disclaimer {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-left: 3px solid #d97706;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: #92400e;
+}
+
+.advice-disclaimer i {
+    color: #d97706;
+    font-size: 12px;
+    margin-top: 1px;
+    flex-shrink: 0;
+}
+
+.advice-disclaimer strong {
+    font-weight: 800;
+}
+
+.advice-disclaimer a {
+    color: #b45309;
+    font-weight: 700;
+    text-decoration: underline;
+}
+
 .messages-container {
     flex: 1;
     overflow-y: auto;

@@ -431,8 +431,9 @@ def test_is_obviously_safe_with_numbers():
 def test_scan_pii_redacts_mixed_pii_entities_in_single_pass():
     """Test that a mixed payload containing NRIC, email, phone, and credit card is redacted in one pass."""
     from tools.security import scan_and_redact_pii
+    # 4111111111111111 is a Luhn-valid test card number.
     mixed_text = (
-        "User S1234567A contact john.doe@gov.sg phone 91234567 card 4532111122223333"
+        "User S1234567A contact john.doe@gov.sg phone 91234567 card 4111111111111111"
     )
     is_redacted, redacted_text, findings = scan_and_redact_pii(mixed_text)
     assert is_redacted is True
@@ -440,8 +441,40 @@ def test_scan_pii_redacts_mixed_pii_entities_in_single_pass():
     assert "S1234567A" not in redacted_text
     assert "john.doe@gov.sg" not in redacted_text
     assert "91234567" not in redacted_text
-    assert "4532111122223333" not in redacted_text
+    assert "4111111111111111" not in redacted_text
     assert redacted_text.count("[REDACTED]") == 4
+
+
+def test_scan_pii_credit_card_requires_luhn():
+    """CC detection is Luhn-gated: real cards are redacted, plain long numbers are not."""
+    from tools.security import scan_and_redact_pii
+
+    # Luhn-valid card → flagged and redacted.
+    valid, valid_redacted, valid_findings = scan_and_redact_pii("charge card 4111111111111111")
+    assert valid is True
+    assert any("Credit card" in f for f in valid_findings)
+    assert "4111111111111111" not in valid_redacted
+
+    # 13-digit order/reference number (Luhn-invalid) → NOT a false positive.
+    clean, clean_text, clean_findings = scan_and_redact_pii("Your order reference is 1234567890123")
+    assert clean is False, f"Plain reference number wrongly flagged: {clean_findings}"
+    assert clean_text == "Your order reference is 1234567890123"
+
+
+def test_scan_pii_detection_only_matches_redact_variant():
+    """scan_pii() (hot path) agrees with scan_and_redact_pii() on whether PII is present."""
+    from tools.security import scan_pii, scan_and_redact_pii
+
+    for text in [
+        "My NRIC is S1234567A",
+        "charge card 4111111111111111",
+        "Your order reference is 1234567890123",
+        "What are the IRAS tax filing deadlines?",
+    ]:
+        found, findings = scan_pii(text)
+        found_redact, _, findings_redact = scan_and_redact_pii(text)
+        assert found == found_redact, f"scan_pii disagreed on: {text}"
+        assert findings == findings_redact, f"findings differ on: {text}"
 
 
 def test_scan_uploaded_image_blocks_credit_card_photo_ocr(monkeypatch):
@@ -451,7 +484,7 @@ def test_scan_uploaded_image_blocks_credit_card_photo_ocr(monkeypatch):
     monkeypatch.setattr("tools.security.Image.open", lambda _buf: object())
     monkeypatch.setattr(
         "tools.security.pytesseract.image_to_string",
-        lambda _img: "VISA CREDIT CARD\n4532 1111 2222 3333\nEXP 12/28",
+        lambda _img: "VISA CREDIT CARD\n4111 1111 1111 1111\nEXP 12/28",
     )
 
     is_safe, findings = scan_uploaded_image("dGVzdA==", "image/png")

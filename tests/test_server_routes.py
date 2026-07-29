@@ -12,7 +12,14 @@ undefined helper or reads the wrong dict key only fails when actually invoked
 short of calling the endpoint would have caught the removed /api/sg-hub bug.
 """
 import os
-os.environ.setdefault("GEMINI_API_KEY", "test-dummy-key")
+
+# Plant a dummy key ONLY when no real credential exists (pure CI). The route tests
+# monkeypatch Gemini, so any value works for them — but the genai SDK prefers
+# GEMINI_API_KEY over GOOGLE_API_KEY, so unconditionally setting GEMINI_API_KEY here
+# used to override a real GOOGLE_API_KEY for the whole session, breaking the
+# knowledge-base retrieval test's live embedding calls.
+if not (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")):
+    os.environ["GEMINI_API_KEY"] = "test-dummy-key"
 
 import pytest
 from fastapi.testclient import TestClient

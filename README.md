@@ -54,7 +54,7 @@ flowchart TD
 * **Primary Engine (Gemini 2.5 Flash):** The default high-speed reasoning core powering the agent.
 * **Multi-Hop Reasoning:** The Co-Pilot orchestrates multi-turn reasoning loops—querying APIs, analyzing results, and deciding next steps before synthesizing a final answer.
 * **Multimodal Vision:** Natively decodes uploaded images (e.g., photos of CPF statements or tax notices) via Gemini's vision channel for instant data extraction and analysis.
-* **RAG Civic Knowledge Base:** Uses `gemini-embedding-001` and pure-Python cosine similarity over a curated civic corpus to accurately ground open-ended policy questions.
+* **RAG Civic Knowledge Base:** Uses `gemini-embedding-001` and pure-Python cosine similarity over a **100+ entry** curated civic corpus (spanning CPF, IRAS, HDB, MOM, MOH, MOE, LTA, ICA, NEA and benefits schemes) to accurately ground open-ended policy questions. Retrieval quality is measured by a golden-set test.
 * **SSE Streaming:** Delivers real-time, token-by-token streaming responses with a dynamic typing cursor.
 
 **🛡️ Security & Resilience**
@@ -72,7 +72,7 @@ flowchart TD
 * **Operations Terminal:** A live-streaming debug console surfaces raw BigQuery SQL, crawler requests, and tool execution logs directly in the UI.
 * **Intent-Based Routing & Glossary:** Search maps everyday phrasing to specific statutory services. A semantic engine automatically underlines civic jargon with plain-English tooltips.
 * **Considered UX & Accessibility:** Fully responsive, keyboard-navigable ARIA tabs, skeleton loaders, and deterministic demo personas that tailor the dashboard layout.
-* **Robust CI/CD:** Guarded by a **182-test suite (176 Python, 6 JS)**, pyflakes linting, and an hourly GitHub Action that refreshes fallback data seeds.
+* **Robust CI/CD:** Guarded by a **184-test suite (178 Python, 6 JS)** — including a live golden-set retrieval-quality gate that auto-skips without an API key — plus pyflakes linting and an hourly GitHub Action that refreshes fallback data seeds.
 
 ---
 
@@ -82,7 +82,7 @@ The repository's comprehensive guides are split into dedicated files inside [`do
 
 | Topic | What's inside | File Link |
 |---|---|---|
-| 🏛️ **Statutory Portals Directory** | All **81** agency portals list, drag-and-drop ordering, and portal search/multi-select panels. | [docs/portals.md](docs/portals.md) |
+| 🏛️ **Statutory Portals Directory** | All **82** agency portals list, drag-and-drop ordering, and portal search/multi-select panels. | [docs/portals.md](docs/portals.md) |
 | 📊 **Live Data Dashboard** | Detailed data sources and exact REST APIs for NEA weather, LTA transit, HDB listings, and Telegram feeds. | [docs/data_sources.md](docs/data_sources.md) |
 | ⚖️ **IRAS Tax Relief Optimizer** | Progressive income tax brackets, CPF SA (RSTU) vs. SRS top-up optimization, itemised pre-existing reliefs (incl. life insurance), and the S$80k statutory relief cap. | [docs/iras_optimizer.md](docs/iras_optimizer.md) |
 | 💻 **Local Setup & Quickstart** | Requirements, environment keys setup, Google Cloud BigQuery keys, and FastMCP daemon running instructions. | [docs/quickstart.md](docs/quickstart.md) |
@@ -111,7 +111,7 @@ python server.py
 Open **`http://127.0.0.1:8000/`** in your browser.
 
 ### 3. Run Tests
-Ensure dependencies are installed, then run the lint gate and the python/javascript test suites (173 Python + 6 JavaScript tests):
+Ensure dependencies are installed, then run the lint gate and the python/javascript test suites (178 Python + 6 JavaScript tests):
 ```bash
 pip install -r requirements-dev.txt
 pyflakes server.py tools mcp_server.py tests
