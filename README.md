@@ -48,6 +48,61 @@ flowchart TD
 
 ---
 
+## 🛡️ Security & Resilience — Two Views
+
+Two decisions define how MerlionOS behaves under pressure: **how it protects citizen data** and **how it stays up when the AI does not.** Both are deliberate, layered, and fail in a chosen direction rather than by accident.
+
+### 1. Privacy Guardrail — defense-in-depth, *block-don't-redact*
+
+Personal identifiers are stopped **before any bytes reach the LLM**. Detection is layered so no single check is a single point of failure, and each layer fails in the direction that does the least harm.
+
+```mermaid
+flowchart TD
+    In["📥 Chat prompt (+ optional image)"] --> L1{"① Local regex scan — always on<br/>scan_pii()"}
+    L1 -- "NRIC/FIN, email, phone, Luhn-valid card, SingPass phrases" --> B1["⛔ HTTP 400 — BLOCK<br/>never forwarded to the LLM"]
+    L1 -- clean --> L2{"② Image OCR scan — always on<br/>scan_uploaded_image()"}
+    L2 -- "PII detected in pixels" --> B2["⛔ HTTP 400 — upload blocked"]
+    L2 -- "OCR failure" --> FO["⚠️ fail-OPEN → allow<br/>LLM vision safety still applies"]
+    L2 -- clean --> L3{"③ AI semantic gate — opt-in<br/>ENABLE_AI_SAFETY_CLASSIFIER"}
+    L3 -- "obviously-safe fast-path / SAFE" --> OK["✅ Forward to Gemini agent"]
+    L3 -- "UNSAFE or classifier error" --> B3["⛔ fail-CLOSED → block"]
+    FO --> OK
+```
+
+**Why this is a good design**
+- **Defense-in-depth, not one regex.** Layer 1 catches the concrete Singapore formats before data leaves the server; Layer 2 extends the *same* rules to uploaded screenshots via OCR; Layer 3 adds optional semantic coverage for paraphrased attempts regex can't see.
+- **Block, don't redact.** For a government assistant, refusing to process is safer and more defensible than masking-and-forwarding, which risks partial leaks and lulls users into oversharing.
+- **Deliberately opposite fail postures.** OCR failure **fails open** (a legit NOA upload shouldn't be blocked by a Tesseract hiccup — the model's own vision safety still applies); the auth/credential AI gate **fails closed** (a missed credential-share is dangerous). The direction is a decision, documented in code.
+- **Luhn-gated card detection.** The card regex intentionally over-matches any 13–19 digit run, then a Luhn checksum rejects false positives (order IDs, reference numbers) while still catching real PANs.
+- **Cheap by default.** A local `is_obviously_safe` fast-path + result cache means everyday conversational queries never pay for an AI call — and the AI gate ships **off** (see note below).
+
+> **On the opt-in AI gate:** it is off by default *on purpose*. It is **fail-closed**, so during a primary-model 429 (the exact case the failover ladder below is built to survive) it would instead block harmless prompts with a security error. Enable it only for controlled demos of the semantic layer, ideally with a dedicated API key so chat traffic can't starve it.
+
+### 2. AI Chat Failover Ladder — graceful degradation, never a dead end
+
+When the primary model is rate-limited, the assistant steps down through progressively simpler modes instead of failing — and tells the user honestly which mode produced the answer.
+
+```mermaid
+flowchart TD
+    Q["📥 Guardrail-cleared prompt"] --> T1["① Gemini 2.5 Flash<br/>multi-hop tool-calling (≤3 hops)<br/>+ token-by-token streaming"]
+    T1 -- success --> Done["✅ Cited answer streamed to user"]
+    T1 -- "429 quota" --> T2["② Gemini 3.1 Flash-Lite<br/>+ Google Search Grounding<br/>(web-cited · ⚡ Fallback Mode)"]
+    T2 -- success --> Done
+    T2 -- error --> T3["③ Gemini 3.1 Flash-Lite<br/>plain text, no grounding<br/>(⚡ Failover Mode)"]
+    T3 -- success --> Done
+    T3 -- error --> T4["🛟 Graceful message<br/>'high demand — please try again'"]
+```
+
+**Why this is a good design**
+- **No dead ends.** Four tiers mean a single quota spike degrades the *quality* of the answer, not the *availability* of the service.
+- **Degrades capability in the right order.** Full agentic tool-calling → search-grounded → plain text → a friendly retry message; each step trades a capability for resilience.
+- **Honest by design.** Tiers 2 and 3 append a visible **⚡ Fallback / Failover Mode** note so users know when an answer came from a reduced path, rather than silently returning lower-fidelity results.
+- **Streaming-safe.** The same ladder exists in both the buffered (`run_chat_loop`) and SSE-streaming (`run_chat_stream`) paths, and the final error tier emits an empty token first so a chat bubble exists before the error renders (no blank "no answer" gap).
+
+*(Both diagrams are mirrored in [`docs/architecture_diagram.md`](docs/architecture_diagram.md) — keep the copies in sync.)*
+
+---
+
 ## 🚀 Key Technical Highlights
 
 **🤖 AI & Agentic Core**
