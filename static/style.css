@@ -1171,13 +1171,12 @@ body {
     bottom: 85px;
     right: 24px;
     z-index: 1001;
-    width: 440px;
-    height: 600px;
+    width: 480px;
+    height: 720px;
     /* Cap to the viewport so the widget (anchored at bottom:85px) never runs its header off the
-       top of a short laptop viewport — 600px + 85px needs 685px of height, which a browser at
-       100% zoom often doesn't have. vh first for older engines, dvh overrides where supported. */
-    max-height: calc(100vh - 100px);
-    max-height: calc(100dvh - 100px);
+       top of a short laptop viewport — vh first for older engines, dvh overrides where supported. */
+    max-height: calc(100vh - 90px);
+    max-height: calc(100dvh - 90px);
     background: var(--bg-panel);
     border: 1px solid var(--border);
     border-radius: 8px;
