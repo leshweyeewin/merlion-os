@@ -451,6 +451,18 @@ def _resale_bq_history_series():
     transactions = [int(r.txns) for r in rows]
     return months, medians, transactions
 
+def _flat_type_sort_key(flat_type: str):
+    """Orders flat types as a size ladder: 1/2/3/4/5-room by their leading number, then
+    Executive, then Multi-Generation (which have no room count) at the end. Anything
+    unrecognised sorts after those, alphabetically, so a new HDB flat category never crashes
+    the sort — it just lands at the bottom."""
+    import re
+    m = re.match(r"\s*(\d+)", flat_type)
+    if m:
+        return (0, int(m.group(1)), "")
+    tail = {"executive": 1, "multi-generation": 2, "multi generation": 2}.get(flat_type.strip().lower(), 3)
+    return (tail, 0, flat_type.lower())
+
 def _resale_stats_from_rows(rows: list, latest_month: str, source: str) -> dict:
     """Builds the resale stats payload from a row list containing at least `latest_month` and its
     prior-year month. Shared by the BigQuery tier (2-month row fetch) and the CSV fallback (full
@@ -481,6 +493,31 @@ def _resale_stats_from_rows(rows: list, latest_month: str, source: str) -> dict:
     )
     priciest_town_caveat = compute_priciest_town_caveat(towns)
 
+    # Per-flat-type breakdown: the islandwide median is close to meaningless on its own because a
+    # 3-room and an executive flat are entirely different products — so give each flat type its own
+    # median, transaction count, and YoY. Ordered smallest→largest by flat size (1/2/3/4/5-room,
+    # then executive, then multi-generation) rather than by price, so the list reads as a size ladder.
+    by_type_latest = defaultdict(list)
+    by_type_prior = defaultdict(list)
+    for r in rows:
+        if r["month"] == latest_month:
+            by_type_latest[r["flat_type"]].append(float(r["resale_price"]))
+        elif r["month"] == prior_month:
+            by_type_prior[r["flat_type"]].append(float(r["resale_price"]))
+    flat_types = []
+    for ft, prices in by_type_latest.items():
+        ft_median = statistics.median(prices)
+        prior_prices = by_type_prior.get(ft)
+        ft_prior_median = statistics.median(prior_prices) if prior_prices else None
+        ft_yoy = round((ft_median - ft_prior_median) / ft_prior_median * 100, 1) if ft_prior_median else None
+        flat_types.append({
+            "flat_type": ft.title(),
+            "median_price": round(ft_median),
+            "transaction_count": len(prices),
+            "yoy_pct": ft_yoy,
+        })
+    flat_types.sort(key=lambda x: _flat_type_sort_key(x["flat_type"]))
+
     return {
         "latest_month": latest_month,
         "prior_month": prior_month if median_prior else None,
@@ -491,6 +528,7 @@ def _resale_stats_from_rows(rows: list, latest_month: str, source: str) -> dict:
         "priciest_town_caveat": priciest_town_caveat,
         "transaction_count": len(prices_latest),
         "towns": towns,
+        "flat_types": flat_types,
         "synced_at": _cache_synced_at(_hdb_resale_cache),
         "data_status": get_hdb_resale_status(),
         "source": source,
@@ -619,12 +657,24 @@ def query_hdb_resale_price_trends(context_query: str = "general") -> str:
         reason_line = f"\U0001F50D Why: {stats['mix_shift_reason']}\n" if stats["mix_shift_reason"] else ""
         town_caveat_line = f"\U0001F50D Why {stats['towns'][0]['town']} tops the list: {stats['priciest_town_caveat']}\n" if stats.get("priciest_town_caveat") else ""
 
+        # Median by flat type — the single most important breakdown, since the islandwide median
+        # blends a 3-room and an executive flat into one meaningless number.
+        flat_type_lines = ""
+        if stats.get("flat_types"):
+            flat_type_lines = "\U0001F3E1 Median by Flat Type:\n" + "\n".join(
+                f"   • {ft['flat_type']}: S${ft['median_price']:,}"
+                + (f" ({ft['yoy_pct']:+.1f}% YoY)" if ft.get("yoy_pct") is not None else "")
+                + f" — {ft['transaction_count']:,} txns"
+                for ft in stats["flat_types"]
+            ) + "\n"
+
         return (
             f"--- [SG HDB RESALE FLAT PRICE ADVISORY] ---\n"
             f"\U0001F3E0 Latest Month: {stats['latest_month']} ({stats['transaction_count']:,} transactions)\n"
             f"\U0001F4CA Islandwide Median Resale Price: S${stats['median_price']:,}\n"
             + (f"\U0001F4C8 YoY Change: {yoy_line}\n" if yoy_line else "")
             + reason_line
+            + flat_type_lines
             + f"\U0001F3D9️ Priciest Towns: {priciest}\n"
             + town_caveat_line
             + f"\U0001F4A1 Source: {stats['source']}"
@@ -637,6 +687,11 @@ def query_hdb_resale_price_trends(context_query: str = "general") -> str:
             f"\U0001F3E0 Latest Month: 2026-06 (cached snapshot — live fetch unavailable: {type(e).__name__})\n"
             f"\U0001F4CA Islandwide Median Resale Price: S$625,000\n"
             f"\U0001F4C8 YoY Change: -1.2% (vs S$632,400 in 2025-06)\n"
+            f"\U0001F3E1 Median by Flat Type:\n"
+            f"   • 3 Room: S$400,000\n"
+            f"   • 4 Room: S$565,000\n"
+            f"   • 5 Room: S$690,000\n"
+            f"   • Executive: S$838,000\n"
             f"\U0001F3D9️ Priciest Towns: Bukit Timah (S$1,040,000), Queenstown (S$870,000), Toa Payoh (S$868,000)\n"
             f"\U0001F4A1 Source: Resale Flat Prices based on registration date from Jan-2017 onwards (data.gov.sg) — cached snapshot."
         )

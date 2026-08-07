@@ -347,6 +347,58 @@ def test_resale_mix_shift_reason_wired_into_compute_hdb_resale_stats(monkeypatch
     assert "Broad-based" in stats["mix_shift_reason"]
 
 
+# ── HDB resale: per-flat-type median breakdown ──────────────────────────────────────────────
+
+def test_flat_type_sort_key_orders_as_size_ladder():
+    """Room counts first (ascending), then Executive, then Multi-Generation, then anything else."""
+    labels = ["Executive", "5 Room", "Multi-Generation", "3 Room", "4 Room", "2 Room"]
+    ordered = sorted(labels, key=housing._flat_type_sort_key)
+    assert ordered == ["2 Room", "3 Room", "4 Room", "5 Room", "Executive", "Multi-Generation"]
+
+
+def test_flat_type_breakdown_wired_into_compute_hdb_resale_stats(monkeypatch):
+    """compute_hdb_resale_stats should expose a per-flat-type median + txn count + YoY, ordered
+    by flat size, computed from the same rows it already downloaded — no extra fetch."""
+    rows = []
+    for month, flat_type, prices in [
+        # 2026-07 is the in-progress month compute_hdb_resale_stats drops, so 2026-06 is "latest".
+        ("2026-07", "4 ROOM", [540000] * 2),
+        ("2026-06", "5 ROOM", [630000] * 8),
+        ("2025-06", "5 ROOM", [600000] * 8),
+        ("2026-06", "3 ROOM", [420000] * 5),
+        ("2025-06", "3 ROOM", [400000] * 5),
+        ("2026-06", "4 ROOM", [525000] * 10),
+        ("2025-06", "4 ROOM", [500000] * 10),
+    ]:
+        rows += [_resale_row(month, flat_type, p) for p in prices]
+    _disable_resale_bigquery(monkeypatch)
+    monkeypatch.setattr(housing, "_fetch_hdb_resale_rows", lambda: rows)
+    monkeypatch.setattr(housing, "_cache_synced_at", lambda cache: "23 Jul 2026")
+
+    stats = housing.compute_hdb_resale_stats()
+    fts = stats["flat_types"]
+    # Ordered as a size ladder, not by price or txn count.
+    assert [f["flat_type"] for f in fts] == ["3 Room", "4 Room", "5 Room"]
+    four_room = next(f for f in fts if f["flat_type"] == "4 Room")
+    assert four_room["median_price"] == 525000
+    assert four_room["transaction_count"] == 10
+    assert four_room["yoy_pct"] == 5.0
+
+
+def test_flat_type_yoy_none_when_no_prior_year(monkeypatch):
+    """A flat type present this month but absent a year ago gets a median but yoy_pct=None,
+    not a crash."""
+    rows = [_resale_row("2026-06", "2 ROOM", p) for p in [310000] * 4]
+    _disable_resale_bigquery(monkeypatch)
+    monkeypatch.setattr(housing, "_fetch_hdb_resale_rows", lambda: rows)
+    monkeypatch.setattr(housing, "_cache_synced_at", lambda cache: "23 Jul 2026")
+
+    stats = housing.compute_hdb_resale_stats()
+    two_room = next(f for f in stats["flat_types"] if f["flat_type"] == "2 Room")
+    assert two_room["median_price"] == 310000
+    assert two_room["yoy_pct"] is None
+
+
 # ── HDB resale: priciest-town thin-sample caveat ────────────────────────────────────────────
 
 def _town(name, price, txns):

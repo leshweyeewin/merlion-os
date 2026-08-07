@@ -1776,6 +1776,26 @@ function initSgHub() {
 
         const banner = syncBanner(resale.data_status || { synced_at: resale.synced_at, is_live: true });
 
+        const flatTypes = resale.flat_types || [];
+        const maxFtPrice = Math.max(...flatTypes.map(f => f.median_price), 1);
+        const flatTypeRows = flatTypes.map(f => {
+            const yoy = f.yoy_pct;
+            const yoyCol = yoy == null ? 'var(--text-muted)' : (yoy >= 0 ? '#c0392b' : '#1a7f3c');
+            const yoyStr = yoy == null ? '' : `${yoy >= 0 ? '▲' : '▼'} ${yoy >= 0 ? '+' : ''}${yoy.toFixed(1)}%`;
+            return `
+            <div style="display:flex; align-items:center; gap:10px; padding: 6px 0; border-bottom: 1px solid var(--border);">
+                <div style="flex: 1; min-width:0; font-size:13px; font-weight:600; color: var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(f.flat_type)}</div>
+                <div style="width:100px; flex-shrink:0;">
+                    <div style="background: var(--bg-panel); border-radius:4px; height:7px; overflow:hidden;">
+                        <div style="width:${(f.median_price / maxFtPrice) * 100}%; background: var(--primary); height:100%; border-radius:4px;"></div>
+                    </div>
+                </div>
+                <div style="width:90px; flex-shrink:0; text-align:right; font-size:13px; font-weight:700; color: var(--text-main);">S$${f.median_price.toLocaleString()}</div>
+                <div style="width:66px; flex-shrink:0; text-align:right; font-size:10px; font-weight:700; color: ${yoyCol};">${yoyStr}</div>
+                <div style="width:60px; flex-shrink:0; text-align:right; font-size:10px; color: var(--text-muted);">${f.transaction_count.toLocaleString()} txns</div>
+            </div>`;
+        }).join('');
+
         const towns = resale.towns || [];
         const maxPrice = Math.max(...towns.map(t => t.median_price), 1);
         const townRows = towns.map(t => `
@@ -1810,6 +1830,11 @@ function initSgHub() {
                 </div>
             </div>
 
+
+            <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">🏡 Median Resale Price by Flat Type</div>
+            <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; margin-bottom: 18px;">
+                ${flatTypeRows || '<p style="color: var(--text-subtle); margin:0;">No flat-type data available.</p>'}
+            </div>
 
             <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">🗺️ Median Resale Price by Town</div>
             <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; max-height: 340px; overflow-y: auto;">
