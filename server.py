@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import json
 import logging
 import functools
 from collections import defaultdict, deque
@@ -105,6 +106,9 @@ from tools import (
     ToolLog,
     ChatResponse
 )
+from tools import alerts as _alerts
+from tools import telegram_bot as _telegram_bot
+from tools.alert_delivery import dispatch as _alert_dispatch, webpush_enabled, telegram_enabled
 
 from contextlib import asynccontextmanager
 
@@ -159,6 +163,26 @@ async def lifespan(app: FastAPI):
     threading.Thread(target=_warm, daemon=True, name="ows-prewarm").start()
     threading.Thread(target=_warm_kb, daemon=True, name="kb-prewarm").start()
     threading.Thread(target=_warm_hdb, daemon=True, name="hdb-prewarm").start()
+
+    # Watchlist alert engine: sweep every ALERTS_INTERVAL_SECONDS (default 5 min), firing user
+    # alerts on threshold crossings and dispatching to their Web Push / Telegram channels. Reuses
+    # the same cached upstream payloads the panels serve, so it adds no extra source load. Disabled
+    # by ALERTS_ENABLED=false. Daemon thread — dies with the process, survives sweep errors.
+    if os.environ.get("ALERTS_ENABLED", "true").lower() != "false":
+        _alert_interval = int(os.environ.get("ALERTS_INTERVAL_SECONDS", "300"))
+        threading.Thread(
+            target=_alerts.run_evaluator_loop,
+            kwargs={"interval_seconds": _alert_interval, "dispatch": _alert_dispatch},
+            daemon=True, name="alerts-evaluator",
+        ).start()
+
+        # Telegram bot: in polling mode (default) a daemon thread long-polls getUpdates so pairing
+        # works locally with no public URL. In webhook mode the /telegram/webhook route handles it
+        # instead, so we don't start the poller (the two are mutually exclusive on Telegram's side).
+        if telegram_enabled() and os.environ.get("TELEGRAM_MODE", "polling").lower() == "polling":
+            threading.Thread(
+                target=_telegram_bot.run_polling_loop, daemon=True, name="telegram-poller",
+            ).start()
     yield
 
 # Initialize FastAPI app
@@ -851,6 +875,116 @@ class NoCacheStaticFiles(StaticFiles):
 
 # Explicit routes are matched before the catch-all static mount below, so this alias serves
 # clients that request /favicon.ico directly instead of honouring the <link rel="icon"> tag.
+# ── Watchlists & Alerts ────────────────────────────────────────────────────────────────────────
+# A browser-generated client_id (localStorage UUID) is the identity — there are no accounts. All
+# writes are scoped to the caller's client_id, so one browser can only see/change its own watches.
+
+@app.get("/api/alerts/config")
+async def get_alerts_config():
+    """Static-ish config the frontend needs to render the alerts UI: the available watch types and
+    which push channels are wired on this deployment (so the UI hides what it can't offer)."""
+    return {
+        "watch_types": [{"key": k, "label": v["label"]} for k, v in _alerts.WATCH_TYPES.items()],
+        "channels": {
+            "webpush": webpush_enabled(),
+            "telegram": telegram_enabled(),
+            "vapid_public_key": os.environ.get("VAPID_PUBLIC_KEY", ""),
+            "telegram_bot": os.environ.get("TELEGRAM_BOT_USERNAME", ""),
+        },
+    }
+
+
+@app.post("/api/alerts")
+async def create_alert(request: Request):
+    body = await request.json()
+    try:
+        sub = _alerts.create_subscription(
+            body.get("client_id", ""), body.get("watch_type", ""), body.get("params") or {})
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"subscription": sub}
+
+
+@app.get("/api/alerts")
+async def list_alerts(client_id: str):
+    try:
+        subs = _alerts.list_subscriptions(client_id)
+        notifs = _alerts.list_notifications(client_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    unread = sum(1 for n in notifs if n["read_at"] is None)
+    return {"subscriptions": subs, "notifications": notifs, "unread_count": unread}
+
+
+@app.delete("/api/alerts/{sub_id}")
+async def delete_alert(sub_id: str, client_id: str):
+    try:
+        ok = _alerts.delete_subscription(client_id, sub_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not ok:
+        raise HTTPException(status_code=404, detail="subscription not found")
+    return {"deleted": sub_id}
+
+
+@app.post("/api/alerts/read")
+async def mark_alerts_read(request: Request):
+    body = await request.json()
+    try:
+        n = _alerts.mark_notifications_read(body.get("client_id", ""))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"marked_read": n}
+
+
+@app.post("/api/alerts/channels/webpush")
+async def add_webpush_channel(request: Request):
+    """Store a browser's Web Push subscription so alerts can be pushed to it. The `subscription` is
+    the object returned by the browser's PushManager.subscribe()."""
+    body = await request.json()
+    subscription = body.get("subscription")
+    if not isinstance(subscription, dict) or not subscription.get("endpoint"):
+        raise HTTPException(status_code=400, detail="a valid push subscription object is required")
+    try:
+        _alerts.add_channel(body.get("client_id", ""), "webpush", json.dumps(subscription))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"ok": True}
+
+
+@app.post("/api/alerts/telegram/pair")
+async def pair_telegram(request: Request):
+    """Issue a short code the user sends to the Telegram bot to link their chat to this browser."""
+    if not telegram_enabled():
+        raise HTTPException(status_code=503, detail="Telegram alerts are not configured on this server")
+    body = await request.json()
+    try:
+        code = _alerts.issue_pairing_code(body.get("client_id", ""))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"code": code, "bot": os.environ.get("TELEGRAM_BOT_USERNAME", "")}
+
+
+@app.post("/api/alerts/telegram/webhook")
+async def telegram_webhook(request: Request):
+    """Receives Telegram updates when the bot runs in webhook mode (TELEGRAM_MODE=webhook, used on
+    Render). Register it with scripts/telegram_setup.py. If TELEGRAM_WEBHOOK_SECRET is set, Telegram
+    echoes it in a header on every call and we reject anything without a match — this is the only
+    thing standing between the public endpoint and a forged update, so a secret is strongly advised.
+    Always returns 200 quickly (a non-200 makes Telegram retry the same update)."""
+    secret = os.environ.get("TELEGRAM_WEBHOOK_SECRET")
+    if secret and request.headers.get("X-Telegram-Bot-Api-Secret-Token") != secret:
+        raise HTTPException(status_code=403, detail="bad webhook secret")
+    try:
+        update = await request.json()
+        _telegram_bot.handle_update(update)
+    except Exception as e:
+        # Swallow — never make Telegram retry a poison update; the handler already logs.
+        logging.getLogger("merlion-os-alerts").warning(
+            f"[alerts] telegram webhook error: {type(e).__name__}: {e}")
+    return {"ok": True}
+
+
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     from fastapi.responses import FileResponse

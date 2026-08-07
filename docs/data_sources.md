@@ -24,3 +24,21 @@ The scrapers above all **degrade silently** — if a source changes its HTML/JSO
 - **BigQuery health + staleness** — for each of the 3 loaded tables (`sg_housing.hdb_resale_prices`, `sg_employment.job_vacancy_by_industry`, `sg_employment.occupational_wages`) it verifies the table exists, has a sane row count, and — reading `MAX(period)` straight from the table — how many months/years behind "today" the freshest loaded period is. Past each dataset's lag tolerance it flags **"a newer edition is likely out — re-run the loader"**, the actionable "new data available" signal.
 
 On any failure or staleness warning the workflow opens (or refreshes) a single labelled `data-monitor` GitHub issue with the full report, and auto-closes it once a later run is all-green. No external service and no new secrets — it reuses the `GCP_SA_KEY` the deploy already uses and the built-in `GITHUB_TOKEN`.
+
+## 🔔 Watchlists & alerts
+
+The **My Alerts** tab (in the SG Hub) lets a visitor subscribe to a threshold on any signal the dashboard already tracks and be notified only when it crosses — turning the dashboard from something you check into something that reaches out. Backed by [`tools/alerts.py`](../tools/alerts.py) (SQLite store + evaluator) and [`tools/alert_delivery.py`](../tools/alert_delivery.py) (delivery adapters).
+
+| Watch type | Fires when | Source (reused, cached) |
+|---|---|---|
+| **COE premium** | a category's premium goes below/above your threshold | `compute_coe_bidding_stats()` |
+| **PSI / air quality** | national PSI crosses your threshold | `fetch_weather_data()` |
+| **MRT line** | LTA reports a disruption on your line | `fetch_lta_train_alerts()` |
+| **HDB resale** | your town's median moves ±X% from when you subscribed | `compute_hdb_resale_stats()` |
+| **BTO launch** | a launch appears in your town | HDB newsroom scrape |
+| **IRAS deadline** | a filing deadline falls within N days | `fetch_iras_due_dates()` |
+
+- **One evaluator, three channels.** A daemon thread sweeps every ~5 min (`ALERTS_INTERVAL_SECONDS`), reusing the same memoised payloads the panels serve (so it adds no upstream load), records an in-app notification, and fans out to the user's linked **Web Push** and **Telegram** channels. **State-based dedupe** means a standing condition (PSI stuck above 100) fires once, not every sweep.
+- **No accounts.** Identity is a browser-generated `client_id` in localStorage; every request is scoped to it. Telegram binds to the same id via a 6-digit **pairing code**; Web Push binds a `PushManager` subscription.
+- **Telegram bot (two modes, one handler).** The bot (`tools/telegram_bot.py`) links a chat when the user sends the pairing code (or taps the `t.me/<bot>?start=<code>` deep link). It runs either by **long-polling** (`TELEGRAM_MODE=polling`, the default — a daemon thread, no public URL, ideal for local dev) or by **webhook** (`TELEGRAM_MODE=webhook` + `POST /api/alerts/telegram/webhook`, for a public HTTPS host like Render; register it with `py -3 scripts/telegram_setup.py set <url>` and authenticate it with `TELEGRAM_WEBHOOK_SECRET`). Commands: `/start [code]`, a bare 6-digit code, `/stop` (unlink), `/help`.
+- **Config (all optional, graceful when absent):** `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`/`VAPID_SUBJECT` for Web Push (generate with `py -3 scripts/gen_vapid_keys.py`), `TELEGRAM_BOT_TOKEN`/`TELEGRAM_BOT_USERNAME` (+ `TELEGRAM_MODE`, `TELEGRAM_WEBHOOK_SECRET`) for Telegram. Without them the in-app feed still works; the extra channels simply stay hidden/disabled. Storage path is `$ALERTS_DB_PATH` (default `data/alerts.db`; attach a Render persistent disk to survive redeploys).

@@ -2219,6 +2219,22 @@ body {
     border-color: var(--primary) !important;
 }
 
+/* Unread-count pill on the "My Alerts" sub-tab. */
+.alerts-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: #c0392b;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+}
+
 .hub-sub-pane {
     margin-top: 10px;
 }

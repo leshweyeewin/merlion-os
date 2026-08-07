@@ -561,6 +561,12 @@ function initSgHub() {
     }
 
     async function loadSgHubPaneData(paneId) {
+        // My Alerts is an interactive, self-managing pane (js/alerts.js) — re-render it fresh on
+        // every visit so new notifications show, rather than caching it like the read-only panes.
+        if (paneId === "hub-alerts-pane") {
+            if (window.MerlionAlerts) window.MerlionAlerts.load();
+            return;
+        }
         if (loadedSgHubPanes[paneId] || loadingSgHubPanes[paneId]) return;
 
         let endpoint = "";

@@ -16,7 +16,7 @@
     <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Style Sheet -->
-    <link rel="stylesheet" href="style.css?v=insight26">
+    <link rel="stylesheet" href="style.css?v=insight27">
     <!-- Leaflet JS & CSS for Interactive Maps -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
@@ -1901,6 +1901,9 @@
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-env-pane">
                         <i class="fa-solid fa-cloud-sun"></i> Weather &amp; PSI
                     </button>
+                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-alerts-pane">
+                        <i class="fa-solid fa-bell"></i> My Alerts <span id="alerts-tab-badge" class="alerts-badge hidden">0</span>
+                    </button>
                 </div>
 
                 <!-- Sub-panes -->
@@ -2214,6 +2217,13 @@
                             <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading environment
                                 advisories...</p>
                         </div>
+                    </div>
+                </div>
+
+                <!-- My Alerts Pane — watchlists & notifications (rendered by js/alerts.js) -->
+                <div class="hub-sub-pane hidden" id="hub-alerts-pane">
+                    <div id="hub-alerts-content">
+                        <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading your alerts…</p>
                     </div>
                 </div>
 
@@ -2718,7 +2728,8 @@
     <script src="js/persona.js?v=insight20"></script>
     <script src="js/portals.js?v=insight25"></script>
     <script src="js/chat.js?v=insight21"></script>
-    <script src="js/hub.js?v=insight31"></script>
+    <script src="js/hub.js?v=insight32"></script>
+    <script src="js/alerts.js?v=insight2"></script>
 </body>
 
 </html>
