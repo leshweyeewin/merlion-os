@@ -1,0 +1,87 @@
+name: Data source monitor
+
+# Watches the things that break silently: the live .gov.sg scrapers (HDB / ICA / IRAS) and the 3
+# BigQuery datasets. scripts/healthcheck.py re-runs each scraper from a GitHub-runner IP (WAF-
+# allowed, same as refresh-seeds) and structurally validates the result, then checks each BigQuery
+# table exists, is populated, and isn't behind its source. On any FAIL/WARN it exits non-zero and
+# we open (or refresh) a single labelled tracking issue with the full report — no external service,
+# no extra secrets beyond the GCP_SA_KEY the deploy already uses.
+
+on:
+  schedule:
+    # 01:30 UTC daily = 09:30 SGT. Scrapers can break any day; the BigQuery staleness check is a
+    # cheap couple of queries. Widen/narrow freely — this is idempotent and dedupes its own issue.
+    - cron: "30 1 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write   # open/update the alert issue via the built-in GITHUB_TOKEN
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        # Scrapers need requests + bs4 + openpyxl; the BigQuery health check needs the BQ client.
+        run: pip install requests beautifulsoup4 openpyxl google-cloud-bigquery
+
+      - name: Authenticate to Google Cloud (for BigQuery checks)
+        # Same secret the deploy workflow uses. continue-on-error so a missing/expired key doesn't
+        # abort the whole monitor — the healthcheck just SKIPs the BigQuery checks (it never hard-
+        # fails on missing creds) and still validates all the scrapers.
+        continue-on-error: true
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Run health check
+        id: health
+        env:
+          GCP_PROJECT_ID: gen-lang-client-0985772581
+        # Don't let a non-zero exit abort the job — we still want to file the report below.
+        run: |
+          set +e
+          python scripts/healthcheck.py
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Open or update alert issue on failure
+        if: steps.health.outputs.exit_code != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # De-dupe on the `data-monitor` label: if an open alert issue already exists, add the fresh
+        # report as a comment; otherwise open a new one. Keeps one rolling issue instead of a new
+        # one every day.
+        run: |
+          set -euo pipefail
+          TITLE="🔴 Data monitor: a source or dataset needs attention"
+          EXISTING=$(gh issue list --state open --label data-monitor --json number --jq '.[0].number' || echo "")
+          # Ensure the label exists (ignore error if it already does).
+          gh label create data-monitor --color B60205 --description "Automated data-source/dataset health alerts" 2>/dev/null || true
+          if [ -n "$EXISTING" ]; then
+            echo "Updating existing issue #$EXISTING"
+            gh issue comment "$EXISTING" --body-file healthcheck_report.md
+          else
+            echo "Opening new alert issue"
+            gh issue create --title "$TITLE" --label data-monitor --body-file healthcheck_report.md
+          fi
+
+      - name: Auto-close alert issue when everything is healthy again
+        if: steps.health.outputs.exit_code == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # A clean run closes any open alert issue with a note, so the label going quiet means "all
+        # green" and you're not left manually closing resolved alerts.
+        run: |
+          set -euo pipefail
+          EXISTING=$(gh issue list --state open --label data-monitor --json number --jq '.[0].number' || echo "")
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "✅ All data-monitor checks passed on the latest run ($(date -u '+%Y-%m-%d %H:%M UTC')). Closing."
+            gh issue close "$EXISTING"
+          fi
