@@ -23,14 +23,28 @@ FALLBACK_MODEL = os.environ.get("GEMINI_FALLBACK_MODEL", "gemini-3.1-flash-lite"
 
 IMAGE_MIME_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
 
+# PDF uploads are handled by a different path from images: rather than sending the bytes to the
+# vision channel, we extract the text layer and REDACT personal identifiers before the model sees
+# anything (see redact_uploaded_pdf). Official docs (NOA, CPF statements, HDB letters) always carry
+# the citizen's NRIC, so blocking-on-PII would make them un-uploadable — redaction is what makes a
+# Document Copilot usable while keeping identifiers off the LLM.
+PDF_MIME_TYPES = frozenset({"application/pdf"})
+MAX_PDF_BYTES = 10 * 1024 * 1024   # 10 MB decoded — cost/DoS guard
+MAX_PDF_PAGES = 20
+_MIN_PDF_TEXT_CHARS = 12           # below this, treat as a scanned/image-only PDF (no text layer)
+
 # ── PII regex patterns ────────────────────────────────────────────────────────
 _NRIC  = re.compile(r"\b[STFGM]\d{7}[A-Z]\b", re.IGNORECASE)
+# Singapore passport: a letter (E/K on current booklets) + 7 digits + a checksum letter. Kept
+# disjoint from the NRIC prefixes (S/T/F/G/M) so the two never shadow each other.
+_PASSPORT = re.compile(r"\b[EK]\d{7}[A-Z]\b")
 _EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 _PHONE = re.compile(r"\b(?:\+?65)?[ -]?[689]\d{3}[ -]?\d{4}\b")
 _CC    = re.compile(r"\b(?:\d[ -]*?){13,19}\b")
 
 # Public aliases for tests that import these names directly
 NRIC_PATTERN        = _NRIC
+PASSPORT_PATTERN    = _PASSPORT
 EMAIL_PATTERN       = _EMAIL
 PHONE_PATTERN       = _PHONE
 CREDIT_CARD_PATTERN = _CC
@@ -61,10 +75,11 @@ def _luhn_valid(candidate: str) -> bool:
 # false positives. Tax figures like "72,765.00" never match at all (the decimal
 # point breaks the digit run). None ⇒ every regex match counts.
 _PII_DETECTORS = [
-    ("NRIC/FIN detected",     _NRIC,  None),
-    ("Email detected",        _EMAIL, None),
-    ("Phone number detected", _PHONE, None),
-    ("Credit card detected",  _CC,    _luhn_valid),
+    ("NRIC/FIN detected",     _NRIC,     None),
+    ("Passport number detected", _PASSPORT, None),
+    ("Email detected",        _EMAIL,    None),
+    ("Phone number detected", _PHONE,    None),
+    ("Credit card detected",  _CC,       _luhn_valid),
 ]
 
 # Only block credential-sharing phrases related to authentication.
@@ -278,3 +293,76 @@ def scan_uploaded_image(base64_data: str, mime_type: str) -> tuple[bool, list[st
         return False, [f"Personal identifier detected in image: {', '.join(found)}"]
 
     return True, []
+
+
+# ── Layer 2 (PDF): extract text → redact identifiers, so the LLM never sees them ──────────────────
+def extract_pdf_text(base64_data: str) -> str:
+    """Extract the embedded text layer from a base64-encoded PDF.
+
+    Raises ValueError if the PDF can't be decoded/opened, is encrypted, exceeds MAX_PDF_PAGES, or
+    has no extractable text (a scanned/image-only PDF). Callers treat any ValueError as a
+    fail-closed *block* — we never forward a document we couldn't actually read and scan.
+    """
+    from pypdf import PdfReader  # lazy import: keeps module import cheap and resilient if absent
+
+    try:
+        raw = base64.b64decode(base64_data)
+    except Exception as err:
+        raise ValueError(f"Could not decode the PDF upload ({type(err).__name__}).")
+    try:
+        reader = PdfReader(io.BytesIO(raw))
+        if reader.is_encrypted:
+            # Try an empty owner password (common for "protected" gov PDFs); block if it won't open.
+            if reader.decrypt("") == 0:
+                raise ValueError("The PDF is password-protected — remove the password and retry.")
+        pages = reader.pages
+    except ValueError:
+        raise
+    except Exception as err:
+        raise ValueError(f"Could not open the PDF ({type(err).__name__}).")
+
+    if len(pages) > MAX_PDF_PAGES:
+        raise ValueError(f"The PDF has too many pages (limit {MAX_PDF_PAGES}).")
+
+    chunks = []
+    for page in pages:
+        try:
+            chunks.append(page.extract_text() or "")
+        except Exception:            # one unreadable page shouldn't sink the whole doc
+            chunks.append("")
+    text = "\n".join(chunks).strip()
+
+    if len(text) < _MIN_PDF_TEXT_CHARS:
+        raise ValueError("No readable text found — this looks like a scanned image PDF. "
+                         "Upload it as a JPEG/PNG photo instead.")
+    return text
+
+
+def redact_uploaded_pdf(base64_data: str, mime_type: str) -> tuple[bool, str, list[str]]:
+    """Extract a PDF's text and redact personal identifiers BEFORE any content reaches the LLM.
+
+    Returns ``(ok, redacted_text, findings)``:
+      * ``ok=False`` → reject the upload (wrong type, too large, unreadable, or scanned/no text
+        layer). ``redacted_text`` is ``""`` and ``findings`` holds a single human-readable reason.
+      * ``ok=True``  → ``redacted_text`` is safe to send to the model; ``findings`` lists the
+        identifier classes that were masked (empty when the document carried none).
+
+    Fail-closed by design: anything we cannot extract and scan is rejected, never forwarded raw.
+    Dollar amounts (assessable income, grant sums) are deliberately preserved — they're the whole
+    reason someone uploads an NOA — while NRIC/FIN/passport/phone/email/card numbers are masked.
+    """
+    if mime_type not in PDF_MIME_TYPES:
+        return False, "", [f"Unsupported upload type: {mime_type}"]
+
+    approx_bytes = len(base64_data) * 3 // 4   # estimate decoded size without paying to decode
+    if approx_bytes > MAX_PDF_BYTES:
+        return False, "", [f"The PDF is larger than the {MAX_PDF_BYTES // (1024 * 1024)}MB limit."]
+
+    try:
+        text = extract_pdf_text(base64_data)
+    except ValueError as err:
+        logger.warning("PDF upload rejected: %s", err)
+        return False, "", [str(err)]
+
+    _found, redacted, findings = scan_and_redact_pii(text)
+    return True, redacted, findings

@@ -58,21 +58,26 @@ Personal identifiers are stopped **before any bytes reach the LLM**. Detection i
 
 ```mermaid
 flowchart LR
-    In["📥 Prompt + optional image"] --> L1{"① Regex scan"}
+    In["📥 Prompt + optional image / PDF"] --> L1{"① Regex scan"}
     L1 -->|hit| B1["⛔ Block (400)"]
-    L1 -->|clean| L2{"② Image OCR"}
-    L2 -->|hit| B2["⛔ Block (400)"]
-    L2 -->|OCR error| FO["⚠️ Fail-open"]
-    L2 -->|clean| L3{"③ AI gate · opt-in"}
+    L1 -->|clean| T{"② upload type?"}
+    T -->|image| OCR{"OCR scan"}
+    T -->|PDF| RX["extract text → redact IDs"]
+    T -->|none| L3
+    OCR -->|hit| B2["⛔ Block (400)"]
+    OCR -->|error| FO["⚠️ Fail-open"]
+    OCR -->|clean| L3{"③ AI gate · opt-in"}
+    RX -->|no text layer| B4["⛔ Fail-closed"]
+    RX -->|redacted text| L3
+    FO --> L3
     L3 -->|UNSAFE / error| B3["⛔ Fail-closed"]
     L3 -->|SAFE / fast-path| OK["✅ Forward to Gemini"]
-    FO --> OK
 ```
 
 **Why this is a good design**
 - **Defense-in-depth, not one regex.** Layer 1 catches the concrete Singapore formats before data leaves the server; Layer 2 extends the *same* rules to uploaded screenshots via OCR; Layer 3 adds optional semantic coverage for paraphrased attempts regex can't see.
-- **Block, don't redact.** For a government assistant, refusing to process is safer and more defensible than masking-and-forwarding, which risks partial leaks and lulls users into oversharing.
-- **Deliberately opposite fail postures.** OCR failure **fails open** (a legit NOA upload shouldn't be blocked by a Tesseract hiccup — the model's own vision safety still applies); the auth/credential AI gate **fails closed** (a missed credential-share is dangerous). The direction is a decision, documented in code.
+- **Block image bytes; redact PDF text.** Images reach the vision channel as raw bytes you can't reliably scrub, so a detected identifier **blocks** the upload. PDFs are handled differently: the text layer is extracted server-side, personal identifiers are **deterministically redacted to `[REDACTED]`**, and only that cleaned text — never the file — is forwarded. Redaction is used precisely where we control exactly what's sent *and* blocking would defeat the feature: every official NOA / CPF statement / HDB letter carries the citizen's NRIC, so block-don't-redact would make real documents un-uploadable. Dollar figures (assessable income, grant sums) are preserved so the document stays worth analysing.
+- **Deliberately opposite fail postures.** Image OCR failure **fails open** (a legit NOA photo shouldn't be blocked by a Tesseract hiccup — the model's own vision safety still applies); a PDF with no extractable text (a scan) **fails closed** — we won't forward a document we couldn't read and redact, and point the user to image upload instead; the auth/credential AI gate **fails closed** too. Each direction is a decision, documented in code.
 - **Luhn-gated card detection.** The card regex intentionally over-matches any 13–19 digit run, then a Luhn checksum rejects false positives (order IDs, reference numbers) while still catching real PANs.
 - **Cheap by default.** A local `is_obviously_safe` fast-path + result cache means everyday conversational queries never pay for an AI call — and the AI gate ships **off** (see note below).
 
@@ -108,7 +113,7 @@ flowchart LR
 **🤖 AI & Agentic Core**
 * **Primary Engine (Gemini 2.5 Flash):** The default high-speed reasoning core powering the agent.
 * **Multi-Hop Reasoning:** The Co-Pilot orchestrates multi-turn reasoning loops—querying APIs, analyzing results, and deciding next steps before synthesizing a final answer.
-* **Multimodal Vision:** Reads an uploaded photo of a government notice/letter or a screenshot of a public gov page via Gemini's vision channel — surfacing the required action, deadline, and eligibility, and cross-referencing statutory caps. By policy it refuses to extract NRIC/FIN/passport numbers, prompting the user to redact identifiers first (the same privacy stance as the PII fast-path).
+* **Multimodal Vision:** Reads an uploaded photo of a government notice/letter or a screenshot of a public gov page via Gemini's vision channel — surfacing the required action, deadline, and eligibility, and cross-referencing statutory caps. For **images**, by policy it refuses to extract NRIC/FIN/passport numbers, prompting the user to redact identifiers first. **PDF documents** (an IRAS NOA, CPF statement or HDB letter) can be uploaded directly: their text layer is extracted and personal identifiers are auto-redacted to `[REDACTED]` server-side before anything reaches the model, so a real statement is usable without exposing an NRIC (dollar figures are kept), with a per-upload receipt of what was masked.
 * **RAG Civic Knowledge Base:** Uses `gemini-embedding-001` and pure-Python cosine similarity over a **100+ entry** curated civic corpus (spanning CPF, IRAS, HDB, MOM, MOH, MOE, LTA, ICA, NEA and benefits schemes) to accurately ground open-ended policy questions. Retrieval quality is measured by a golden-set test.
 * **SSE Streaming:** Delivers real-time, token-by-token streaming responses with a dynamic typing cursor.
 
@@ -130,7 +135,7 @@ flowchart LR
 * **Personal watchlists & alerts:** Subscribe to a threshold on any signal the dashboard already tracks — a COE premium drop, an MRT disruption on your line, your HDB town's resale median moving, an approaching IRAS deadline — and get notified only when it crosses. A single in-app evaluator (reusing the same cached data the panels serve) fires with state-based dedupe and fans out to an in-app feed, browser Web Push, and Telegram. No accounts: identity is a per-browser id.
 * **Scam checker:** Paste a suspicious SMS / message / URL and get a heuristic risk verdict — it flags impersonated government/bank domains (a message claiming to be DBS but linking to a non-`dbs.com.sg` site), URL shorteners, lookalike/punycode domains, pressure tactics and credential/OTP asks, and cross-references recent `@scamshieldalert` advisories. Deterministic and offline in the engine; available in-app and via the Telegram bot (forward it a message). Trusts real `*.gov.sg` links so it doesn't cry wolf on genuine agency messages.
 * **Benefits Finder:** A short profile (citizenship, age, income, home Annual Value, employment, new-child) → the government schemes you're likely eligible for — GST Voucher, CDC Vouchers, Workfare, Baby Bonus, SkillsFuture, the Enhanced CPF Housing Grant — with indicative amounts, a "money left on the table" headline total, and official links. Deterministic/offline eligibility engine framed as informational (dated to published rules, not an official determination).
-* **Robust CI/CD:** Guarded by a **361-test suite (355 Python, 6 JS)** — including a live golden-set retrieval-quality gate that auto-skips without an API key — plus pyflakes linting, a daily GitHub Action that monitors every live scraper, BigQuery dataset, **and hand-maintained policy figure (benefit amounts, property stamp-duty / grant rates, CPF Retirement Sums, life-event journey steps — all of which drift at each Budget)** for silent breakage or staleness — opening/refreshing a single assigned, emailed GitHub issue on any failure — and an hourly Action that refreshes fallback data seeds.
+* **Robust CI/CD:** Guarded by a **370-test suite (364 Python, 6 JS)** — including a live golden-set retrieval-quality gate that auto-skips without an API key — plus pyflakes linting, a daily GitHub Action that monitors every live scraper, BigQuery dataset, **and hand-maintained policy figure (benefit amounts, property stamp-duty / grant rates, CPF Retirement Sums, life-event journey steps — all of which drift at each Budget)** for silent breakage or staleness — opening/refreshing a single assigned, emailed GitHub issue on any failure — and an hourly Action that refreshes fallback data seeds.
 
 ---
 
@@ -169,7 +174,7 @@ python server.py
 Open **`http://127.0.0.1:8000/`** in your browser.
 
 ### 3. Run Tests
-Ensure dependencies are installed, then run the lint gate and the python/javascript test suites (355 Python + 6 JavaScript tests):
+Ensure dependencies are installed, then run the lint gate and the python/javascript test suites (364 Python + 6 JavaScript tests):
 ```bash
 pip install -r requirements-dev.txt
 pyflakes server.py tools mcp_server.py tests

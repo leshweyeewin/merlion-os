@@ -16,6 +16,9 @@ from google.genai import types, errors as genai_errors
 from tools.security import (
     scan_pii,
     scan_uploaded_image,
+    IMAGE_MIME_TYPES,
+    PDF_MIME_TYPES,
+    MAX_PDF_BYTES,
     is_obviously_safe,
     get_cached_safety,
     set_cached_safety,
@@ -328,9 +331,19 @@ async def enforce_chat_guardrails(user_prompt: str, file=None) -> None:
         raise HTTPException(status_code=400, detail=SECURITY_FILTER_DETAIL)
 
     if file:
-        is_safe, img_findings = scan_uploaded_image(file.base64, file.mime_type)
-        if not is_safe:
-            logger.warning("Image upload blocked: %s", img_findings)
+        if file.mime_type in IMAGE_MIME_TYPES:
+            is_safe, img_findings = scan_uploaded_image(file.base64, file.mime_type)
+            if not is_safe:
+                logger.warning("Image upload blocked: %s", img_findings)
+                raise HTTPException(status_code=400, detail=SECURITY_FILTER_DETAIL)
+        elif file.mime_type in PDF_MIME_TYPES:
+            # PDFs are text-extracted and PII-redacted downstream (tools/chat._build_contents),
+            # so we don't block on identifiers here — only cap the size to guard cost/DoS.
+            if len(file.base64) * 3 // 4 > MAX_PDF_BYTES:
+                raise HTTPException(status_code=400,
+                                    detail=f"Uploaded PDF exceeds the {MAX_PDF_BYTES // (1024 * 1024)}MB limit.")
+        else:
+            logger.warning("Unsupported upload type blocked: %s", file.mime_type)
             raise HTTPException(status_code=400, detail=SECURITY_FILTER_DETAIL)
 
     # AI safety classifier is OFF by default — Presidio + heuristics (Layer 1 & 2) handle PII.

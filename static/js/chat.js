@@ -647,20 +647,25 @@ document.addEventListener("DOMContentLoaded", () => {
             const file = chatFileInput.files[0];
             if (!file) return;
 
-            // 1. Define strict validation rules
-            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-            const maxSizeBytes = 5 * 1024 * 1024; // 5MB limit
+            // 1. Define strict validation rules. PDFs are accepted: the server extracts their
+            //    text and auto-redacts personal identifiers (NRIC/FIN/passport/phone/email) before
+            //    anything reaches the AI. PDFs get a higher size cap than images.
+            const isPdf = file.type === 'application/pdf';
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+            const maxSizeBytes = isPdf ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
 
-            // 2. Validate File Type (Blocks PDFs and raw docs)
+            // 2. Validate File Type
             if (!allowedTypes.includes(file.type)) {
-                alert("🚨 Document formats (like PDFs) are not allowed. Please upload an image (.jpg, .png, .webp) instead.");
+                alert("🚨 Unsupported file. Please upload an image (.jpg, .png, .webp) or a PDF document.");
                 chatFileInput.value = ''; // Reset the input field
                 return; // Terminate execution immediately
             }
 
             // 3. Validate File Size
             if (file.size > maxSizeBytes) {
-                alert("⚠️ File is too large. Please upload an image smaller than 5MB to prevent processing large document sets.");
+                alert(isPdf
+                    ? "⚠️ PDF is too large. Please upload a document smaller than 10MB."
+                    : "⚠️ Image is too large. Please upload one smaller than 5MB.");
                 chatFileInput.value = ''; // Reset the input field
                 return; // Terminate execution immediately
             }

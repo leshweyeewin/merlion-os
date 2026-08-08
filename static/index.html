@@ -2793,14 +2793,14 @@
                         </div>
                         <div class="input-wrapper">
                             <button type="button" class="chat-file-btn" id="chat-file-btn"
-                                title="Upload image only (Do NOT upload official CPF/IRAS statements)"
+                                title="Upload an image or PDF (NRIC/passport & other personal IDs are auto-redacted before analysis)"
                                 style="background:transparent; border:none; color:var(--text-muted); padding:0 12px; cursor:pointer; font-size:16px; transition:color 0.2s;">
                                 <i class="fa-solid fa-paperclip"></i>
                             </button>
 
-                            <!-- REMOVED application/pdf AND ADDED MAX FILE SIZE HINT -->
+                            <!-- Images go to the vision channel; PDFs are text-extracted and PII-redacted server-side -->
                             <input type="file" id="chat-file-input" style="display:none;"
-                                accept="image/jpeg,image/png,image/webp">
+                                accept="image/jpeg,image/png,image/webp,application/pdf">
                             <input type="text" id="user-input" placeholder="Type query or paste gov.sg URL..." required
                                 autocomplete="off" aria-label="User query">
                             <button type="submit" class="send-btn" aria-label="Send message">
@@ -2870,7 +2870,7 @@
     <script src="js/charts.js?v=insight29"></script>
     <script src="js/persona.js?v=insight20"></script>
     <script src="js/portals.js?v=insight25"></script>
-    <script src="js/chat.js?v=insight21"></script>
+    <script src="js/chat.js?v=insight22"></script>
     <script src="js/hub.js?v=insight37"></script>
     <script src="js/alerts.js?v=insight2"></script>
     <script src="js/scam.js?v=insight1"></script>

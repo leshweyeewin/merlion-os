@@ -13,7 +13,9 @@ from pydantic import BaseModel
 from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types
-from tools.security import PRIMARY_MODEL, FALLBACK_MODEL, IMAGE_MIME_TYPES
+from tools.security import (
+    PRIMARY_MODEL, FALLBACK_MODEL, IMAGE_MIME_TYPES, PDF_MIME_TYPES, redact_uploaded_pdf,
+)
 import base64
 
 # Import tools
@@ -255,7 +257,10 @@ def _make_system_instruction(persona: "PersonaContext | None", language: str | N
 
 def _build_contents(history: list, user_prompt: str, file: UploadedFile | None) -> list:
     """Builds the Gemini `contents` list shared by both the buffered and streaming chat
-    loops: prior turns, then the current user turn (text + optional decoded file bytes)."""
+    loops: prior turns, then the current user turn (text + optional image bytes or redacted PDF
+    text). Returns ``(contents, upload_notice)`` where ``upload_notice`` is a short human-readable
+    string describing what happened to an uploaded PDF (what was redacted, or why it was blocked),
+    or ``None`` when there's nothing to report."""
     contents = []
     for msg in history:
         contents.append(
@@ -266,18 +271,12 @@ def _build_contents(history: list, user_prompt: str, file: UploadedFile | None) 
         )
 
     user_parts = []
+    upload_notice = None
     if file:
-        # Defence-in-depth: the route-level enforce_chat_guardrails() already ran
-        # scan_uploaded_image() and would have returned 400 before we get here.
-        # We do a lightweight guard — MIME type only — to catch any future caller
-        # that bypasses the route (e.g. a new endpoint or test helper), without
-        # paying the cost of a second full OCR pass on the same bytes.
-        if file.mime_type not in IMAGE_MIME_TYPES:
-            logger.warning("[PII GUARDRAIL] Unsupported MIME type in _build_contents: %s", file.mime_type)
-            user_parts.append(types.Part.from_text(
-                text="🔒 **UPLOAD BLOCKED:** Unsupported file type — only JPEG, PNG, and WebP images are accepted."
-            ))
-        else:
+        # Images go to the vision channel as bytes (route-level scan_uploaded_image already gated
+        # PII). PDFs take a different path: their text is extracted and personal identifiers are
+        # redacted server-side, so the bytes — and any NRIC on the page — never reach the model.
+        if file.mime_type in IMAGE_MIME_TYPES:
             try:
                 file_bytes = base64.b64decode(file.base64)
                 blob = types.Blob(mime_type=file.mime_type, data=file_bytes)
@@ -288,11 +287,38 @@ def _build_contents(history: list, user_prompt: str, file: UploadedFile | None) 
                 user_parts.append(types.Part.from_text(
                     text="🔒 **UPLOAD BLOCKED:** This attachment could not be processed and was not sent for analysis."
                 ))
+        elif file.mime_type in PDF_MIME_TYPES:
+            ok, redacted_text, findings = redact_uploaded_pdf(file.base64, file.mime_type)
+            if ok:
+                header = (
+                    "DOCUMENT CONTENT (uploaded PDF — personal identifiers such as NRIC/FIN, "
+                    "passport, phone and email were automatically redacted to [REDACTED] before you "
+                    "received it). Treat [REDACTED] as expected, never ask the citizen to supply "
+                    "those identifiers, and cross-reference the figures against the relevant "
+                    "statutory tool:\n\n"
+                )
+                user_parts.append(types.Part.from_text(text=header + redacted_text))
+                if findings:
+                    upload_notice = "🔒 Auto-redacted before analysis: " + ", ".join(sorted(set(findings))) + "."
+                else:
+                    upload_notice = "Document text extracted; no personal identifiers detected."
+            else:
+                reason = findings[0] if findings else "The PDF could not be processed."
+                upload_notice = f"⚠️ PDF not processed — {reason}"
+                user_parts.append(types.Part.from_text(
+                    text=f"🔒 **UPLOAD BLOCKED:** {reason} For a scanned or photographed document, "
+                         "upload it as a JPEG/PNG image instead."
+                ))
+        else:
+            logger.warning("[PII GUARDRAIL] Unsupported MIME type in _build_contents: %s", file.mime_type)
+            user_parts.append(types.Part.from_text(
+                text="🔒 **UPLOAD BLOCKED:** Unsupported file type — only JPEG, PNG, WebP images and PDF documents are accepted."
+            ))
 
     default_doc_prompt = "Analyze this uploaded document and call the appropriate statutory tool (such as query_iras_tax_and_cpf_ledgers, query_hdb_bto_launches_and_grants, or search_knowledge_base) to cross-reference official rules, tax brackets, statutory caps, and deadlines."
     user_parts.append(types.Part.from_text(text=user_prompt or default_doc_prompt))
     contents.append(types.Content(role="user", parts=user_parts))
-    return contents
+    return contents, upload_notice
 
 
 def _execute_tool_call(tool_name: str, args: dict) -> str:
@@ -358,7 +384,11 @@ async def run_chat_loop(user_prompt: str, history: list, file: UploadedFile | No
                         elderly_mode: bool | None = None) -> tuple[str, list, list]:
     available_tools = list(TOOL_MAP.values())
     logs = []
-    contents = _build_contents(history, user_prompt, file)
+    contents, upload_notice = _build_contents(history, user_prompt, file)
+    if upload_notice:
+        logs.append({"tool": "document_intake",
+                     "arguments": {"mime_type": file.mime_type if file else None},
+                     "result": upload_notice})
     system_instruction = _make_system_instruction(persona, language, elderly_mode)
 
     try:
@@ -485,18 +515,26 @@ async def run_chat_stream(user_prompt: str, history: list, file: UploadedFile | 
     synthesis response is streamed token-by-token via generate_content_stream.
     """
     available_tools = list(TOOL_MAP.values())
-    contents = _build_contents(history, user_prompt, file)
+    contents, upload_notice = _build_contents(history, user_prompt, file)
     system_instruction = _make_system_instruction(persona, language, elderly_mode)
     _tool_citation_seen: set = set()  # per-request dedup for RAG source URLs
 
     try:
         if file:
-            fname = file.filename or "uploaded_document.pdf"
-            yield _sse_log(
-                "multimodal_vision_processor",
-                {"filename": fname, "mime_type": file.mime_type},
-                f"Successfully decoded base64 payload ({len(file.base64)} chars) into Gemini 2.5 Flash vision channel."
-            )
+            fname = file.filename or "uploaded_document"
+            if file.mime_type in PDF_MIME_TYPES:
+                # PDFs are text-extracted and redacted, not sent to the vision channel.
+                yield _sse_log(
+                    "document_intake",
+                    {"filename": fname, "mime_type": file.mime_type},
+                    upload_notice or "Processed uploaded PDF."
+                )
+            else:
+                yield _sse_log(
+                    "multimodal_vision_processor",
+                    {"filename": fname, "mime_type": file.mime_type},
+                    f"Successfully decoded base64 payload ({len(file.base64)} chars) into Gemini 2.5 Flash vision channel."
+                )
 
         current_contents = list(contents)
         for hop in range(3):
