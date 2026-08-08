@@ -409,6 +409,10 @@ document.addEventListener("DOMContentLoaded", () => {
             const activePersona = getActivePersona();
             if (activePersona) reqBody.persona = activePersona;
 
+            // Add language and elderly mode properties
+            reqBody.language = window.currentLanguage || "en";
+            reqBody.elderly_mode = !!window.elderlyModeActive;
+
             const response = await fetch("/api/chat/stream", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -696,6 +700,262 @@ document.addEventListener("DOMContentLoaded", () => {
             clearActiveUpload();
         });
     }
+
+    // ── Document Copilot Canvas Simulation Generators ──
+    function generateSimulatedDocument(type) {
+        const canvas = document.createElement("canvas");
+        canvas.width = 500;
+        canvas.height = 650;
+        const ctx = canvas.getContext("2d");
+
+        // Background
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Border
+        ctx.strokeStyle = "#cccccc";
+        ctx.lineWidth = 4;
+        ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+
+        // Header decoration
+        ctx.fillStyle = "#1a73e8";
+        ctx.fillRect(4, 4, canvas.width - 8, 12);
+
+        // Draw text helper
+        function drawText(text, x, y, font = "14px Arial", color = "#333333", align = "left") {
+            ctx.font = font;
+            ctx.fillStyle = color;
+            ctx.textAlign = align;
+            ctx.fillText(text, x, y);
+        }
+
+        function drawLine(y) {
+            ctx.strokeStyle = "#e0e0e0";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(20, y);
+            ctx.lineTo(canvas.width - 20, y);
+            ctx.stroke();
+        }
+
+        if (type === "noa") {
+            // IRAS logo/header
+            drawText("INLAND REVENUE AUTHORITY OF SINGAPORE", 250, 45, "bold 15px Arial", "#1a73e8", "center");
+            drawText("Official Tax Notice — Year of Assessment 2026", 250, 65, "italic 11px Arial", "#666666", "center");
+            drawLine(80);
+
+            // Document Title
+            drawText("NOTICE OF ASSESSMENT", 20, 110, "bold 18px Arial", "#111111");
+            drawText("Original", 480, 110, "bold 12px Arial", "#1a73e8", "right");
+
+            // Taxpayer Info
+            drawText("Taxpayer Name: TAN KENG LIANG", 20, 145, "bold 13px Arial");
+            drawText("Taxpayer ID: SXXXX765A (Masked PII)", 20, 165, "13px Arial", "#555555");
+            drawText("Date: 15 April 2026", 480, 145, "13px Arial", "#555555", "right");
+            drawLine(185);
+
+            // Financial Summary Table
+            drawText("TAXABLE INCOME DETAILS", 20, 215, "bold 14px Arial", "#1a73e8");
+            
+            drawText("1. Employment Income", 20, 245, "13px Arial");
+            drawText("$85,000.00", 480, 245, "bold 13px Arial", "#111111", "right");
+
+            drawText("2. Personal Reliefs Claimed", 20, 275, "13px Arial");
+            drawText("$1,000.00", 480, 275, "bold 13px Arial", "#111111", "right");
+            drawText("   - Earned Income Relief ($1,000.00)", 20, 292, "11px Arial", "#666666");
+
+            drawLine(310);
+
+            // Chargeable Income
+            drawText("CHARGEABLE INCOME", 20, 335, "bold 14px Arial", "#111111");
+            drawText("$84,000.00", 480, 335, "bold 15px Arial", "#111111", "right");
+            drawLine(355);
+
+            // Calculation
+            drawText("Tax on first $80,000.00", 20, 385, "12px Arial", "#555555");
+            drawText("$3,350.00", 480, 385, "12px Arial", "#555555", "right");
+
+            drawText("Tax on balance $4,000.00 @ 11.5%", 20, 410, "12px Arial", "#555555");
+            drawText("$460.00", 480, 410, "12px Arial", "#555555", "right");
+
+            drawLine(435);
+
+            // Final Tax Payable
+            drawText("NET TAX PAYABLE (DUE IN 30 DAYS)", 20, 465, "bold 14px Arial", "#1a73e8");
+            drawText("$3,810.00", 480, 465, "bold 18px Arial", "#1a73e8", "right");
+
+            drawLine(500);
+
+            // Footer note
+            drawText("Note: CPF Cash Top-ups / SRS Relief claimed: NIL ($0.00)", 250, 530, "bold 12px Arial", "#d93025", "center");
+            drawText("To optimize next year's tax progressive brackets,", 250, 555, "12px Arial", "#555555", "center");
+            drawText("consider contributing to your CPF Special Account or SRS account.", 250, 575, "12px Arial", "#555555", "center");
+            drawText("IRAS Inland Revenue Singapore • iras.gov.sg", 250, 615, "bold 11px Arial", "#999999", "center");
+
+        } else if (type === "cpf") {
+            // CPF logo/header
+            drawText("CENTRAL PROVIDENT FUND BOARD", 250, 45, "bold 15px Arial", "#1a73e8", "center");
+            drawText("Singapore Member Contribution Statement", 250, 65, "italic 11px Arial", "#666666", "center");
+            drawLine(80);
+
+            // Document Title
+            drawText("CPF CONTRIBUTION STATEMENT", 20, 110, "bold 16px Arial", "#111111");
+            drawText("June 2026", 480, 110, "bold 13px Arial", "#1a73e8", "right");
+
+            // Member Info
+            drawText("Member Name: TAN KENG LIANG", 20, 145, "bold 13px Arial");
+            drawText("Employer: TECHNOVATION PTE. LTD.", 20, 165, "13px Arial", "#555555");
+            drawLine(185);
+
+            // Details Table
+            drawText("CONTRIBUTIONS BREAKDOWN", 20, 215, "bold 14px Arial", "#1a73e8");
+
+            drawText("Ordinary Wages for Month", 20, 245, "13px Arial");
+            drawText("$5,000.00", 480, 245, "bold 13px Arial", "#111111", "right");
+
+            drawText("Member CPF Contribution (20%)", 20, 275, "13px Arial");
+            drawText("$1,000.00", 480, 275, "bold 13px Arial", "#111111", "right");
+
+            drawText("Employer CPF Contribution (17%)", 20, 305, "13px Arial");
+            drawText("$850.00", 480, 305, "bold 13px Arial", "#111111", "right");
+
+            drawLine(335);
+
+            drawText("TOTAL MONTHLY CONTRIBUTION", 20, 365, "bold 14px Arial", "#111111");
+            drawText("$1,850.00", 480, 365, "bold 16px Arial", "#111111", "right");
+
+            drawLine(400);
+
+            // Allocations
+            drawText("ALLOCATIONS TO MEMBER ACCOUNTS", 20, 430, "bold 13px Arial", "#1a73e8");
+
+            drawText("Ordinary Account (OA) — 62.16%", 20, 460, "12px Arial");
+            drawText("$1,150.00", 480, 460, "bold 12px Arial", "#111111", "right");
+
+            drawText("Special Account (SA) — 16.22%", 20, 485, "12px Arial");
+            drawText("$300.00", 480, 485, "bold 12px Arial", "#111111", "right");
+
+            drawText("MediSave Account (MA) — 21.62%", 20, 510, "12px Arial");
+            drawText("$400.00", 480, 510, "bold 12px Arial", "#111111", "right");
+
+            drawLine(545);
+            drawText("Statutory Rate Check: OK (Employer 17%, Employee 20%)", 250, 580, "bold 12px Arial", "#1a7f3c", "center");
+            drawText("Central Provident Fund Board Singapore • cpf.gov.sg", 250, 615, "bold 11px Arial", "#999999", "center");
+
+        } else if (type === "payslip") {
+            // Payslip header
+            drawText("TECHNOVATION PTE. LTD.", 250, 45, "bold 15px Arial", "#333333", "center");
+            drawText("12 Marina Boulevard, Marina Bay Financial Centre, Singapore", 250, 62, "italic 10px Arial", "#777777", "center");
+            drawLine(80);
+
+            // Document Title
+            drawText("PAYSLIP FOR THE MONTH OF JUNE 2026", 250, 110, "bold 14px Arial", "#111111", "center");
+            drawLine(125);
+
+            // Employee Details
+            drawText("Employee Name: TAN KENG LIANG", 20, 150, "bold 12px Arial");
+            drawText("Designation: Software Engineer", 20, 170, "12px Arial", "#555555");
+            drawText("Payment Method: Bank Transfer", 480, 150, "12px Arial", "#555555", "right");
+            drawText("Bank Account: DBS *******1234", 480, 170, "12px Arial", "#555555", "right");
+            drawLine(195);
+
+            // Income / Deductions Table
+            drawText("EARNINGS", 20, 225, "bold 13px Arial", "#1a73e8");
+            drawText("DEDUCTIONS", 280, 225, "bold 13px Arial", "#ea4335");
+            drawLine(235);
+
+            // Row 1
+            drawText("Basic Salary", 20, 260, "12px Arial");
+            drawText("$5,000.00", 220, 260, "12px Arial", "#111111", "right");
+
+            drawText("Employee CPF (20%)", 280, 260, "12px Arial");
+            drawText("$1,000.00", 480, 260, "12px Arial", "#111111", "right");
+
+            // Row 2
+            drawText("Transport Allowance", 20, 285, "12px Arial");
+            drawText("$200.00", 220, 285, "12px Arial", "#111111", "right");
+
+            drawText("Tax/Other Deductions", 280, 285, "12px Arial");
+            drawText("$0.00", 480, 285, "12px Arial", "#111111", "right");
+
+            // Row 3
+            drawText("Performance Bonus", 20, 310, "12px Arial");
+            drawText("$300.00", 220, 310, "12px Arial", "#111111", "right");
+
+            drawLine(335);
+
+            // Totals
+            drawText("Total Earnings:", 20, 360, "bold 12px Arial");
+            drawText("$5,500.00", 220, 360, "bold 12px Arial", "#111111", "right");
+
+            drawText("Total Deductions:", 280, 360, "bold 12px Arial");
+            drawText("$1,000.00", 480, 360, "bold 12px Arial", "#111111", "right");
+
+            drawLine(390);
+
+            // Net pay
+            drawText("NET PAY DISBURSED:", 20, 430, "bold 15px Arial", "#1a73e8");
+            drawText("$4,500.00", 480, 430, "bold 18px Arial", "#1a73e8", "right");
+
+            drawLine(470);
+
+            // Employer CPF Detail
+            drawText("Employer's Contribution CPF Detail:", 20, 500, "italic 12px Arial", "#666666");
+            drawText("Technovation Pte. Ltd. has paid 17% ($850.00) Employer CPF for this period.", 20, 520, "12px Arial", "#333333");
+
+            drawLine(560);
+            drawText("This is a computer-generated payslip. No signature is required.", 250, 595, "italic 10px Arial", "#888888", "center");
+            drawText("Technovation Pte Ltd • MBFC Tower, Singapore", 250, 615, "bold 10px Arial", "#999999", "center");
+        }
+
+        return canvas.toDataURL("image/png");
+    }
+
+    function triggerDocumentSimulation(type) {
+        const dataUrl = generateSimulatedDocument(type);
+        const base64 = dataUrl.split(",")[1];
+        const filenames = {
+            noa: "iras-noa-ya2026-simulated.png",
+            cpf: "cpf-statement-simulated.png",
+            payslip: "payslip-june2026-simulated.png"
+        };
+        const prompts = {
+            noa: "Explain my Notice of Assessment and check if my reliefs are optimal.",
+            cpf: "Explain my CPF statement and check if employer/employee contributions are correct.",
+            payslip: "Analyse my payslip and let me know if there are any flags."
+        };
+
+        activeUpload = {
+            base64: base64,
+            mime_type: "image/png",
+            filename: filenames[type]
+        };
+
+        if (previewFilename && uploadPreview) {
+            previewFilename.textContent = filenames[type];
+            uploadPreview.classList.remove("hidden");
+        }
+        if (userInput) {
+            userInput.value = prompts[type];
+            userInput.required = false;
+        }
+
+        // Trigger submit
+        const form = document.getElementById("chat-form");
+        if (form) {
+            setTimeout(() => {
+                form.dispatchEvent(new Event("submit"));
+            }, 300);
+        }
+    }
+
+    const simNoaBtn = document.getElementById("sim-noa-btn");
+    const simCpfBtn = document.getElementById("sim-cpf-btn");
+    const simPayslipBtn = document.getElementById("sim-payslip-btn");
+
+    if (simNoaBtn) simNoaBtn.addEventListener("click", () => triggerDocumentSimulation("noa"));
+    if (simCpfBtn) simCpfBtn.addEventListener("click", () => triggerDocumentSimulation("cpf"));
+    if (simPayslipBtn) simPayslipBtn.addEventListener("click", () => triggerDocumentSimulation("payslip"));
 });
 
 

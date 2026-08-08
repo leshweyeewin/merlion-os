@@ -38,6 +38,34 @@
                 </div>
             </div>
             <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <!-- Elderly Mode Toggle Switch -->
+                <div class="accessibility-toggle-wrap">
+                    <i class="fa-solid fa-text-height"></i>
+                    <span data-translate="elderly-mode-label">Elderly Mode</span>
+                    <label class="switch">
+                        <input type="checkbox" class="elderly-mode-toggle" id="elderly-mode-toggle-hdr" aria-label="Toggle Elderly Mode">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <!-- Language Dropdown Selector -->
+                <div class="lang-select-wrap" style="position: relative;">
+                    <button type="button" class="lang-select-btn" id="lang-select-btn" aria-haspopup="listbox"
+                        aria-expanded="false"
+                        title="Switch Language">
+                        <i class="fa-solid fa-globe"></i>
+                        <span class="current-lang-text">English</span>
+                        <i class="fa-solid fa-chevron-down persona-caret" aria-hidden="true"></i>
+                    </button>
+                    <div class="lang-menu hidden" id="lang-menu" role="listbox" aria-label="Languages"
+                        style="right: 0; left: auto;">
+                        <button type="button" class="lang-menu-item" data-lang="en">English</button>
+                        <button type="button" class="lang-menu-item" data-lang="zh">中文</button>
+                        <button type="button" class="lang-menu-item" data-lang="ms">Melayu</button>
+                        <button type="button" class="lang-menu-item" data-lang="ta">தமிழ்</button>
+                    </div>
+                </div>
+
                 <div class="persona-select-wrap" style="position: relative;">
                     <button type="button" class="persona-select-btn" id="persona-select-btn" aria-haspopup="listbox"
                         aria-expanded="false"
@@ -59,17 +87,20 @@
         <!-- Services Directory Grid Main Content -->
         <main class="app-directory">
             <div class="directory-header" style="margin-bottom: 20px;">
-                <h2>Singapore Government Digital Services Portal</h2>
-                <p>Access statutory directories and live data.gov.sg metrics in a unified dashboard.</p>
+                <h2 data-translate="app-title">Singapore Government Digital Services Portal</h2>
+                <p data-translate="app-subtitle">Access statutory directories and live data.gov.sg metrics in a unified dashboard.</p>
             </div>
 
             <!-- Main Web App Tab Switcher -->
             <div class="main-tabs">
                 <button class="main-tab-btn active-main-tab" id="main-tab-portals-btn" data-main-tab="portals-pane">
-                    <i class="fa-solid fa-folder-open"></i> SG Portals
+                    <i class="fa-solid fa-folder-open"></i> <span data-translate="tab-portals">SG Portals</span>
                 </button>
                 <button class="main-tab-btn" id="main-tab-hub-btn" data-main-tab="hub-pane">
-                    <i class="fa-solid fa-earth-asia"></i> SG Hub
+                    <i class="fa-solid fa-earth-asia"></i> <span data-translate="tab-hub">SG Hub</span>
+                </button>
+                <button class="main-tab-btn" id="main-tab-whatsapp-btn" data-main-tab="whatsapp-pane">
+                    <i class="fa-brands fa-whatsapp"></i> <span data-translate="tab-whatsapp">WhatsApp Simulator</span>
                 </button>
             </div>
 
@@ -2562,6 +2593,47 @@
                             </p>
                         </div>
                     </div>
+            <!-- WhatsApp Simulator Pane -->
+            <div id="whatsapp-pane" class="main-pane hidden">
+                <div class="wa-container">
+                    <!-- WhatsApp Header -->
+                    <div class="wa-header">
+                        <div class="wa-bot-profile">
+                            <div class="wa-avatar">
+                                <i class="fa-solid fa-robot"></i>
+                            </div>
+                            <div class="wa-bot-info">
+                                <span class="wa-bot-name">MerlionOS Bot</span>
+                                <span class="wa-bot-status online">online</span>
+                            </div>
+                        </div>
+                        <div style="font-size: 13px; color: #8696a0;">
+                            <span id="wa-phone-number-display" style="font-weight: 700;">+65 9123 4567</span>
+                        </div>
+                    </div>
+
+                    <!-- Command Pill Box -->
+                    <div class="wa-command-pill-box">
+                        <button type="button" class="wa-command-pill" data-command="start">/start</button>
+                        <button type="button" class="wa-command-pill" data-command="pair"><i class="fa-solid fa-key"></i> Link Alerts Code</button>
+                        <button type="button" class="wa-command-pill" data-command="scam"><i class="fa-solid fa-shield-halved"></i> Heuristic Scam Check</button>
+                        <button type="button" class="wa-command-pill" data-command="help">/help</button>
+                    </div>
+
+                    <!-- Chat Messages Area -->
+                    <div class="wa-chat-area" id="wa-chat-messages">
+                        <!-- Simulated messages dynamically rendered by whatsapp.js -->
+                    </div>
+
+                    <!-- Input Box Footer -->
+                    <form class="wa-input-area" id="wa-input-form">
+                        <div class="wa-input-wrapper">
+                            <input type="text" id="wa-user-input" placeholder="Type a message or command (e.g. /help)..." autocomplete="off" required>
+                        </div>
+                        <button type="submit" class="wa-send-btn" id="wa-send-btn" aria-label="Send WhatsApp message">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </form>
                 </div>
             </div>
         </main>
@@ -2689,6 +2761,26 @@
                         </button>
                     </div>
 
+                    <!-- Document Copilot Simulator section -->
+                    <div class="doc-simulation-card">
+                        <h4 style="margin:0 0 4px 0; font-size:13px; color:var(--text-main); font-weight:700;" data-translate="document-copilot-title">Document Copilot</h4>
+                        <p style="margin:0 0 10px 0; font-size:11.5px; color:var(--text-muted); line-height:1.3;" data-translate="document-copilot-desc">Generate and upload simulated mock documents to test the multimodal vision and policy advice engines.</p>
+                        <div class="doc-sim-buttons">
+                            <button type="button" class="doc-sim-btn" id="sim-noa-btn">
+                                <i class="fa-solid fa-file-invoice-dollar" style="color: #ea4335;"></i>
+                                <span data-translate="sim-noa">Simulate IRAS Notice of Assessment (NOA)</span>
+                            </button>
+                            <button type="button" class="doc-sim-btn" id="sim-cpf-btn">
+                                <i class="fa-solid fa-file-shield" style="color: #34a853;"></i>
+                                <span data-translate="sim-cpf">Simulate CPF Statement</span>
+                            </button>
+                            <button type="button" class="doc-sim-btn" id="sim-payslip-btn">
+                                <i class="fa-solid fa-file-invoice" style="color: #4285f4;"></i>
+                                <span data-translate="sim-payslip">Simulate monthly payslip</span>
+                            </button>
+                        </div>
+                    </div>
+
                     <form class="input-form" id="chat-form">
                         <div class="upload-preview hidden" id="upload-preview"
                             style="display:flex; align-items:center; gap:8px; margin-bottom:8px; padding:6px 12px; background:var(--bg-muted); border:1px solid var(--border); border-radius:6px; font-size:12px;">
@@ -2771,6 +2863,7 @@
         }
     </script>
     <!-- Front-end modules (load order = dependency order; all share global scope) -->
+    <script src="js/translations.js"></script>
     <script src="js/utils.js?v=insight13"></script>
     <script src="js/tax.js?v=insight13"></script>
     <script src="js/glossary.js?v=insight25"></script>
@@ -2785,6 +2878,7 @@
     <script src="js/upfront.js?v=insight1"></script>
     <script src="js/cpflife.js?v=insight1"></script>
     <script src="js/journeys.js?v=insight1"></script>
+    <script src="js/whatsapp.js"></script>
 </body>
 
 </html>

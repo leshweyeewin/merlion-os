@@ -78,9 +78,18 @@ def _send_telegram(chat_id: str, title: str, body: str) -> None:
     send_telegram_message(chat_id, f"🔔 *{title}*\n{body}")
 
 
+def _send_whatsapp(client_id: str, title: str, body: str) -> None:
+    try:
+        from tools import alerts as _alerts
+        msg = f"🔔 *{title}*\n{body}"
+        _alerts.add_whatsapp_message(client_id, "bot", msg)
+    except Exception as e:
+        logger.warning(f"[alerts] WhatsApp dispatch failed: {e}")
+
+
 def dispatch(client_id: str, title: str, body: str, channels) -> None:
     """Fan one alert out to the user's linked channels. `channels` is an iterable of rows/dicts with
-    `kind` ('webpush'|'telegram') and `address`."""
+    `kind` ('webpush'|'telegram'|'whatsapp') and `address`."""
     payload = {"title": title, "body": body}
     for ch in channels:
         kind = ch["kind"] if hasattr(ch, "keys") else ch[0]
@@ -89,3 +98,5 @@ def dispatch(client_id: str, title: str, body: str, channels) -> None:
             _send_webpush(address, payload)
         elif kind == "telegram":
             _send_telegram(address, title, body)
+        elif kind == "whatsapp":
+            _send_whatsapp(client_id, title, body)

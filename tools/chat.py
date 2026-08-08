@@ -105,11 +105,15 @@ SYSTEM_INSTRUCTION = (
     "amounts) unless a tool or the knowledge base provides them. "
     "Highlight concrete, actionable requirements (like deadlines, fees, or eligibility criteria) and provide the source URL links.\n\n"
     "MULTIMODAL DOCUMENT ANALYSIS RULE:\n"
-    "When an uploaded document is provided (such as an IRAS Notice of Assessment, CPF Statement, HDB letter, or official government form), "
+    "When an uploaded document is provided (such as an IRAS Notice of Assessment, CPF Statement, payslip, HDB letter, or official government form), "
     "you MUST call the relevant statutory tool (e.g. `query_iras_tax_and_cpf_ledgers` for IRAS tax/CPF documents, "
     "`query_hdb_bto_launches_and_grants` for HDB documents, or `search_knowledge_base` for statutory rules and limits) "
     "to cross-reference official tax brackets, statutory relief caps (such as the S$80,000 relief limit or CPF top-up caps), "
-    "and deadlines alongside your document summary.\n\n"
+    "and deadlines alongside your document summary.\n"
+    "Specifically, perform the following depending on the document type:\n"
+    "- **IRAS Notice of Assessment (NOA)**: Explain the Year of Assessment, Taxable/Assessable Income, and Net Tax Payable. Check if key tax reliefs were claimed (e.g., Earned Income, CPF, SRS). Flag if the citizen didn't claim SRS or CPF Cash top-up reliefs and suggest a specific cash top-up to CPF SA or SRS to save tax in the next cycle, explaining exactly how the deduction reduces their tax bracket.\n"
+    "- **CPF Contribution Statement / Ledger**: Summarize employer/employee contributions and allocations to OA (Ordinary), SA (Special), and MA (MediSave) accounts. Flag if employee/employer contributions match standard statutory rates (typically 17% employer and 20% employee for citizens under 55) and note any mismatches. Suggest SA top-ups under the Retirement Sum Topping-Up (RSTU) scheme to build retirement savings and obtain tax relief.\n"
+    "- **Monthly Payslip**: Break down Basic Salary, Allowances, Overtime, and Deductions (CPF employee contribution). Check that the employee CPF deduction aligns with the standard 20% rate and flag unauthorized/suspicious deductions or missing employer CPF contributions. Recommend saving or topping up surplus income to CPF or SRS.\n\n"
     "AUTH PORTAL SAFETY RULE:\n"
     "Never output a clickable link or raw URL for SingPass, CorpPass, or any login/signin/authentication page, "
     "even the genuine singpass.gov.sg domain. Instead, instruct the citizen to open their own browser and "
@@ -164,6 +168,8 @@ class ChatRequest(BaseModel):
     history: list[ChatMessage] = []
     file: UploadedFile | None = None
     persona: PersonaContext | None = None
+    language: str | None = None
+    elderly_mode: bool | None = None
 
 
 class ToolLog(BaseModel):
@@ -213,6 +219,38 @@ def _persona_instruction(persona: "PersonaContext | None") -> str:
         "why an item applies to them. Do NOT invent additional personal details beyond those listed, and "
         "do not assume eligibility you cannot confirm — point them to the official check where it matters."
     )
+
+
+
+def _make_system_instruction(persona: "PersonaContext | None", language: str | None, elderly_mode: bool | None) -> str:
+    """Builds the comprehensive system instruction list including persona context,
+    target language selection and elderly/accessibility overrides."""
+    instruction = SYSTEM_INSTRUCTION
+    if persona:
+        instruction += _persona_instruction(persona)
+
+    if language:
+        lang_map = {
+            "zh": "Chinese (中文)",
+            "ms": "Malay (Melayu)",
+            "ta": "Tamil (தமிழ்)",
+            "en": "English"
+        }
+        target_lang = lang_map.get(language.lower(), "English")
+        instruction += f"\n\nCRITICAL LANGUAGE REQUIREMENT: You MUST formulate your entire response in {target_lang}. Translate all titles, explanations, bullet points, and advice into {target_lang}. Do NOT reply in English unless the selected language is English."
+
+    if elderly_mode:
+        instruction += (
+            "\n\nACCESSIBILITY REQUIREMENT (ELDERLY MODE ACTIVE):\n"
+            "The citizen is using Elderly/Large-Text Mode. You MUST tailor your output style accordingly:\n"
+            "- Use very simple, warm, clear, and reassuring language. Avoid complex bureaucratic or financial jargon.\n"
+            "- Break down explanations into a clear, numbered list of logical steps. Do not write dense paragraphs.\n"
+            "- Keep sentences short and use plenty of spacing between points.\n"
+            "- Highlight key phone numbers, helpline names, or physical locations where they can get in-person help (e.g. Community Clubs or ServiceSG centres).\n"
+            "- Be extra encouragement-focused and check if they have any trusted family members to assist them if needed."
+        )
+
+    return instruction
 
 
 def _build_contents(history: list, user_prompt: str, file: UploadedFile | None) -> list:
@@ -315,11 +353,13 @@ def _extract_tool_citations(tool_results: list[str], seen_uris: set) -> list:
 
 
 async def run_chat_loop(user_prompt: str, history: list, file: UploadedFile | None = None,
-                        persona: "PersonaContext | None" = None) -> tuple[str, list, list]:
+                        persona: "PersonaContext | None" = None,
+                        language: str | None = None,
+                        elderly_mode: bool | None = None) -> tuple[str, list, list]:
     available_tools = list(TOOL_MAP.values())
     logs = []
     contents = _build_contents(history, user_prompt, file)
-    system_instruction = SYSTEM_INSTRUCTION + _persona_instruction(persona)
+    system_instruction = _make_system_instruction(persona, language, elderly_mode)
 
     try:
         current_contents = list(contents)
@@ -430,21 +470,23 @@ async def run_chat_loop(user_prompt: str, history: list, file: UploadedFile | No
 
 
 async def run_chat_stream(user_prompt: str, history: list, file: UploadedFile | None = None,
-                          persona: "PersonaContext | None" = None):
+                          persona: "PersonaContext | None" = None,
+                          language: str | None = None,
+                          elderly_mode: bool | None = None):
     """Async generator version of run_chat_loop.
 
     Yields SSE-formatted lines:
-      - ``data: {"type":"token","text":"..."}\\n\\n``  — streamed text token
-      - ``data: {"type":"log",...}\\n\\n``             — tool execution log
-      - ``data: {"type":"done"}\\n\\n``                — end-of-stream sentinel
-      - ``data: {"type":"error", "message":"..."}\\n\\n`` — error condition
+      - ``data: {"type":"token","text":"..."}\n\n``  — streamed text token
+      - ``data: {"type":"log",...}\n\n``             — tool execution log
+      - ``data: {"type":"done"}\n\n``                — end-of-stream sentinel
+      - ``data: {"type":"error", "message":"..."}\n\n`` — error condition
 
     Tool calls are resolved first (same logic as run_chat_loop), then the final
     synthesis response is streamed token-by-token via generate_content_stream.
     """
     available_tools = list(TOOL_MAP.values())
     contents = _build_contents(history, user_prompt, file)
-    system_instruction = SYSTEM_INSTRUCTION + _persona_instruction(persona)
+    system_instruction = _make_system_instruction(persona, language, elderly_mode)
     _tool_citation_seen: set = set()  # per-request dedup for RAG source URLs
 
     try:

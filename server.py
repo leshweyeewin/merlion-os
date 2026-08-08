@@ -354,8 +354,18 @@ async def chat_endpoint(request: ChatRequest):
 
     try:
         history_list = [{"role": h.role, "content": h.content} for h in request.history]
+        
+        import inspect
+        sig = inspect.signature(run_chat_loop)
+        kwargs = {}
+        if "language" in sig.parameters:
+            kwargs["language"] = request.language
+        if "elderly_mode" in sig.parameters:
+            kwargs["elderly_mode"] = request.elderly_mode
+
         response_text, logs, citations = await run_chat_loop(
-            user_prompt, history_list, file=request.file, persona=request.persona
+            user_prompt, history_list, file=request.file, persona=request.persona,
+            **kwargs
         )
         return ChatResponse(
             response=response_text,
@@ -399,8 +409,19 @@ async def chat_stream_endpoint(request: ChatRequest):
     # PII guardrail: enforced above; _build_contents() adds defense-in-depth for attachments
     history_list = [{"role": h.role, "content": h.content} for h in request.history]
 
+    import inspect
+    sig = inspect.signature(run_chat_stream)
+    kwargs = {}
+    if "language" in sig.parameters:
+        kwargs["language"] = request.language
+    if "elderly_mode" in sig.parameters:
+        kwargs["elderly_mode"] = request.elderly_mode
+
     return StreamingResponse(
-        run_chat_stream(user_prompt, history_list, file=request.file, persona=request.persona),
+        run_chat_stream(
+            user_prompt, history_list, file=request.file, persona=request.persona,
+            **kwargs
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -1072,6 +1093,145 @@ async def life_events_journey(key: str):
         return _life_events.get_journey(key)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+from pydantic import BaseModel
+
+class WhatsAppMessageRequest(BaseModel):
+    client_id: str
+    message: str
+    phone: str = "+65 9123 4567"
+
+
+@app.get("/api/whatsapp/history")
+async def whatsapp_history(client_id: str):
+    try:
+        from tools import alerts as _alerts
+        return _alerts.list_whatsapp_messages(client_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Error fetching WhatsApp history")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.post("/api/whatsapp/message")
+async def whatsapp_post_message(request: WhatsAppMessageRequest):
+    client_id = request.client_id
+    text = request.message.strip()
+    phone = request.phone.strip()
+
+    if not text:
+        raise HTTPException(status_code=400, detail="Message content cannot be empty")
+
+    try:
+        from tools import alerts as _alerts
+        import re
+
+        # 1. Save user message to database
+        _alerts.add_whatsapp_message(client_id, "user", text)
+
+        bot_reply = ""
+
+        # 2. Process message using bot logic
+        # Case A: 6-digit code
+        if re.match(r"^\d{6}$", text):
+            linked_cid = _alerts.redeem_pairing_code_whatsapp(text, phone)
+            if linked_cid:
+                bot_reply = "✅ WhatsApp Simulator linked! You'll now receive your MerlionOS alerts here. Send /stop anytime to unlink."
+            else:
+                bot_reply = "❌ That code is invalid or expired (codes last 10 min). Generate a new one from My Alerts."
+
+        # Case B: Start / Welcome
+        elif text.lower().startswith("/start") or text.lower().strip() in ("hello", "hi", "hey"):
+            bot_reply = (
+                "👋 *Welcome to MerlionOS WhatsApp Bot*\n\n"
+                "Options:\n"
+                "1) Link Alerts — Send the 6-digit code from *My Alerts* on the website to link this chat.\n"
+                "2) Scam Check — Send `/check <text/link>` to run a heuristic scam scan.\n"
+                "3) General Questions — Type any query (e.g. 'what are HDB grants') to chat with MerlionOS directly."
+            )
+
+        # Case C: Stop
+        elif text.lower().startswith("/stop"):
+            n = _alerts.unlink_whatsapp_chat(phone)
+            if n:
+                bot_reply = "🔕 Unlinked. You won't receive MerlionOS alerts in this WhatsApp chat anymore."
+            else:
+                bot_reply = "This WhatsApp chat wasn't linked to any MerlionOS alerts."
+
+        # Case D: Help
+        elif text.lower().startswith("/help"):
+            bot_reply = (
+                "🟢 *MerlionOS WhatsApp Assistant Help*\n"
+                "• Send the 6-digit pairing code from the Alerts panel to start receiving push alerts here.\n"
+                "• Send `/check <message>` to check a URL or text for scam indicators.\n"
+                "• Send `/stop` to unlink alerts.\n"
+                "• Or simply send your questions about Singapore policies, and I will answer them!"
+            )
+
+        # Case E: Scam check
+        elif text.lower().startswith("/check"):
+            payload = text[len("/check"):].strip()
+            if payload:
+                try:
+                    campaigns = _scam_checker.recent_scam_advisories()
+                    result = _scam_checker.check(payload, campaigns=campaigns)
+                    reasons_str = "\n".join("• " + r for r in result.get("reasons", [])[:3])
+                    advice_str = "\n".join("• " + a for a in result.get("advice", [])[:2])
+                    bot_reply = (
+                        f"🛡️ *Scam Check Results:*\n*{result['label']}*\n\n"
+                        f"*Reasons:*\n{reasons_str}\n\n"
+                        f"*Advice:*\n{advice_str}\n\n"
+                        f"Report/Verify: ScamShield 1799"
+                    )
+                except Exception as e:
+                    bot_reply = f"Error running scam check: {str(e)}"
+            else:
+                bot_reply = "Please send the suspicious message after `/check`, e.g. `/check Win a prize at http://badurl.net`"
+
+        # Case F: general message is scanned for scam links automatically if linkish, or run chat loop
+        else:
+            linkish = re.search(r"(https?://|www\.|\b[a-z0-9-]+\.[a-z]{2,}\b)", text, re.I)
+            if linkish or len(text) > 40:
+                try:
+                    campaigns = _scam_checker.recent_scam_advisories()
+                    chk = _scam_checker.check(text, campaigns=campaigns)
+                    if chk.get("score", 0) >= 0.7:  # High risk scam
+                        reasons_str = "\n".join("• " + r for r in chk.get("reasons", [])[:3])
+                        bot_reply = (
+                            f"🚨 *SCAM ALERT!* I scanned the message you sent:\n"
+                            f"*{chk['label']}*\n\n"
+                            f"*Reasons:*\n{reasons_str}\n\n"
+                            f"Do not tap any links or share credentials!"
+                        )
+                except Exception:
+                    pass
+
+            if not bot_reply:
+                # Retrieve recent chat history for context
+                history_entries = []
+                recent_msgs = _alerts.list_whatsapp_messages(client_id)
+                for m in recent_msgs[-6:-1]:  # exclude the current one we just added
+                    role = "user" if m["sender"] == "user" else "model"
+                    history_entries.append({"role": role, "content": m["message"]})
+
+                # Call run_chat_loop
+                response_text, _, _ = await run_chat_loop(
+                    user_prompt=text,
+                    history=history_entries,
+                    file=None,
+                    persona=None
+                )
+                bot_reply = response_text
+
+        # 3. Save bot response to database
+        _alerts.add_whatsapp_message(client_id, "bot", bot_reply)
+        return {"reply": bot_reply}
+
+    except Exception as e:
+        logger.exception("Error in whatsapp_post_message endpoint")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/favicon.ico", include_in_schema=False)
