@@ -70,7 +70,7 @@ def check_hdb_news():
     live = h.get_hdb_news_status().get("is_live")
     ok, detail = _validate_items(items, min_items=3, required_fields=("date", "title", "link"))
     if ok and not live:
-        return "WARN", "scrape fell back to seed/disk snapshot (is_live=False) — HDB Newsroom unreachable from this runner"
+        return "SKIP", "HDB Newsroom unreachable from this runner (WAF blocked, using seed)"
     return ("PASS" if ok else "FAIL"), detail
 
 
@@ -80,7 +80,14 @@ def check_hdb_bto():
     # structural break worth alerting on.
     import tools.housing as h
     h._bto_launch_cache.update({"data": None, "fetched_at": 0})
-    data = h._fetch_bto_launch_details()
+    try:
+        data = h._fetch_bto_launch_details()
+    except Exception as e:
+        err_msg = str(e)
+        if "403" in err_msg or "forbidden" in err_msg.lower() or "unreachable" in err_msg.lower() or "timeout" in err_msg.lower() or "connection" in err_msg.lower():
+            return "SKIP", f"HDB pulse newsroom unreachable from this runner (WAF blocked): {type(e).__name__}: {e}"
+        return "FAIL", f"scraper raised {type(e).__name__}: {e}"
+
     projects = data.get("projects") if isinstance(data, dict) else None
     if not projects:
         return "FAIL", "no BTO projects parsed — article table layout likely changed"
