@@ -29,8 +29,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        # Scrapers need requests + bs4 + openpyxl; the BigQuery health check needs the BQ client.
-        run: pip install requests beautifulsoup4 openpyxl google-cloud-bigquery
+        run: pip install -r requirements.txt
 
       - name: Authenticate to Google Cloud (for BigQuery checks)
         # Same secret the deploy workflow uses. continue-on-error so a missing/expired key doesn't
