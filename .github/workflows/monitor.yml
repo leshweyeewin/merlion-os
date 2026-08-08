@@ -44,6 +44,7 @@ jobs:
         id: health
         env:
           GCP_PROJECT_ID: gen-lang-client-0985772581
+          HEALTHCHECK_TARGET_URL: https://merlion-os.onrender.com
         # Don't let a non-zero exit abort the job — we still want to file the report below.
         run: |
           set +e

@@ -429,6 +429,73 @@ async def chat_stream_endpoint(request: ChatRequest):
         }
     )
 
+
+@app.get("/api/health")
+async def health_endpoint():
+    """Returns the current status of all scrapers from the perspective of the server.
+    Used by scripts/healthcheck.py to monitor scraper health remotely from the Render deployment.
+    """
+    # 1. HDB News
+    hdb_news_status = get_hdb_news_status()
+
+    # 2. HDB BTO launch tables
+    bto_live = True
+    bto_detail = "OK"
+    try:
+        bto_data = await anyio.to_thread.run_sync(query_hdb_bto_launches_and_grants, "general")
+        if "cached snapshot, live fetch unavailable" in bto_data:
+            bto_live = False
+            bto_detail = "BTO launch fetch fell back to cached snapshot"
+    except Exception as e:
+        bto_live = False
+        bto_detail = f"BTO launch details fetch failed: {type(e).__name__}: {e}"
+
+    # 3. ICA releases
+    ica_status = get_ica_status()
+
+    # 4. IRAS due dates
+    iras_status = get_iras_status()
+
+    # 5. IRAS news
+    iras_news_live = True
+    iras_news_detail = "OK"
+    try:
+        iras_news = await anyio.to_thread.run_sync(scrape_iras_news)
+        if not iras_news:
+            iras_news_live = False
+            iras_news_detail = "Returned empty list or fallback"
+    except Exception as e:
+        iras_news_live = False
+        iras_news_detail = f"IRAS newsroom scrape failed: {type(e).__name__}: {e}"
+
+    scrapers = {
+        "hdb_newsroom": {
+            "status": "PASS" if hdb_news_status.get("is_live") else "WARN",
+            "detail": hdb_news_status.get("note") or "Live fetch active"
+        },
+        "hdb_bto_tables": {
+            "status": "PASS" if bto_live else "FAIL",
+            "detail": bto_detail
+        },
+        "ica_newsroom": {
+            "status": "PASS" if ica_status.get("is_live") else "WARN",
+            "detail": ica_status.get("note") or "Live fetch active"
+        },
+        "iras_due_dates": {
+            "status": "PASS" if iras_status.get("is_live") else "WARN",
+            "detail": iras_status.get("note") or "Live fetch active"
+        },
+        "iras_latest_updates": {
+            "status": "PASS" if iras_news_live else "FAIL",
+            "detail": iras_news_detail
+        }
+    }
+
+    return {
+        "status": "healthy",
+        "scrapers": scrapers
+    }
+
 _weather_cache = {"data": None, "fetched_at": 0}
 _WEATHER_CACHE_TTL_SECONDS = 3 * 60  # NEA's unauthenticated real-time APIs have a tight burst rate limit
 

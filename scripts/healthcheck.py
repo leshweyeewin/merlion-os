@@ -259,10 +259,39 @@ def run_all():
     today = _dt.datetime.now(_dt.timezone.utc).date()
     checks = []
 
+    target_url = os.environ.get("HEALTHCHECK_TARGET_URL")
+    remote_scrapers = {}
+    if target_url:
+        import requests
+        target_url = target_url.rstrip("/")
+        try:
+            r = requests.get(f"{target_url}/api/health", timeout=15)
+            r.raise_for_status()
+            data = r.json()
+            if data.get("status") == "healthy" and "scrapers" in data:
+                remote_scrapers = data["scrapers"]
+                print(f"[healthcheck] Successfully fetched remote scraper health from {target_url}/api/health")
+            else:
+                print(f"[healthcheck] Remote endpoint returned invalid data: {data}")
+        except Exception as e:
+            print(f"[healthcheck] Failed to fetch remote health from {target_url} ({type(e).__name__}: {e}). Falling back to local checks.")
+
     for name, fn in SCRAPER_CHECKS:
         try:
-            status, detail = fn()
-            checks.append(Check(name, status, detail))
+            remote_key = {
+                "HDB Newsroom scrape": "hdb_newsroom",
+                "HDB BTO launch tables": "hdb_bto_tables",
+                "ICA Newsroom feed": "ica_newsroom",
+                "IRAS due-dates scrape": "iras_due_dates",
+                "IRAS latest-updates scrape": "iras_latest_updates"
+            }.get(name)
+
+            if remote_key and remote_key in remote_scrapers:
+                info = remote_scrapers[remote_key]
+                checks.append(Check(name, info["status"], f"[Remote via Render] {info['detail']}"))
+            else:
+                status, detail = fn()
+                checks.append(Check(name, status, detail))
         except Exception as e:
             checks.append(Check(name, "FAIL", f"scraper raised {type(e).__name__}: {e}"))
             traceback.print_exc()
