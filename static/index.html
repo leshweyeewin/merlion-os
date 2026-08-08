@@ -1913,6 +1913,9 @@
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-upfront-pane">
                         <i class="fa-solid fa-house-circle-check"></i> Home Cost
                     </button>
+                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-cpflife-pane">
+                        <i class="fa-solid fa-piggy-bank"></i> CPF LIFE
+                    </button>
                 </div>
 
                 <!-- Sub-panes -->
@@ -2254,6 +2257,13 @@
                 <div class="hub-sub-pane hidden" id="hub-upfront-pane">
                     <div id="hub-upfront-content">
                         <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading home cost calculator…</p>
+                    </div>
+                </div>
+
+                <!-- CPF LIFE Pane — retirement payout projector (rendered by js/cpflife.js) -->
+                <div class="hub-sub-pane hidden" id="hub-cpflife-pane">
+                    <div id="hub-cpflife-content">
+                        <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading CPF LIFE projector…</p>
                     </div>
                 </div>
 
@@ -2758,11 +2768,12 @@
     <script src="js/persona.js?v=insight20"></script>
     <script src="js/portals.js?v=insight25"></script>
     <script src="js/chat.js?v=insight21"></script>
-    <script src="js/hub.js?v=insight35"></script>
+    <script src="js/hub.js?v=insight36"></script>
     <script src="js/alerts.js?v=insight2"></script>
     <script src="js/scam.js?v=insight1"></script>
     <script src="js/benefits.js?v=insight1"></script>
     <script src="js/upfront.js?v=insight1"></script>
+    <script src="js/cpflife.js?v=insight1"></script>
 </body>
 
 </html>

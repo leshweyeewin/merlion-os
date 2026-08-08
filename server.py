@@ -110,6 +110,7 @@ from tools import alerts as _alerts
 from tools import eligibility as _eligibility
 from tools import scam_checker as _scam_checker
 from tools import upfront_cost as _upfront_cost
+from tools import cpf_life as _cpf_life
 from tools import telegram_bot as _telegram_bot
 from tools.alert_delivery import dispatch as _alert_dispatch, webpush_enabled, telegram_enabled
 
@@ -1034,6 +1035,21 @@ async def upfront_cost_estimate(request: Request):
     inputs = body.get("inputs") or body
     try:
         result = _upfront_cost.estimate(inputs)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return result
+
+
+# ── CPF LIFE payout projector ────────────────────────────────────────────────────────────────────
+# Expected Retirement Account savings at 55 → the Retirement Sum tier reached + an indicative monthly
+# CPF LIFE payout range. Deterministic/offline engine; informational, not an official CPF projection.
+
+@app.post("/api/cpf-life/estimate")
+async def cpf_life_estimate(request: Request):
+    body = await request.json()
+    inputs = body.get("inputs") or body
+    try:
+        result = _cpf_life.estimate(inputs)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return result

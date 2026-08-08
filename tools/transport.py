@@ -65,6 +65,50 @@ def _build_coe_trend_insight(keys: list, per_exercise: dict, window: int = 12) -
         parts.append(f"Category {laggard} {verb} ({changes[laggard][0]:+.1f}%).")
     return " ".join(parts)
 
+# Recent-trend thresholds for the bid-timing read: a move of ±this % (over the trend window) is
+# treated as a real direction; anything smaller reads as "flat". Kept deliberately conservative so a
+# one-round wobble doesn't flip the verdict.
+_COE_TIMING_TREND_PCT = 2.0
+_COE_TIMING_WINDOW = 6   # exercises back to measure the recent trend (~3 months at two rounds/month)
+
+
+def compute_coe_bid_timing(series: list, forecast, window: int = _COE_TIMING_WINDOW) -> dict | None:
+    """A deterministic "is now a good time to bid?" read for ONE category, from its own premium
+    series (oldest→newest) plus the linear-regression forecast for the next round. It combines the
+    recent trend (last `window` exercises) with the forecast direction into heating / cooling / flat.
+
+    This is a read on where the *price* is heading — explicitly NOT a recommendation to bid or wait
+    (framing the UI/caller surfaces). Returns None when there isn't enough history to say anything."""
+    vals = [v for v in series if v is not None]
+    if len(vals) < 3 or forecast is None:
+        return None
+    latest = vals[-1]
+    past = vals[-min(len(vals), window)]
+    if latest <= 0 or past <= 0:
+        return None
+    recent_pct = round((latest - past) / past * 100, 1)
+    fwd_pct = round((forecast - latest) / latest * 100, 1)
+    rising = recent_pct >= _COE_TIMING_TREND_PCT
+    falling = recent_pct <= -_COE_TIMING_TREND_PCT
+    fwd_up = fwd_pct >= _COE_TIMING_TREND_PCT
+    fwd_down = fwd_pct <= -_COE_TIMING_TREND_PCT
+
+    if fwd_up and not falling:
+        state, label = "heating", "Premiums trending up — the trend is against waiting"
+    elif fwd_down and not rising:
+        state, label = "cooling", "Premiums easing — the trend favours patience"
+    else:
+        state, label = "flat", "No clear trend either way"
+
+    trend_txt = (f"up {recent_pct:.0f}%" if rising else
+                 f"down {abs(recent_pct):.0f}%" if falling else "roughly flat")
+    fwd_dir = "higher" if fwd_up else "lower" if fwd_down else "flat"
+    n = min(len(vals), window)
+    detail = f"Last {n} rounds {trend_txt}; forecast points {fwd_dir} (~S${forecast:,})."
+    return {"state": state, "label": label, "detail": detail,
+            "recent_pct": recent_pct, "forecast_pct": fwd_pct, "latest": latest, "forecast": forecast}
+
+
 def compute_coe_premium_history(max_exercises: int | None = 48) -> dict:
     """Per-exercise COE premiums for every vehicle category, oldest→newest, derived from the
     same cached dataset the headline cards use. `max_exercises=48` covers ~2 years (two
@@ -96,6 +140,11 @@ def compute_coe_premium_history(max_exercises: int | None = 48) -> dict:
 
     insight = _build_coe_trend_insight(keys, per_exercise)
 
+    # Bid-timing read per category, computed from the historical series (before the forecast point is
+    # appended below) plus that category's forecast. Drops categories without enough history.
+    bid_timing = {c: compute_coe_bid_timing(categories[c], forecasts.get(c)) for c in "ABCDE"}
+    bid_timing = {c: v for c, v in bid_timing.items() if v}
+
     exercises.append("Next R (Forecast)")
     for c in "ABCDE":
         categories[c].append(forecasts.get(c))
@@ -105,6 +154,8 @@ def compute_coe_premium_history(max_exercises: int | None = 48) -> dict:
         "categories": categories,
         "category_labels": _COE_CATEGORY_LABELS,
         "insight": insight,
+        "bid_timing": bid_timing,
+        "bid_timing_note": "A read on where the premium is heading — not advice on whether to bid.",
         "synced_at": _cache_synced_at(_coe_cache),
         "source": f"COE Bidding Results / Prices (data.gov.sg, dataset `{_COE_DATASET_ID}`).",
     }

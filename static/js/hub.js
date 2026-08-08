@@ -579,6 +579,10 @@ function initSgHub() {
             if (window.MerlionUpfront) window.MerlionUpfront.load();
             return;
         }
+        if (paneId === "hub-cpflife-pane") {
+            if (window.MerlionCpfLife) window.MerlionCpfLife.load();
+            return;
+        }
         if (loadedSgHubPanes[paneId] || loadingSgHubPanes[paneId]) return;
 
         let endpoint = "";
@@ -1281,6 +1285,40 @@ function initSgHub() {
 
     }
 
+    // "Should I bid now?" — renders the deterministic per-category bid-timing read from
+    // coeHistory.bid_timing (computed server-side off the premium trend + forecast). Explicitly a
+    // read on where the price is heading, not advice; silent when there's no timing data.
+    function renderCoeBidTiming(coeHistory) {
+        const timing = coeHistory && coeHistory.bid_timing;
+        if (!timing || !Object.keys(timing).length) return '';
+        const labels = (coeHistory && coeHistory.category_labels) || {};
+        const stateStyle = {
+            heating: { color: '#dc2626', icon: '🔴' },
+            cooling: { color: 'var(--success,#1a7f3c)', icon: '🟢' },
+            flat:    { color: 'var(--text-muted)', icon: '⚪' },
+        };
+        const rows = Object.keys(timing).map((c) => {
+            const t = timing[c];
+            const s = stateStyle[t.state] || stateStyle.flat;
+            const desc = labels[c] || labels[`Category ${c}`];
+            const label = desc ? `Cat ${c} · ${desc}` : `Cat ${c}`;
+            return `<div style="padding:7px 0; border-top:1px solid var(--border);">
+                <div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap;">
+                    <span style="font-weight:700; font-size:12px; color:var(--text-main);">${s.icon} ${escapeHTML(label)}</span>
+                    <span style="font-weight:700; font-size:11.5px; color:${s.color};">${escapeHTML(t.label)}</span>
+                </div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">${escapeHTML(t.detail)}</div>
+            </div>`;
+        }).join('');
+        const note = (coeHistory && coeHistory.bid_timing_note) || '';
+        return `
+            <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 4px;">🧭 Should I Bid Now?</div>
+            <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 4px 12px 10px;">
+                ${rows}
+                ${note ? `<div style="font-size:10.5px; color:var(--text-subtle); font-style:italic; margin-top:8px;">${escapeHTML(note)}</div>` : ''}
+            </div>`;
+    }
+
     function renderTransportPane(taxiAvailability, coe, coeHistory) {
         const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
             <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML((coe && coe.synced_at) || getRetrievalTimestamp())}
@@ -1343,6 +1381,7 @@ function initSgHub() {
                         ${coeCategoriesHtml}
                     </div>
                     ${coeHistoryHtml}
+                    ${renderCoeBidTiming(coeHistory)}
                 </div>
             `;
         }
