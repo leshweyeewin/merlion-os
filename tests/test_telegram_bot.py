@@ -16,6 +16,7 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _ROOT)
 
 from tools import alerts  # noqa: E402
+from tools import scam_checker  # noqa: E402
 from tools import telegram_bot  # noqa: E402
 
 CHAT = 55501234
@@ -25,6 +26,8 @@ CHAT = 55501234
 def db(tmp_path, monkeypatch):
     monkeypatch.setattr(alerts, "_DB_PATH", str(tmp_path / "alerts.db"))
     monkeypatch.setattr(alerts, "_db_ready", False)
+    # Scam checks in the bot cross-reference advisories — stub the live fetch so tests stay offline.
+    monkeypatch.setattr(scam_checker, "recent_scam_advisories", lambda: [])
     yield
 
 
@@ -79,8 +82,36 @@ def test_invalid_code_is_rejected(db):
 
 def test_non_code_text_gets_hint(db):
     sent, reply = _capture()
-    telegram_bot.handle_update(_msg("hello there"), reply=reply)
+    telegram_bot.handle_update(_msg("hi"), reply=reply)
     assert "6-digit code" in sent[0][1]
+
+
+def test_pasted_scam_message_is_scanned(db):
+    sent, reply = _capture()
+    telegram_bot.handle_update(
+        _msg("Your DBS account is suspended, verify at http://dbs-secure.xyz/login now"), reply=reply)
+    assert "High risk" in sent[0][1]
+    assert "ScamShield" in sent[0][1]
+
+
+def test_check_command_scans(db):
+    sent, reply = _capture()
+    telegram_bot.handle_update(_msg("/check win a prize now at bit.ly/free-cash reward"), reply=reply)
+    assert any(w in sent[0][1] for w in ("High risk", "Suspicious"))
+
+
+def test_check_command_without_text_prompts(db):
+    sent, reply = _capture()
+    telegram_bot.handle_update(_msg("/check"), reply=reply)
+    assert "after the command" in sent[0][1]
+
+
+def test_six_digit_code_still_pairs_not_scanned(db):
+    # A bare 6-digit code must route to pairing, not the scam scanner.
+    code = alerts.issue_pairing_code("browser-still-pairs-1")
+    sent, reply = _capture()
+    telegram_bot.handle_update(_msg(code), reply=reply)
+    assert "Linked" in sent[0][1]
 
 
 def test_stop_unlinks(db):

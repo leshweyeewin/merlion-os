@@ -30,22 +30,29 @@ import time
 import requests
 
 from tools import alerts
+from tools import scam_checker
 from tools.alert_delivery import send_telegram_message
 
 logger = logging.getLogger("merlion-os-alerts")
 
 _API = "https://api.telegram.org/bot{token}/{method}"
 _CODE_RE = re.compile(r"^\d{6}$")
+# A message worth auto-scanning for scams: contains a link, or is long enough to be a pasted
+# message rather than a greeting.
+_LINKISH_RE = re.compile(r"(https?://|www\.|\b[a-z0-9-]+\.[a-z]{2,}\b)", re.I)
 
 _WELCOME = (
-    "👋 *MerlionOS alerts*\n"
-    "To receive alerts here, open the *My Alerts* tab in MerlionOS, tap *Link Telegram*, "
-    "and send me the 6-digit code it shows.\n\n"
-    "Commands: /stop to unlink, /help for help."
+    "👋 MerlionOS bot\n"
+    "Two things I can do:\n"
+    "1) Alerts — open the My Alerts tab in MerlionOS, tap Link Telegram, and send me the 6-digit "
+    "code it shows.\n"
+    "2) Scam check — forward me a suspicious SMS or link and I'll flag the red flags.\n\n"
+    "Commands: /check <message>, /stop to unlink, /help."
 )
 _HELP = (
-    "*MerlionOS bot*\n"
-    "• Send the 6-digit code from *My Alerts → Link Telegram* to connect this chat.\n"
+    "MerlionOS bot\n"
+    "• Send the 6-digit code from My Alerts → Link Telegram to receive alerts here.\n"
+    "• Forward or paste a suspicious message/link (or use /check <message>) to scan it for scams.\n"
     "• /stop — stop receiving alerts here.\n"
     "• /help — this message."
 )
@@ -56,9 +63,9 @@ def _token() -> str:
 
 
 def send_reply(chat_id, text: str) -> bool:
-    """Reply to a user in a bot chat. Thin wrapper over the delivery sender so tests can patch one
-    seam to capture outgoing messages."""
-    return send_telegram_message(chat_id, text)
+    """Reply to a user in a bot chat. Plain text (no Markdown) so pasted URLs/underscores can't
+    break parsing. Thin wrapper over the delivery sender so tests can patch one seam."""
+    return send_telegram_message(chat_id, text, parse_mode=None)
 
 
 def handle_update(update: dict, reply=None) -> None:
@@ -95,11 +102,26 @@ def handle_update(update: dict, reply=None) -> None:
         reply(chat_id, _HELP)
         return
 
+    if text.startswith("/check"):
+        payload = text[len("/check"):].strip()
+        if payload:
+            _run_scam_check(chat_id, payload, reply)
+        else:
+            reply(chat_id, "Send the suspicious message after the command, e.g.\n"
+                  "/check Your DBS account is locked, verify at http://dbs-secure.xyz")
+        return
+
     if _CODE_RE.match(text):
         _try_pair(chat_id, text, reply)
         return
 
-    reply(chat_id, "I didn't understand that. Send the 6-digit code from *My Alerts*, or /help.")
+    # Not a command or code: if it looks like a pasted message/link, scan it; else nudge.
+    if _LINKISH_RE.search(text) or len(text) > 30:
+        _run_scam_check(chat_id, text, reply)
+        return
+
+    reply(chat_id, "Send the 6-digit code from My Alerts to link this chat, or forward a "
+          "suspicious message/link and I'll scan it. /help for more.")
 
 
 def _try_pair(chat_id, code: str, reply) -> None:
@@ -109,11 +131,39 @@ def _try_pair(chat_id, code: str, reply) -> None:
         return
     client_id = alerts.redeem_pairing_code(code, str(chat_id))
     if client_id:
-        reply(chat_id, "✅ *Linked!* You'll now get your MerlionOS alerts here. Send /stop anytime to unlink.")
+        reply(chat_id, "✅ Linked! You'll now get your MerlionOS alerts here. Send /stop anytime to unlink.")
         logger.info(f"[alerts] telegram chat {chat_id} linked to a browser via pairing code")
     else:
         reply(chat_id, "❌ That code is invalid or expired (codes last 10 min). "
-              "Open *My Alerts → Link Telegram* for a new one.")
+              "Open My Alerts → Link Telegram for a new one.")
+
+
+def _run_scam_check(chat_id, message: str, reply) -> None:
+    try:
+        campaigns = scam_checker.recent_scam_advisories()  # best-effort, cached, [] on failure
+        result = scam_checker.check(message, campaigns=campaigns)
+    except ValueError:
+        reply(chat_id, "Send me the suspicious message or link to check.")
+        return
+    except Exception as e:
+        logger.warning(f"[alerts] telegram scam check failed: {type(e).__name__}: {e}")
+        reply(chat_id, "Couldn't check that right now — please try again.")
+        return
+    reply(chat_id, _format_scam_result(result))
+
+
+def _format_scam_result(r: dict) -> str:
+    lines = [r["label"]]
+    if r.get("reasons"):
+        lines.append("")
+        lines += ["• " + x for x in r["reasons"][:5]]
+    lines.append("")
+    lines.append("What to do:")
+    lines += ["• " + a for a in r.get("advice", [])[:3]]
+    lines.append("")
+    lines.append("Report/verify: ScamShield 1799 · scamshield.gov.sg")
+    lines.append(r.get("disclaimer", ""))
+    return "\n".join(l for l in lines if l is not None)
 
 
 # ── long-polling (local dev / no public URL) ───────────────────────────────────────────────────

@@ -107,6 +107,7 @@ from tools import (
     ChatResponse
 )
 from tools import alerts as _alerts
+from tools import scam_checker as _scam_checker
 from tools import telegram_bot as _telegram_bot
 from tools.alert_delivery import dispatch as _alert_dispatch, webpush_enabled, telegram_enabled
 
@@ -983,6 +984,27 @@ async def telegram_webhook(request: Request):
         logging.getLogger("merlion-os-alerts").warning(
             f"[alerts] telegram webhook error: {type(e).__name__}: {e}")
     return {"ok": True}
+
+
+# ── Scam Checker ────────────────────────────────────────────────────────────────────────────────
+# Paste a suspicious SMS / message / URL → a heuristic risk assessment. Deterministic and offline
+# in the engine; the endpoint additionally cross-references recent @scamshieldalert advisories
+# (cached, best-effort) so a currently-circulating campaign gets flagged.
+
+@app.post("/api/scam/check")
+async def scam_check(request: Request):
+    body = await request.json()
+    text = (body.get("text") or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="paste a message or URL to check")
+    if len(text) > 5000:
+        raise HTTPException(status_code=400, detail="message too long (max 5000 characters)")
+    try:
+        campaigns = _scam_checker.recent_scam_advisories()  # best-effort, cached, [] on failure
+        result = _scam_checker.check(text, campaigns=campaigns)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return result
 
 
 @app.get("/favicon.ico", include_in_schema=False)

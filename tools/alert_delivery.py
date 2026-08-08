@@ -52,14 +52,18 @@ def _send_webpush(address: str, payload: dict) -> None:
 
 def send_telegram_message(chat_id, text: str, parse_mode: str = "Markdown") -> bool:
     """Low-level Telegram sendMessage used both to deliver alerts and to reply to bot commands.
-    Returns True on a 2xx, False on any failure or when no bot token is configured."""
+    Pass parse_mode=None/"" to send plain text (safer for content with URLs/underscores that would
+    break Markdown parsing). Returns True on a 2xx, False on any failure or when no token is set."""
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
         return False
+    payload = {"chat_id": chat_id, "text": text}
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
     try:
         r = requests.post(
             f"https://api.telegram.org/bot{token}/sendMessage",
-            json={"chat_id": chat_id, "text": text, "parse_mode": parse_mode},
+            json=payload,
             timeout=8,
         )
         if not r.ok:

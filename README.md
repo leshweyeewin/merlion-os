@@ -128,7 +128,8 @@ flowchart LR
 * **Intent-Based Routing & Glossary:** Search maps everyday phrasing to specific statutory services. A semantic engine automatically underlines civic jargon with plain-English tooltips.
 * **Considered UX & Accessibility:** Fully responsive, keyboard-navigable ARIA tabs, skeleton loaders, and deterministic demo personas that tailor the dashboard layout.
 * **Personal watchlists & alerts:** Subscribe to a threshold on any signal the dashboard already tracks — a COE premium drop, an MRT disruption on your line, your HDB town's resale median moving, an approaching IRAS deadline — and get notified only when it crosses. A single in-app evaluator (reusing the same cached data the panels serve) fires with state-based dedupe and fans out to an in-app feed, browser Web Push, and Telegram. No accounts: identity is a per-browser id.
-* **Robust CI/CD:** Guarded by a **250-test suite (244 Python, 6 JS)** — including a live golden-set retrieval-quality gate that auto-skips without an API key — plus pyflakes linting, a daily GitHub Action that monitors every live scraper + BigQuery dataset for silent breakage/staleness, and an hourly Action that refreshes fallback data seeds.
+* **Scam checker:** Paste a suspicious SMS / message / URL and get a heuristic risk verdict — it flags impersonated government/bank domains (a message claiming to be DBS but linking to a non-`dbs.com.sg` site), URL shorteners, lookalike/punycode domains, pressure tactics and credential/OTP asks, and cross-references recent `@scamshieldalert` advisories. Deterministic and offline in the engine; available in-app and via the Telegram bot (forward it a message). Trusts real `*.gov.sg` links so it doesn't cry wolf on genuine agency messages.
+* **Robust CI/CD:** Guarded by a **271-test suite (265 Python, 6 JS)** — including a live golden-set retrieval-quality gate that auto-skips without an API key — plus pyflakes linting, a daily GitHub Action that monitors every live scraper + BigQuery dataset for silent breakage/staleness, and an hourly Action that refreshes fallback data seeds.
 
 ---
 
@@ -167,7 +168,7 @@ python server.py
 Open **`http://127.0.0.1:8000/`** in your browser.
 
 ### 3. Run Tests
-Ensure dependencies are installed, then run the lint gate and the python/javascript test suites (244 Python + 6 JavaScript tests):
+Ensure dependencies are installed, then run the lint gate and the python/javascript test suites (265 Python + 6 JavaScript tests):
 ```bash
 pip install -r requirements-dev.txt
 pyflakes server.py tools mcp_server.py tests

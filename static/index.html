@@ -1904,6 +1904,9 @@
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-alerts-pane">
                         <i class="fa-solid fa-bell"></i> My Alerts <span id="alerts-tab-badge" class="alerts-badge hidden">0</span>
                     </button>
+                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-scam-pane">
+                        <i class="fa-solid fa-shield-halved"></i> Scam Checker
+                    </button>
                 </div>
 
                 <!-- Sub-panes -->
@@ -2224,6 +2227,13 @@
                 <div class="hub-sub-pane hidden" id="hub-alerts-pane">
                     <div id="hub-alerts-content">
                         <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading your alerts…</p>
+                    </div>
+                </div>
+
+                <!-- Scam Checker Pane — paste-a-message risk check (rendered by js/scam.js) -->
+                <div class="hub-sub-pane hidden" id="hub-scam-pane">
+                    <div id="hub-scam-content">
+                        <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading scam checker…</p>
                     </div>
                 </div>
 
@@ -2728,8 +2738,9 @@
     <script src="js/persona.js?v=insight20"></script>
     <script src="js/portals.js?v=insight25"></script>
     <script src="js/chat.js?v=insight21"></script>
-    <script src="js/hub.js?v=insight32"></script>
+    <script src="js/hub.js?v=insight33"></script>
     <script src="js/alerts.js?v=insight2"></script>
+    <script src="js/scam.js?v=insight1"></script>
 </body>
 
 </html>

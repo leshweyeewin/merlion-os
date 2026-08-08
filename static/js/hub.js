@@ -567,6 +567,10 @@ function initSgHub() {
             if (window.MerlionAlerts) window.MerlionAlerts.load();
             return;
         }
+        if (paneId === "hub-scam-pane") {
+            if (window.MerlionScam) window.MerlionScam.load();
+            return;
+        }
         if (loadedSgHubPanes[paneId] || loadingSgHubPanes[paneId]) return;
 
         let endpoint = "";
