@@ -1,7 +1,7 @@
 """
 tests/test_document_copilot.py — Test suite for Document Copilot accessibility and multilingual features.
 """
-from tools.chat import _make_system_instruction, ChatRequest, PersonaContext
+from tools.chat import _make_system_instruction, ChatRequest
 
 def test_make_system_instruction_default():
     """Verify system instruction contains base settings when no overrides are given."""

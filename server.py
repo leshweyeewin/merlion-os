@@ -1110,7 +1110,7 @@ async def whatsapp_history(client_id: str):
         return _alerts.list_whatsapp_messages(client_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception:
         logger.exception("Error fetching WhatsApp history")
         raise HTTPException(status_code=500, detail="Internal server error")
 
