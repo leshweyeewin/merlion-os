@@ -1880,6 +1880,9 @@
                 <!-- Sub-tab switcher for SG Hub -->
                 <div class="hub-sub-tabs"
                     style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 8px; flex-wrap: wrap;">
+                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-journeys-pane">
+                        <i class="fa-solid fa-signs-post"></i> Life Events
+                    </button>
                     <button class="hub-sub-tab-btn active-hub-sub-tab" data-hub-sub-tab="hub-transport-pane">
                         <i class="fa-solid fa-train-subway"></i> Transit &amp; Transport
                     </button>
@@ -2264,6 +2267,13 @@
                 <div class="hub-sub-pane hidden" id="hub-cpflife-pane">
                     <div id="hub-cpflife-content">
                         <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading CPF LIFE projector…</p>
+                    </div>
+                </div>
+
+                <!-- Life-Event Journeys Pane — guided checklists (rendered by js/journeys.js) -->
+                <div class="hub-sub-pane hidden" id="hub-journeys-pane">
+                    <div id="hub-journeys-content">
+                        <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading life events…</p>
                     </div>
                 </div>
 
@@ -2768,12 +2778,13 @@
     <script src="js/persona.js?v=insight20"></script>
     <script src="js/portals.js?v=insight25"></script>
     <script src="js/chat.js?v=insight21"></script>
-    <script src="js/hub.js?v=insight36"></script>
+    <script src="js/hub.js?v=insight37"></script>
     <script src="js/alerts.js?v=insight2"></script>
     <script src="js/scam.js?v=insight1"></script>
     <script src="js/benefits.js?v=insight1"></script>
     <script src="js/upfront.js?v=insight1"></script>
     <script src="js/cpflife.js?v=insight1"></script>
+    <script src="js/journeys.js?v=insight1"></script>
 </body>
 
 </html>

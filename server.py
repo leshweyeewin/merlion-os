@@ -111,6 +111,7 @@ from tools import eligibility as _eligibility
 from tools import scam_checker as _scam_checker
 from tools import upfront_cost as _upfront_cost
 from tools import cpf_life as _cpf_life
+from tools import life_events as _life_events
 from tools import telegram_bot as _telegram_bot
 from tools.alert_delivery import dispatch as _alert_dispatch, webpush_enabled, telegram_enabled
 
@@ -1053,6 +1054,24 @@ async def cpf_life_estimate(request: Request):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return result
+
+
+# ── Life-event journeys ──────────────────────────────────────────────────────────────────────────
+# Guided, ordered checklists for major Singapore life events (baby, marriage, first home, job loss,
+# retirement, bereavement). Static catalog; each step deep-links to an official page and, where
+# relevant, to another MerlionOS tool. Informational, not advice.
+
+@app.get("/api/life-events/journeys")
+async def life_events_journeys():
+    return _life_events.list_journeys()
+
+
+@app.get("/api/life-events/journey/{key}")
+async def life_events_journey(key: str):
+    try:
+        return _life_events.get_journey(key)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.get("/favicon.ico", include_in_schema=False)

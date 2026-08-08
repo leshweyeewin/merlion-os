@@ -583,6 +583,10 @@ function initSgHub() {
             if (window.MerlionCpfLife) window.MerlionCpfLife.load();
             return;
         }
+        if (paneId === "hub-journeys-pane") {
+            if (window.MerlionJourneys) window.MerlionJourneys.load();
+            return;
+        }
         if (loadedSgHubPanes[paneId] || loadingSgHubPanes[paneId]) return;
 
         let endpoint = "";

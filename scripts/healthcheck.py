@@ -225,6 +225,7 @@ POLICY_CHECKS = [
     ("tools.eligibility", "Benefits Finder rules freshness"),
     ("tools.upfront_cost", "Home upfront-cost rules freshness"),
     ("tools.cpf_life", "CPF LIFE rules freshness"),
+    ("tools.life_events", "Life-event journey steps & links freshness"),
 ]
 
 
