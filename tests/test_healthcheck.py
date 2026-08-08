@@ -173,6 +173,28 @@ def test_check_hdb_bto_fails_when_no_projects(monkeypatch):
     assert status == "FAIL"
 
 
+# ── policy-freshness (hand-maintained rule constants) ───────────────────────────────────────
+
+def test_policy_freshness_passes_before_review_date():
+    # Real eligibility module; a "today" before its RULES_REVIEW_BY should read PASS.
+    from tools import eligibility
+    review_by = dt.date.fromisoformat(eligibility.RULES_REVIEW_BY)
+    c = healthcheck.check_policy_freshness("tools.eligibility", "Benefits rules",
+                                           review_by - dt.timedelta(days=1))
+    assert c.status == "PASS"
+    assert eligibility.RULES_YEAR in c.detail
+
+
+def test_policy_freshness_warns_after_review_date():
+    from tools import eligibility
+    review_by = dt.date.fromisoformat(eligibility.RULES_REVIEW_BY)
+    c = healthcheck.check_policy_freshness("tools.eligibility", "Benefits rules",
+                                           review_by + dt.timedelta(days=40))
+    assert c.status == "WARN"
+    assert "40 day(s) past" in c.detail
+    assert "tools/eligibility.py" in c.detail
+
+
 # ── report + exit code ──────────────────────────────────────────────────────────────────────
 
 def test_render_report_flags_problems():

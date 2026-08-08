@@ -25,6 +25,7 @@ any check is FAIL or WARN (so the workflow opens/refreshes an alert issue), else
 BigQuery creds absent when run locally) never fails the build.
 """
 import datetime as _dt
+import importlib
 import os
 import sys
 import traceback
@@ -214,6 +215,34 @@ def check_bq_dataset(client, cfg, today):
     return Check(name, "PASS", f"{base} ({behind} {unit} behind, within tolerance)")
 
 
+# ── Hand-maintained policy constants (a third staleness class the scrapers/BQ don't cover) ─────
+# Some figures — benefit amounts, income caps — are typed in by hand from official pages, not
+# scraped. Nothing detects when they age out at a Budget, so each such module publishes RULES_YEAR
+# / RULES_LAST_REVIEWED / RULES_REVIEW_BY, and we WARN once today passes the review-by date. This is
+# a re-verify reminder, not a breakage: the app keeps working, but the numbers may predate the
+# latest Budget and someone should confirm them against the official sites and bump the constants.
+POLICY_CHECKS = [
+    ("tools.eligibility", "Benefits Finder rules freshness"),
+]
+
+
+def check_policy_freshness(module_name, label, today):
+    """WARN when a hand-maintained rule module is past its self-declared RULES_REVIEW_BY date."""
+    mod = importlib.import_module(module_name)
+    review_by = _dt.date.fromisoformat(mod.RULES_REVIEW_BY)
+    reviewed = getattr(mod, "RULES_LAST_REVIEWED", "unknown")
+    rules_year = getattr(mod, "RULES_YEAR", "?")
+    src = module_name.replace(".", "/") + ".py"
+    if today > review_by:
+        days = (today - review_by).days
+        return Check(label, "WARN",
+                     f"{rules_year} figures (last reviewed {reviewed}) are {days} day(s) past the "
+                     f"{review_by} review date — re-verify against the latest Budget and update the "
+                     f"constants at the top of {src}")
+    return Check(label, "PASS",
+                 f"{rules_year} figures reviewed {reviewed}, next review by {review_by}")
+
+
 # ── Runner ───────────────────────────────────────────────────────────────────────────────────
 
 def run_all():
@@ -227,6 +256,12 @@ def run_all():
         except Exception as e:
             checks.append(Check(name, "FAIL", f"scraper raised {type(e).__name__}: {e}"))
             traceback.print_exc()
+
+    for module_name, label in POLICY_CHECKS:
+        try:
+            checks.append(check_policy_freshness(module_name, label, today))
+        except Exception as e:
+            checks.append(Check(label, "FAIL", f"freshness check raised {type(e).__name__}: {e}"))
 
     client = _bq_client()
     if client is None:
@@ -263,7 +298,9 @@ def render_report(checks):
     lines.append("")
     lines.append("> Scraper FAILs usually mean a source changed its HTML/JSON — update the parser "
                  "in `tools/`. BigQuery WARNs mean a loader should be re-run; FAILs mean the table "
-                 "is missing/empty.")
+                 "is missing/empty. Rules-freshness WARNs mean hand-entered policy figures (e.g. "
+                 "benefit amounts) are past their review date — re-check them against the official "
+                 "sites and bump the constants.")
     return "\n".join(lines)
 
 

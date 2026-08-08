@@ -51,3 +51,12 @@ Paste a suspicious SMS / message / URL → a heuristic risk verdict (`tools/scam
 - **Trusts real `*.gov.sg`.** Nobody but a SG agency can register one, so a `gov.sg` link is never flagged as impersonation — a genuine IRAS message mentioning Singpass doesn't false-positive.
 - **Campaign cross-reference.** Best-effort, cached (1 h) match against recent `@scamshieldalert` posts (`recent_scam_advisories()`), so a currently-circulating scam is flagged. Degrades to pure heuristics on any fetch failure.
 - **Deterministic + offline engine.** `check(text)` uses no network/LLM, so it's testable and works even when rate-limited. Output is always **guidance, not certainty** — every verdict carries the same safe-action advice and a ScamShield (1799) report link, and a "looks ok" result never reads as "this is safe". Nothing pasted is stored.
+
+## 💰 Benefits Finder (eligibility screener)
+
+A short profile → the government schemes the person is likely eligible for (`tools/eligibility.py`, endpoint `POST /api/eligibility/check`, UI in the **Benefits Finder** SG Hub tab).
+
+- **Schemes (v1):** GST Voucher – Cash, CDC Vouchers, Workfare Income Supplement, Baby Bonus, SkillsFuture Credit, Enhanced CPF Housing Grant. Each declares its checkable rule (income/age/Annual-Value/property caps, citizen-only gating, situational flags like new-child or buying-a-flat), an indicative amount, a "why", an official apply link, and a dated rule note.
+- **Inputs:** citizenship, age, gross monthly income, home **Annual Value** (optional — "unsure" → the scheme returns `maybe` rather than guessing), properties owned, marital status, employment, expecting/newborn, planning to buy an HDB flat.
+- **Output:** per-scheme `eligible` / `maybe` / `not` (sorted, with reasons) plus a headline "you may be eligible for N schemes worth ~$X" (only `eligible` schemes count toward the total, split into recurring-yearly vs one-time).
+- **Framing.** Deterministic and offline (`assess()` is pure functions, no network/LLM → testable/stable). Explicitly **informational, not an official determination or financial advice**: amounts are indicative ("up to X"), dated to the published rules year, and always paired with the official link. Nothing is stored.

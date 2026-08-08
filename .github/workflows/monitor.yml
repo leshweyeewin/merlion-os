@@ -69,7 +69,12 @@ jobs:
             gh issue comment "$EXISTING" --body-file healthcheck_report.md
           else
             echo "Opening new alert issue"
-            gh issue create --title "$TITLE" --label data-monitor --body-file healthcheck_report.md
+            # Assign so GitHub emails the maintainer directly (assignment notifies by default,
+            # regardless of repo Watch settings). --assignee is best-effort: don't abort the alert
+            # if the handle can't be assigned (e.g. not a collaborator on a fork).
+            gh issue create --title "$TITLE" --label data-monitor --assignee leshweyeewin \
+              --body-file healthcheck_report.md \
+              || gh issue create --title "$TITLE" --label data-monitor --body-file healthcheck_report.md
           fi
 
       - name: Auto-close alert issue when everything is healthy again

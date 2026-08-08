@@ -571,6 +571,10 @@ function initSgHub() {
             if (window.MerlionScam) window.MerlionScam.load();
             return;
         }
+        if (paneId === "hub-benefits-pane") {
+            if (window.MerlionBenefits) window.MerlionBenefits.load();
+            return;
+        }
         if (loadedSgHubPanes[paneId] || loadingSgHubPanes[paneId]) return;
 
         let endpoint = "";

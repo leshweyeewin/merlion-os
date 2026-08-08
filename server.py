@@ -107,6 +107,7 @@ from tools import (
     ChatResponse
 )
 from tools import alerts as _alerts
+from tools import eligibility as _eligibility
 from tools import scam_checker as _scam_checker
 from tools import telegram_bot as _telegram_bot
 from tools.alert_delivery import dispatch as _alert_dispatch, webpush_enabled, telegram_enabled
@@ -1002,6 +1003,21 @@ async def scam_check(request: Request):
     try:
         campaigns = _scam_checker.recent_scam_advisories()  # best-effort, cached, [] on failure
         result = _scam_checker.check(text, campaigns=campaigns)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return result
+
+
+# ── Benefits Finder (eligibility screener) ──────────────────────────────────────────────────────
+# A small profile → the government schemes the person is likely eligible for, with indicative
+# amounts and official links. Deterministic/offline engine; informational, not an official ruling.
+
+@app.post("/api/eligibility/check")
+async def eligibility_check(request: Request):
+    body = await request.json()
+    profile = body.get("profile") or body
+    try:
+        result = _eligibility.assess(profile)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return result
