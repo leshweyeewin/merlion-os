@@ -137,13 +137,17 @@ def test_bq_check_annual_two_years_behind_warns():
 
 # ── scraper canary wiring (mocked scrapers) ─────────────────────────────────────────────────
 
-def test_check_hdb_news_warns_when_not_live(monkeypatch):
+def test_check_hdb_news_skips_when_not_live(monkeypatch):
+    # HDB's WAF blocks GitHub-runner IPs, so a parseable-but-not-live result on the runner is the
+    # expected WAF fallback, not a degradation — check_hdb_news SKIPs it rather than alerting
+    # (see commit 768653c). This intentionally diverges from the WARN behaviour of the ICA/IRAS
+    # canaries, whose endpoints the runner can reach.
     import tools.housing as h
     items = [{"date": "1 Aug", "title": "t", "link": "http://x"} for _ in range(4)]
     monkeypatch.setattr(h, "scrape_hdb_news", lambda: items)
     monkeypatch.setattr(h, "get_hdb_news_status", lambda: {"is_live": False})
     status, detail = healthcheck.check_hdb_news()
-    assert status == "WARN"
+    assert status == "SKIP"
 
 
 def test_check_hdb_news_passes_when_live(monkeypatch):
