@@ -223,6 +223,7 @@ def check_bq_dataset(client, cfg, today):
 # latest Budget and someone should confirm them against the official sites and bump the constants.
 POLICY_CHECKS = [
     ("tools.eligibility", "Benefits Finder rules freshness"),
+    ("tools.upfront_cost", "Home upfront-cost rules freshness"),
 ]
 
 

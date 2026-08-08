@@ -575,6 +575,10 @@ function initSgHub() {
             if (window.MerlionBenefits) window.MerlionBenefits.load();
             return;
         }
+        if (paneId === "hub-upfront-pane") {
+            if (window.MerlionUpfront) window.MerlionUpfront.load();
+            return;
+        }
         if (loadedSgHubPanes[paneId] || loadingSgHubPanes[paneId]) return;
 
         let endpoint = "";

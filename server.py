@@ -109,6 +109,7 @@ from tools import (
 from tools import alerts as _alerts
 from tools import eligibility as _eligibility
 from tools import scam_checker as _scam_checker
+from tools import upfront_cost as _upfront_cost
 from tools import telegram_bot as _telegram_bot
 from tools.alert_delivery import dispatch as _alert_dispatch, webpush_enabled, telegram_enabled
 
@@ -1018,6 +1019,21 @@ async def eligibility_check(request: Request):
     profile = body.get("profile") or body
     try:
         result = _eligibility.assess(profile)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return result
+
+
+# ── Home upfront-cost calculator ─────────────────────────────────────────────────────────────────
+# Purchase price + buyer profile → Buyer's/Additional Stamp Duty, down-payment split (min cash vs
+# CPF), and an indicative EHG grant offset. Deterministic/offline engine; informational, not a quote.
+
+@app.post("/api/upfront-cost/estimate")
+async def upfront_cost_estimate(request: Request):
+    body = await request.json()
+    inputs = body.get("inputs") or body
+    try:
+        result = _upfront_cost.estimate(inputs)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return result
