@@ -69,8 +69,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="message bot-message">
                 <div class="message-avatar"><i class="fa-solid fa-landmark"></i></div>
                 <div class="message-content">
-                    <p>Welcome, Citizen. I am <strong>MerlionOS</strong>, your unified Singapore government assistant.</p>
-                    <p>Ask me anything — e.g. <em>"What are the HDB grant limits?"</em> or <em>"How much SkillsFuture credit do I have?"</em> — and I'll look it up across all relevant agencies.</p>
+                    ${window.getWelcomeHTML ? window.getWelcomeHTML() : ""}
                 </div>
             </div>
         `;

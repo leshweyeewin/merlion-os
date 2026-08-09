@@ -35,7 +35,6 @@ const TRANSLATIONS = {
         "my-matters-clear": "Clear all",
         "all-portals-title": "All Statutory Portals",
         "portal-search-placeholder": 'What do you need? Try "renew passport", "pay road tax", "change company address"...',
-        "logo-subtitle": "Public service directory",
         "active-engine-label": "Active Engine",
         "onboarding-title": "Welcome to MerlionOS — Singapore's AI-powered public service brain",
         "onboarding-feat1": 'Search 30+ agencies in plain English — <em>"renew passport"</em>, <em>"top up CPF"</em>',
@@ -44,7 +43,6 @@ const TRANSLATIONS = {
         "onboarding-dismiss": "Got it",
         "chat-input-placeholder": "Type query or paste gov.sg URL...",
         "card-link-text": "Go to Portal",
-        "chat-subtitle": "GovAI Coordination Brain",
         "drawer-tab-assistant": "Assistant",
         "drawer-tab-logs": "Operations Trace",
         "hub-card-panels-label": "Card Panels:",
@@ -106,7 +104,6 @@ const TRANSLATIONS = {
         "my-matters-clear": "清除全部",
         "all-portals-title": "所有法定机构门户",
         "portal-search-placeholder": '您需要办理什么业务？试试 “更新护照”、“缴纳路税”、“变更公司地址”...',
-        "logo-subtitle": "公共服务名录",
         "active-engine-label": "引擎运行中",
         "onboarding-title": "欢迎使用 MerlionOS — 新加坡人工智能公共服务智慧大脑",
         "onboarding-feat1": '用日常语言搜索 30+ 政府机构 — 如“更新护照”、“充值 CPF”',
@@ -115,7 +112,6 @@ const TRANSLATIONS = {
         "onboarding-dismiss": "知道了",
         "chat-input-placeholder": "输入提问或粘贴 gov.sg 网址...",
         "card-link-text": "前往门户",
-        "chat-subtitle": "新加坡政府 AI 协调大脑",
         "drawer-tab-assistant": "智能助手",
         "drawer-tab-logs": "运行日志",
         "hub-card-panels-label": "功能卡片面板：",
@@ -177,7 +173,6 @@ const TRANSLATIONS = {
         "my-matters-clear": "Kosongkan semua",
         "all-portals-title": "Semua Portal Berkanun",
         "portal-search-placeholder": 'Apakah yang anda perlukan? Cuba "perbaharui pasport", "bayar cukai jalan"...',
-        "logo-subtitle": "Direktori perkhidmatan awam",
         "active-engine-label": "Enjin Aktif",
         "onboarding-title": "Selamat datang ke MerlionOS — Otak perkhidmatan awam berasaskan AI Singapura",
         "onboarding-feat1": 'Cari 30+ agensi dalam bahasa mudah — "perbaharui pasport", "tambah nilai CPF"',
@@ -186,7 +181,6 @@ const TRANSLATIONS = {
         "onboarding-dismiss": "Faham",
         "chat-input-placeholder": "Taip soalan atau tampal URL gov.sg...",
         "card-link-text": "Ke Portal",
-        "chat-subtitle": "Otak Koordinasi GovAI",
         "drawer-tab-assistant": "Pembantu",
         "drawer-tab-logs": "Jejak Operasi",
         "hub-card-panels-label": "Panel Kad:",
@@ -248,7 +242,6 @@ const TRANSLATIONS = {
         "my-matters-clear": "அனைத்தையும் அழி",
         "all-portals-title": "அனைத்து போர்ட்டல்கள்",
         "portal-search-placeholder": 'உங்களுக்கு என்ன வேண்டும்? "பாஸ்போர்ட் புதுப்பித்தல்", "சாலை வரி செலுத்த"...',
-        "logo-subtitle": "பொது சேவை அடைவு",
         "active-engine-label": "இயங்கும் எஞ்சின்",
         "onboarding-title": "MerlionOS-க்கு வரவேற்கிறோம் — சிங்கப்பூரின் AI பொது சேவை மூளை",
         "onboarding-feat1": 'எளிய மொழியில் 30+ ஏஜென்சிகளைத் தேடுங்கள் — "பாஸ்போர்ட் புதுப்பித்தல்", "CPF டாப் அப்"',
@@ -257,7 +250,6 @@ const TRANSLATIONS = {
         "onboarding-dismiss": "புரிந்தது",
         "chat-input-placeholder": "கேள்வியை டைப் செய்யவும் அல்லது gov.sg URL ஒட்டவும்...",
         "card-link-text": "போர்ட்டலுக்குச் செல்",
-        "chat-subtitle": "GovAI ஒருங்கிணைப்பு மூளை",
         "drawer-tab-assistant": "உதவியாளர்",
         "drawer-tab-logs": "இயக்கப் பதிவு",
         "hub-card-panels-label": "கார்டு பேனல்கள்:",
@@ -471,23 +463,34 @@ const AGENCY_DESCRIPTIONS = {
     }
 };
 
+// The Co-Pilot's default welcome bubble, per language. Stored as HTML (not markdown) because it's
+// injected straight into the chat via getWelcomeHTML() below. Keep <strong>/<em> in sync across langs.
 const WELCOME_MESSAGES = {
     en: {
-        welcome1: "Welcome, Citizen. I am **MerlionOS**, your unified Singapore government assistant.",
-        welcome2: "Ask me anything — e.g. *\"What are the HDB grant limits?\"* or *\"How much SkillsFuture credit do I have?\"* — and I'll look it up across all relevant agencies."
+        welcome1: "Welcome, Citizen. I am <strong>MerlionOS</strong>, your unified Singapore government assistant.",
+        welcome2: "Ask me anything — e.g. <em>\"What are the HDB grant limits?\"</em> or <em>\"How much SkillsFuture credit do I have?\"</em> — and I'll look it up across all relevant agencies."
     },
     zh: {
-        welcome1: "欢迎您，公民。我是 **MerlionOS**，您的统一新加坡政府助理。",
-        welcome2: "您可以问我任何问题 —— 例如 *“HDB 购房津贴限额是多少？”* 或 *“我还有多少 SkillsFuture 培训补助金？”* —— 我会帮您在所有相关机构中查询。"
+        welcome1: "欢迎您，公民。我是 <strong>MerlionOS</strong>，您的统一新加坡政府助理。",
+        welcome2: "您可以问我任何问题 —— 例如 <em>“HDB 购房津贴限额是多少？”</em> 或 <em>“我还有多少 SkillsFuture 培训补助金？”</em> —— 我会帮您在所有相关机构中查询。"
     },
     ms: {
-        welcome1: "Selamat datang, Warganegara. Saya **MerlionOS**, pembantu kecerdasan buatan bersepadu bagi sektor awam Singapura.",
-        welcome2: "Tanya saya apa-apa sahaja — cth. *\"Apakah had geran perumahan HDB?\"* atau *\"Berapakah baki kredit SkillsFuture saya?\"* — dan saya akan menyemaknya di semua agensi berkaitan."
+        welcome1: "Selamat datang, Warganegara. Saya <strong>MerlionOS</strong>, pembantu kecerdasan buatan bersepadu bagi sektor awam Singapura.",
+        welcome2: "Tanya saya apa-apa sahaja — cth. <em>\"Apakah had geran perumahan HDB?\"</em> atau <em>\"Berapakah baki kredit SkillsFuture saya?\"</em> — dan saya akan menyemaknya di semua agensi berkaitan."
     },
     ta: {
-        welcome1: "வரவேற்கிறோம், குடிமக்களே. நான் **மெர்லியன்ஓஎஸ்** (MerlionOS), சிங்கப்பூர் அரசாங்கத்தின் ஒருங்கிணைந்த AI உதவியாளர்.",
-        welcome2: "என்னிடம் ஏதேனும் கேளுங்கள் — எ.கா. *\"HDB மானிய வரம்புகள் என்ன?\"* அல்லது *\"எனது SkillsFuture கிரெடிட் எவ்வளவு?\"* — நான் அனைத்து ஏஜென்சிகளிலும் தேடி பதிலளிப்பேன்."
+        welcome1: "வரவேற்கிறோம், குடிமக்களே. நான் <strong>மெர்லியன்ஓஎஸ்</strong> (MerlionOS), சிங்கப்பூர் அரசாங்கத்தின் ஒருங்கிணைந்த AI உதவியாளர்.",
+        welcome2: "என்னிடம் ஏதேனும் கேளுங்கள் — எ.கா. <em>\"HDB மானிய வரம்புகள் என்ன?\"</em> அல்லது <em>\"எனது SkillsFuture கிரெடிட் எவ்வளவு?\"</em> — நான் அனைத்து ஏஜென்சிகளிலும் தேடி பதிலளிப்பேன்."
     }
+};
+
+// Returns the default (guest) welcome bubble's inner HTML for the given language, falling back to
+// English for any language without a translation. Single source of truth used by both the initial
+// render / persona reset (persona.js) and the chat reset button (chat.js) so the welcome always
+// matches the active language.
+window.getWelcomeHTML = function (lang = window.currentLanguage || "en") {
+    const w = WELCOME_MESSAGES[lang] || WELCOME_MESSAGES.en;
+    return `<p>${w.welcome1}</p>\n            <p>${w.welcome2}</p>`;
 };
 
 // Global language and elderly state

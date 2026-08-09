@@ -461,8 +461,7 @@ function updateChatWelcome(persona) {
         firstBot.innerHTML = `<p><strong>${persona.emoji} ${escapeHTML(persona.label)} mode.</strong> ${escapeHTML(persona.greeting)}</p>
             <p style="font-size:11.5px; color:var(--text-muted);"><i class="fa-solid fa-circle-info"></i> Demo profile — no real identity data is used.</p>`;
     } else {
-        firstBot.innerHTML = `<p>Welcome, Citizen. I am <strong>MerlionOS</strong>, your unified Singapore government assistant.</p>
-            <p>Ask me anything — e.g. <em>"What are the HDB grant limits?"</em> or <em>"How much SkillsFuture credit do I have?"</em> — and I'll look it up across all relevant agencies.</p>`;
+        firstBot.innerHTML = window.getWelcomeHTML();
     }
 }
 
