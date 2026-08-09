@@ -131,12 +131,25 @@ def check_iras_latest_updates():
     return ("PASS" if ok else "FAIL"), detail
 
 
+def check_cdc_news():
+    # scrape_cdc_news() has no is_live flag and returns [] on any failure. Its source is the
+    # Isomer/Next.js press-centre page, whose URL path has already moved once — an empty parse most
+    # likely means the path changed again. WARN (not FAIL) because CDC releases are infrequent and
+    # informational, but it still trips the alert so the URL gets re-checked.
+    import tools.search as s
+    s._cdc_news_cache.update({"data": None, "fetched_at": 0})
+    items = s.scrape_cdc_news()
+    ok, detail = _validate_items(items, min_items=1, required_fields=("date", "title", "link"))
+    return ("PASS" if ok else "WARN"), (detail if ok else detail + " — CDC press-centre page may have moved again")
+
+
 SCRAPER_CHECKS = [
     ("HDB Newsroom scrape", check_hdb_news),
     ("HDB BTO launch tables", check_hdb_bto),
     ("ICA Newsroom feed", check_ica_news),
     ("IRAS due-dates scrape", check_iras_due_dates),
     ("IRAS latest-updates scrape", check_iras_latest_updates),
+    ("CDC Newsroom scrape", check_cdc_news),
 ]
 
 
@@ -283,7 +296,8 @@ def run_all():
                 "HDB BTO launch tables": "hdb_bto_tables",
                 "ICA Newsroom feed": "ica_newsroom",
                 "IRAS due-dates scrape": "iras_due_dates",
-                "IRAS latest-updates scrape": "iras_latest_updates"
+                "IRAS latest-updates scrape": "iras_latest_updates",
+                "CDC Newsroom scrape": "cdc_newsroom"
             }.get(name)
 
             if remote_key and remote_key in remote_scrapers:

@@ -481,6 +481,18 @@ async def health_endpoint():
         iras_news_live = False
         iras_news_detail = f"IRAS newsroom scrape failed: {type(e).__name__}: {e}"
 
+    # 6. CDC media releases (Isomer/Next.js site — URL path is brittle, so watch it)
+    cdc_news_live = True
+    cdc_news_detail = "OK"
+    try:
+        cdc_news = await anyio.to_thread.run_sync(scrape_cdc_news)
+        if not cdc_news:
+            cdc_news_live = False
+            cdc_news_detail = "CDC newsroom returned no releases (page moved or unreachable)"
+    except Exception as e:
+        cdc_news_live = False
+        cdc_news_detail = f"CDC newsroom scrape failed: {type(e).__name__}: {e}"
+
     scrapers = {
         "hdb_newsroom": {
             "status": "PASS" if hdb_news_status.get("is_live") else "WARN",
@@ -501,6 +513,10 @@ async def health_endpoint():
         "iras_latest_updates": {
             "status": "PASS" if iras_news_live else "FAIL",
             "detail": iras_news_detail
+        },
+        "cdc_newsroom": {
+            "status": "PASS" if cdc_news_live else "WARN",
+            "detail": cdc_news_detail
         }
     }
 

@@ -412,9 +412,11 @@ _CDC_NEWS_CACHE_TTL_SECONDS = 6 * 60 * 60
 
 def scrape_cdc_news() -> list:
     """Scrapes the latest CDC (Community Development Council / CDC Vouchers) media releases from
-    cdc.gov.sg. Each release on the page is a date node + title text + a '(Media Release)' PDF
-    link; we climb from each PDF anchor to the enclosing block to pair them. Returns a normalised
-    [{date, title, link}] list. Cached for 6h; degrades to [] on any failure (never raises)."""
+    the Isomer press-centre page. Each release is a `<p>` holding the title text and a
+    '(Media Release)' PDF link; its date is either prefixed inline in that same `<p>`
+    ("11 June 2026 <title>…") or, for the first release under a year, sits in the preceding
+    standalone-date `<p>`. Returns a normalised [{date, title, link}] list, newest first.
+    Cached for 6h; degrades to [] on any failure (never raises)."""
     import re
 
     cached = _cache_get(_cdc_news_cache, _CDC_NEWS_CACHE_TTL_SECONDS)
@@ -422,7 +424,7 @@ def scrape_cdc_news() -> list:
         print(f"  \033[90m[CDC News Scraper] Serving {len(cached)} cached releases.\033[0m")
         return cached
 
-    url = "https://www.cdc.gov.sg/who-we-are/press-centre/media-releases/"
+    url = "https://www.cdc.gov.sg/about-us/who-we-are/press-centre/media-release/"
     headers = _common_headers()
     print(f"  \033[90m[CDC News Scraper] HTTP GET {url}\033[0m")
     results = []
@@ -431,41 +433,45 @@ def scrape_cdc_news() -> list:
         print(f"  \033[90m[CDC News Scraper] HTTP RESPONSE: {r.status_code} ({len(r.text)} bytes)\033[0m")
         if r.status_code == 200:
             soup = BeautifulSoup(r.text, 'html.parser')
-            date_re = re.compile(r'\d{1,2}\s+\w+\s+20\d\d')
+            lead_date_re = re.compile(r'^\s*(\d{1,2}\s+\w+\s+20\d\d)\b')
+            standalone_date_re = re.compile(r'^\d{1,2}\s+\w+\s+20\d\d$')
             seen_links = set()
-            pdf_links = [a for a in soup.find_all('a', href=True) if a['href'].lower().endswith('.pdf')]
-            for a in pdf_links:
-                # Climb up to the nearest ancestor whose text carries a date — that block holds
-                # the release's date + title alongside this PDF link.
-                node = a
-                block_text = None
-                for _ in range(6):
-                    node = node.parent
-                    if node is None:
-                        break
-                    txt = node.get_text(" ", strip=True)
-                    if date_re.search(txt):
-                        block_text = txt
-                        break
-                if not block_text:
-                    continue
-                date_str = date_re.search(block_text).group(0)
-                title = block_text.replace(date_str, "").replace("(Media Release)", "").strip()
-                title = re.sub(r'\s+', ' ', title)
-                if not title:
-                    continue
+            # One record per title paragraph (the `<p>` that carries the PDF link), not per anchor:
+            # a release may bundle annex PDFs, and we only want its primary media-release link.
+            title_ps = [p for p in soup.find_all('p')
+                        if p.find('a', href=lambda h: h and h.lower().endswith('.pdf'))]
+            for p in title_ps:
+                a = p.find('a', href=lambda h: h and h.lower().endswith('.pdf'))
                 href = a['href']
                 if href.startswith('/'):
                     href = "https://www.cdc.gov.sg" + href
                 if href in seen_links:
                     continue
+                text = re.sub(r'\s+', ' ', p.get_text(" ", strip=True))
+                m = lead_date_re.match(text)
+                if m:
+                    date_str, title = m.group(1), text[m.end():]
+                else:
+                    # Date-less title `<p>` → its date is the nearest preceding standalone-date `<p>`.
+                    date_str, sib = None, p
+                    for _ in range(4):
+                        sib = sib.find_previous_sibling()
+                        if sib is None:
+                            break
+                        if standalone_date_re.match(sib.get_text(" ", strip=True)):
+                            date_str = sib.get_text(" ", strip=True)
+                            break
+                    title = text
+                title = title.replace("(Media Release)", "").strip(" -|")
+                if not date_str or not title:
+                    continue
                 seen_links.add(href)
                 results.append({"date": date_str, "title": title[:140], "link": href})
                 if len(results) >= 4:
                     break
-            print(f"  \033[32m✔\033[0m [CDC News Scraper] Returning {len(results)} latest media releases.")
             if results:
                 _cache_set(_cdc_news_cache, results)
+            print(f"  \033[32m[OK]\033[0m [CDC News Scraper] Returning {len(results)} latest media releases.")
     except Exception as e:
         logger.warning(f"Error scraping CDC media releases: {e}")
     return results
