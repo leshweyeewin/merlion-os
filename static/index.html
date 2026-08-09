@@ -1893,15 +1893,15 @@
                 <div class="hub-view-mode-bar" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
                     <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text-main);">
                         <i class="fa-solid fa-square-minus" style="color: var(--primary);"></i>
-                        <span>Card Panels:</span>
-                        <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">(Click any card title to collapse/expand)</span>
+                        <span data-translate="hub-card-panels-label">Card Panels:</span>
+                        <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);" data-translate="hub-collapse-hint">(Click any card title to collapse/expand)</span>
                     </div>
                     <div class="view-mode-toggle-group" style="display: flex; gap: 6px;">
                         <button type="button" class="view-mode-btn" id="view-mode-collapse-all" title="Collapse all dashboard card panels">
-                            <i class="fa-solid fa-chevron-up"></i> Collapse All
+                            <i class="fa-solid fa-chevron-up"></i> <span data-translate="hub-btn-collapse-all">Collapse All</span>
                         </button>
                         <button type="button" class="view-mode-btn active-view-mode" id="view-mode-expand-all" title="Expand all dashboard card panels">
-                            <i class="fa-solid fa-chevron-down"></i> Expand All
+                            <i class="fa-solid fa-chevron-down"></i> <span data-translate="hub-btn-expand-all">Expand All</span>
                         </button>
                     </div>
                 </div>
@@ -1909,43 +1909,43 @@
                 <div class="hub-sub-tabs"
                     style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 8px; flex-wrap: wrap;">
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-journeys-pane">
-                        <i class="fa-solid fa-signs-post"></i> Life Events
+                        <i class="fa-solid fa-signs-post"></i> <span data-translate="hub-sub-tab-life-events">Life Events</span>
                     </button>
                     <button class="hub-sub-tab-btn active-hub-sub-tab" data-hub-sub-tab="hub-transport-pane">
-                        <i class="fa-solid fa-train-subway"></i> Transit &amp; Transport
+                        <i class="fa-solid fa-train-subway"></i> <span data-translate="hub-sub-tab-transport">Transit &amp; Transport</span>
                     </button>
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-gov-transit-pane">
-                        <i class="fa-solid fa-bullhorn"></i> Gov Updates
+                        <i class="fa-solid fa-bullhorn"></i> <span data-translate="hub-sub-tab-gov-updates">Gov Updates</span>
                     </button>
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-hdb-pane">
-                        <i class="fa-solid fa-house-chimney"></i> HDB &amp; BTO Portal
+                        <i class="fa-solid fa-house-chimney"></i> <span data-translate="hub-sub-tab-hdb">HDB &amp; BTO Portal</span>
                     </button>
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-jobs-pane">
-                        <i class="fa-solid fa-chart-line"></i> Job Market Analysis
+                        <i class="fa-solid fa-chart-line"></i> <span data-translate="hub-sub-tab-jobs">Job Market Analysis</span>
                     </button>
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-tax-pane">
-                        <i class="fa-solid fa-scale-balanced"></i> IRAS Tax &amp; Wealth
+                        <i class="fa-solid fa-scale-balanced"></i> <span data-translate="hub-sub-tab-tax">IRAS Tax &amp; Wealth</span>
                     </button>
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-community-pane">
-                        <i class="fa-solid fa-tags"></i> Kiasu Deals
+                        <i class="fa-solid fa-tags"></i> <span data-translate="hub-sub-tab-deals">Kiasu Deals</span>
                     </button>
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-env-pane">
-                        <i class="fa-solid fa-cloud-sun"></i> Weather &amp; PSI
+                        <i class="fa-solid fa-cloud-sun"></i> <span data-translate="hub-sub-tab-env">Weather &amp; PSI</span>
                     </button>
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-alerts-pane">
-                        <i class="fa-solid fa-bell"></i> My Alerts <span id="alerts-tab-badge" class="alerts-badge hidden">0</span>
+                        <i class="fa-solid fa-bell"></i> <span data-translate="hub-sub-tab-alerts">My Alerts</span> <span id="alerts-tab-badge" class="alerts-badge hidden">0</span>
                     </button>
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-scam-pane">
-                        <i class="fa-solid fa-shield-halved"></i> Scam Checker
+                        <i class="fa-solid fa-shield-halved"></i> <span data-translate="hub-sub-tab-scam">Scam Checker</span>
                     </button>
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-benefits-pane">
-                        <i class="fa-solid fa-hand-holding-dollar"></i> Benefits Finder
+                        <i class="fa-solid fa-hand-holding-dollar"></i> <span data-translate="hub-sub-tab-benefits">Benefits Finder</span>
                     </button>
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-upfront-pane">
-                        <i class="fa-solid fa-house-circle-check"></i> Home Cost
+                        <i class="fa-solid fa-house-circle-check"></i> <span data-translate="hub-sub-tab-home-cost">Home Cost</span>
                     </button>
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-cpflife-pane">
-                        <i class="fa-solid fa-piggy-bank"></i> CPF LIFE
+                        <i class="fa-solid fa-piggy-bank"></i> <span data-translate="hub-sub-tab-cpf-life">CPF LIFE</span>
                     </button>
                 </div>
 
@@ -1956,9 +1956,9 @@
                     <!-- Panel 1: Transit Delays & Traffic Advisories -->
                     <div class="hub-card" style="margin-bottom: 20px;">
                         <h3>
-                            <i class="fa-solid fa-train-subway"></i> Transit Delays &amp; Traffic Advisories
+                            <i class="fa-solid fa-train-subway"></i> <span data-translate="panel-transit-delays-title">Transit Delays &amp; Traffic Advisories</span>
                         </h3>
-                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Real-time MRT delay
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;" data-translate="panel-transit-delays-desc">Real-time MRT delay
                             reports, train disruptions, and road alerts from LTA &amp; SMRT channels.</p>
                         <div id="hub-mrt-events-content">
                             <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading transit
@@ -1969,9 +1969,9 @@
                     <!-- Panel 2: 🚕 TAXIS AVAILABLE ISLANDWIDE -->
                     <div class="hub-card" style="margin-bottom: 20px;">
                         <h3>
-                            <i class="fa-solid fa-taxi"></i> Taxis Available Islandwide
+                            <i class="fa-solid fa-taxi"></i> <span data-translate="panel-taxi-title">Taxis Available Islandwide</span>
                         </h3>
-                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Live taxi
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;" data-translate="panel-taxi-desc">Live taxi
                             availability counts, location-based nearby taxis, and real-time positions map (LTA
                             DataMall).</p>
                         <div id="hub-taxi-events-content">
@@ -1983,9 +1983,9 @@
                     <!-- Panel 3: Transport & Vehicle Costs (COE) -->
                     <div class="hub-card" style="margin-bottom: 20px;">
                         <h3>
-                            <i class="fa-solid fa-car"></i> Transport &amp; Vehicle Costs (COE)
+                            <i class="fa-solid fa-car"></i> <span data-translate="panel-coe-title">Transport &amp; Vehicle Costs (COE)</span>
                         </h3>
-                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Latest COE bidding
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;" data-translate="panel-coe-desc">Latest COE bidding
                             premiums by vehicle category and multi-year trend analysis (data.gov.sg).</p>
                         <div id="hub-coe-events-content">
                             <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading COE bidding
@@ -1996,9 +1996,9 @@
                     <!-- Panel 4: ICA Checkpoint & News Updates -->
                     <div class="hub-card">
                         <h3>
-                            <i class="fa-solid fa-passport"></i> ICA Checkpoint &amp; News Updates
+                            <i class="fa-solid fa-passport"></i> <span data-translate="panel-ica-title">ICA Checkpoint &amp; News Updates</span>
                         </h3>
-                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Real-time advisories,
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;" data-translate="panel-ica-desc">Real-time advisories,
                             media releases, and checkpoint updates fetched directly from the ICA Newsroom.</p>
                         <div id="hub-ica-events-content">
                             <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading ICA
@@ -2673,7 +2673,7 @@
                                 class="widget-mark-logo"></span>
                         <h3>MerlionOS Co-Pilot</h3>
                     </div>
-                    <span>GovAI Coordination Brain</span>
+                    <span data-translate="chat-subtitle">GovAI Coordination Brain</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <button class="minimize-btn" id="reset-chat-btn" title="Start New Chat" aria-label="Start New Chat">
@@ -2686,10 +2686,10 @@
             </div> <!-- Tab Switcher Navigation -->
             <div class="widget-tabs">
                 <button class="tab-btn active" data-tab="assistant-pane">
-                    <i class="fa-solid fa-comments"></i> Assistant
+                    <i class="fa-solid fa-comments"></i> <span data-translate="drawer-tab-assistant">Assistant</span>
                 </button>
                 <button class="tab-btn" data-tab="logs-pane">
-                    <i class="fa-solid fa-terminal"></i> Operations Trace
+                    <i class="fa-solid fa-terminal"></i> <span data-translate="drawer-tab-logs">Operations Trace</span>
                 </button>
             </div>
 
@@ -2728,31 +2728,31 @@
                     </div>
 
                     <div class="suggestions-container">
-                        <button class="suggestion-chip"
+                        <button class="suggestion-chip" data-chip-key="BTO vs Resale"
                             data-query="What's the difference between a BTO and a resale flat, and what CPF housing grants can I get?">
                             BTO vs Resale
                         </button>
-                        <button class="suggestion-chip"
+                        <button class="suggestion-chip" data-chip-key="SG Journey"
                             data-query="What are the requirements for the Singapore Journey onboarding?">
                             SG Journey
                         </button>
-                        <button class="suggestion-chip"
+                        <button class="suggestion-chip" data-chip-key="ELD Voting"
                             data-query="How do I check my electoral voting status with ELD?">
                             ELD Voting
                         </button>
-                        <button class="suggestion-chip"
+                        <button class="suggestion-chip" data-chip-key="Climate Vouchers"
                             data-query="What are the Climate Vouchers and how do I claim them from gov.sg?">
                             Climate Vouchers
                         </button>
-                        <button class="suggestion-chip"
+                        <button class="suggestion-chip" data-chip-key="Weather/PSI"
                             data-query="Check live weather forecast and air quality PSI index">
                             Weather/PSI
                         </button>
-                        <button class="suggestion-chip"
+                        <button class="suggestion-chip" data-chip-key="Job Vacancies"
                             data-query="Analyse tech industry job vacancies, YoY trend, and next-year forecast">
                             Job Vacancies
                         </button>
-                        <button class="suggestion-chip"
+                        <button class="suggestion-chip" data-chip-key="AI Job Wages"
                             data-query="Which new AI job titles appeared in Singapore's occupational wage tables this year, and what do they pay?">
                             AI Job Wages
                         </button>
