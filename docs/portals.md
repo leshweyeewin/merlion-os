@@ -32,7 +32,7 @@ The directory is divided into four main administrative categories:
 15. **MTI** (Ministry of Trade & Industry) — Trade agreements and economic planning
 16. **MSE** (Ministry of Sustainability & Environment) — National climate action, water security policies
 
-### 2. Statutory Boards & Key Operational Departments (48)
+### 2. Statutory Boards & Key Operational Departments (59)
 17. **ICA** (Immigration & Checkpoints Authority) — Passport, NRIC, Re-entry permits
 18. **IRAS** (Inland Revenue Authority of Singapore) — Income tax & property tax filings
 19. **CPF** (Central Provident Fund Board) — Retirement savings, MediSave, housing allocations

@@ -60,7 +60,7 @@ Each loader is re-runnable (`WRITE_TRUNCATE` replaces the table in place) — re
 **Deploying to a non-GCP host (e.g. Render):** the `google-cloud-bigquery` client authenticates via a service-account key, not `gcloud` login. Add the JSON key as a **Secret File** (Render exposes it at `/etc/secrets/<filename>`), then set `GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/<filename>` and `GCP_PROJECT_ID` as environment variables. The service account needs BigQuery **Data Viewer** + **Job User** roles (read-only — the loader scripts run separately from your own machine). Without the key, the host simply uses the data.gov.sg / seed fallback tiers.
 
 ## 4. Run Tests & Lint
-The test suite consists of **186 unit tests (180 Python + 6 JS)** spanning both Python and Node.js testing frameworks, plus a `pyflakes` lint gate:
+The test suite consists of **389 unit tests (383 Python + 6 JS)** spanning both Python and Node.js testing frameworks, plus a `pyflakes` lint gate:
 ```bash
 pip install -r requirements-dev.txt
 pyflakes server.py tools mcp_server.py tests  # Lint: unused imports, undefined names
@@ -93,32 +93,45 @@ merlion-os/
 │   └── security_and_performance.md  # Hardening, caching, and safety strategy
 ├── static/               # Frontend assets (HTML, CSS, JS, and Logos)
 │   ├── logos/            # Local statutory agency SVG/PNG logos
-│   ├── js/               # Frontend modules: utils, tax, persona, portals, chat, hub
+│   ├── js/               # Frontend modules: utils, tax, persona, portals, chat, hub, alerts, etc.
 │   ├── index.html        # Main dashboard structure
 │   └── style.css         # Custom layout, animations, and dark mode rules
-├── tests/                # Unit tests run locally and in CI (180 Python + 6 JS)
-│   ├── test_cache_helpers.py            # Shared TTL-cache helper (_cache_get/_cache_set) tests
-│   ├── test_chat_models.py              # Pydantic request/response schema tests
-│   ├── test_forecast.py                 # COE/HDB shared forecast math
-│   ├── test_multimodal_multihop.py      # Base64 attachment parsing tests
-│   ├── test_search_domain_validation.py # Scraper domain allowlist
-│   ├── test_security.py                 # Client-side XSS protection replica tests
-│   ├── test_server_routes.py            # Every /api/sg-hub/* + /api/chat route, I/O mocked
-│   ├── test_structured_stats.py         # Job/retrenchment/COE structured-stats fallback tiers
-│   ├── test_why_explanations.py         # Rule-based "why" explanation decision boundaries
-│   └── test_tax_calculator.js           # Client-side tax bracket calculator Node test
+├── tests/                # Unit tests run locally and in CI (383 Python + 6 JS)
+│   ├── test_alerts.py            # Alert subscription & deduplication engine tests
+│   ├── test_alerts_api.py        # /api/alerts/* REST route tests
+│   ├── test_cache_helpers.py     # Shared TTL-cache helper (_cache_get/_cache_set) tests
+│   ├── test_chat_models.py       # Pydantic request/response schema tests
+│   ├── test_cpf_life.py          # CPF LIFE estimator logic tests
+│   ├── test_eligibility.py       # Benefits Finder scheme eligibility rules
+│   ├── test_forecast.py          # COE/HDB shared forecast math
+│   ├── test_healthcheck.py       # Automated data source monitor canary tests
+│   ├── test_knowledge_base.py    # RAG civic knowledge base quality golden set
+│   ├── test_pdf_redaction.py     # PDF text extraction & PII masking tests
+│   ├── test_scam_checker.py      # Scam checker heuristic risk engine tests
+│   ├── test_security.py          # Client-side XSS protection & PII scanner tests
+│   ├── test_server_routes.py     # Every /api/sg-hub/* + /api/chat route, I/O mocked
+│   ├── test_upfront_cost.py      # Home upfront-cost stamp duty / down-payment tests
+│   ├── test_why_explanations.py  # Rule-based "why" explanation decision boundaries
+│   └── test_tax_calculator.js    # Client-side tax bracket calculator Node test
 ├── tools/                # Modular statutory boards execution and chat modules
 │   ├── __init__.py       # Package exports and interfaces
+│   ├── alert_delivery.py # Multi-channel notification dispatchers (Telegram/WhatsApp/Push)
+│   ├── alerts.py         # SQLite alert store & background evaluation engine
 │   ├── chat.py           # Gemini parallel routing and fallback logic
 │   ├── civic.py          # ICA and IRAS scrapers
 │   ├── core.py           # Base caching, fetch utilities, and shared forecast math
+│   ├── cpf_life.py       # CPF LIFE payout calculation engine
+│   ├── eligibility.py    # Singapore government scheme eligibility screener
 │   ├── environment.py    # NEA weather and PUB flood alerts
 │   ├── fetch_logos.py    # Standard logo updater/fetcher script
 │   ├── housing.py        # HDB BTO and resale price forecaster
 │   ├── jobs.py           # BigQuery / data.gov.sg wage statistics
 │   ├── knowledge.py      # RAG civic knowledge base (Gemini embeddings + cosine retrieval)
+│   ├── life_events.py    # Life-event journey checklists catalog
+│   ├── scam_checker.py   # Heuristic scam risk detector
 │   ├── search.py         # Telegram search scrapers
 │   ├── transport.py      # LTA train alerts, taxi, and COE premium forecaster
+│   ├── upfront_cost.py   # Home upfront cost & stamp duty calculator
 │   └── wages.py          # Occupational wages analytic helper
 ├── mcp_server.py         # FastMCP server for JSON-RPC agent tools export
 ├── requirements.txt      # Python dependencies manifest

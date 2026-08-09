@@ -30,24 +30,29 @@ flowchart TD
 
 ## 🛡️ Privacy Guardrail Architecture (defense-in-depth, block-don't-redact)
 
-PII is stopped **before any bytes reach the LLM**, across three layers that fail in deliberately opposite directions. Mirrored in the root [`README.md`](../README.md) — keep in sync.
+Personal identifiers are stopped **before any bytes reach the LLM**. Detection is layered so no single check is a single point of failure, and each layer fails in the direction that does the least harm. Mirrored in the root [`README.md`](../README.md) — keep in sync.
 
 ```mermaid
 flowchart LR
-    In["📥 Prompt + optional image"] --> L1{"① Regex scan"}
+    In["📥 Prompt + optional image / PDF"] --> L1{"① Regex scan"}
     L1 -->|hit| B1["⛔ Block (400)"]
-    L1 -->|clean| L2{"② Image OCR"}
-    L2 -->|hit| B2["⛔ Block (400)"]
-    L2 -->|OCR error| FO["⚠️ Fail-open"]
-    L2 -->|clean| L3{"③ AI gate · opt-in"}
+    L1 -->|clean| T{"② upload type?"}
+    T -->|image| OCR{"OCR scan"}
+    T -->|PDF| RX["extract text → redact IDs"]
+    T -->|none| L3
+    OCR -->|hit| B2["⛔ Block (400)"]
+    OCR -->|error| FO["⚠️ Fail-open"]
+    OCR -->|clean| L3{"③ AI gate · opt-in"}
+    RX -->|no text layer| B4["⛔ Fail-closed"]
+    RX -->|redacted text| L3
+    FO --> L3
     L3 -->|UNSAFE / error| B3["⛔ Fail-closed"]
     L3 -->|SAFE / fast-path| OK["✅ Forward to Gemini"]
-    FO --> OK
 ```
 
-- **Layer 1 — regex (`tools/security.py::scan_pii`):** NRIC/FIN, email, phone, and a Luhn-gated credit-card detector, plus SingPass credential phrases. Policy is **block (HTTP 400)**, not redact-and-forward.
-- **Layer 2 — image OCR (`scan_uploaded_image`):** the same detectors run over `pytesseract` output; OCR failure **fails open** (the model's vision safety still applies) so a legitimate document isn't blocked by an OCR hiccup.
-- **Layer 3 — AI semantic gate (`server.py::check_text_safety_with_ai`):** off by default (`ENABLE_AI_SAFETY_CLASSIFIER`), guarded by a local `is_obviously_safe` fast-path + cache, and **fail-closed** on error. It is deliberately opt-in because fail-closed behaviour would block harmless prompts during a primary-model 429.
+- **Layer 1 — regex (`tools/security.py::scan_pii`):** Singapore NRIC/FIN, email, phone, a Luhn-gated credit-card detector, and SingPass credential phrases. Policy is **block (HTTP 400)**, not redact-and-forward.
+- **Layer 2 — OCR / PDF processing (`scan_uploaded_image` / `tools/chat.py`):** For images, the same detectors run over `pytesseract` output; OCR failure **fails open** so a legitimate document isn't blocked by an OCR hiccup. For PDFs, text is extracted server-side and personal identifiers are deterministically redacted to `[REDACTED]` while preserving dollar figures; unreadable/scanned PDFs with no text layer **fail closed**.
+- **Layer 3 — AI semantic gate (`server.py::check_text_safety_with_ai`):** Off by default (`ENABLE_AI_SAFETY_CLASSIFIER`), guarded by a local `is_obviously_safe` fast-path + cache, and **fail-closed** on error. It is deliberately opt-in because fail-closed behaviour would block harmless prompts during a primary-model 429.
 
 ## ⚡ AI Chat Failover Ladder (graceful degradation)
 
