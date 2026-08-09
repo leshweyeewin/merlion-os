@@ -99,9 +99,6 @@
                 <button class="main-tab-btn" id="main-tab-hub-btn" data-main-tab="hub-pane">
                     <i class="fa-solid fa-earth-asia"></i> <span data-translate="tab-hub">SG Hub</span>
                 </button>
-                <button class="main-tab-btn" id="main-tab-whatsapp-btn" data-main-tab="whatsapp-pane">
-                    <i class="fa-brands fa-whatsapp"></i> <span data-translate="tab-whatsapp">WhatsApp Simulator</span>
-                </button>
             </div>
 
             <!-- Onboarding Banner — shown once to new/first-time users -->
@@ -2593,49 +2590,6 @@
                 </div>
             </div> <!-- End of hub-pane -->
 
-            <!-- WhatsApp Simulator Pane -->
-            <div id="whatsapp-pane" class="main-pane hidden">
-                <div class="wa-container">
-                    <!-- WhatsApp Header -->
-                    <div class="wa-header">
-                        <div class="wa-bot-profile">
-                            <div class="wa-avatar">
-                                <i class="fa-solid fa-robot"></i>
-                            </div>
-                            <div class="wa-bot-info">
-                                <span class="wa-bot-name">MerlionOS Bot</span>
-                                <span class="wa-bot-status online">online</span>
-                            </div>
-                        </div>
-                        <div style="font-size: 13px; color: #8696a0;">
-                            <span id="wa-phone-number-display" style="font-weight: 700;">+65 9123 4567</span>
-                        </div>
-                    </div>
-
-                    <!-- Command Pill Box -->
-                    <div class="wa-command-pill-box">
-                        <button type="button" class="wa-command-pill" data-command="start">/start</button>
-                        <button type="button" class="wa-command-pill" data-command="pair"><i class="fa-solid fa-key"></i> Link Alerts Code</button>
-                        <button type="button" class="wa-command-pill" data-command="scam"><i class="fa-solid fa-shield-halved"></i> Heuristic Scam Check</button>
-                        <button type="button" class="wa-command-pill" data-command="help">/help</button>
-                    </div>
-
-                    <!-- Chat Messages Area -->
-                    <div class="wa-chat-area" id="wa-chat-messages">
-                        <!-- Simulated messages dynamically rendered by whatsapp.js -->
-                    </div>
-
-                    <!-- Input Box Footer -->
-                    <form class="wa-input-area" id="wa-input-form">
-                        <div class="wa-input-wrapper">
-                            <input type="text" id="wa-user-input" placeholder="Type a message or command (e.g. /help)..." autocomplete="off" required>
-                        </div>
-                        <button type="submit" class="wa-send-btn" id="wa-send-btn" aria-label="Send WhatsApp message">
-                            <i class="fa-solid fa-paper-plane"></i>
-                        </button>
-                    </form>
-                </div>
-            </div>
         </main>
 
         <!-- Floating Chat Trigger Button -->
@@ -2883,7 +2837,6 @@
     <script src="js/upfront.js?v=insight1"></script>
     <script src="js/cpflife.js?v=insight1"></script>
     <script src="js/journeys.js?v=insight1"></script>
-    <script src="js/whatsapp.js"></script>
 </body>
 
 </html>

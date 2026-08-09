@@ -28,10 +28,6 @@ def telegram_enabled() -> bool:
     return bool(os.environ.get("TELEGRAM_BOT_TOKEN"))
 
 
-def whatsapp_enabled() -> bool:
-    return bool(os.environ.get("WHATSAPP_TOKEN") and os.environ.get("WHATSAPP_PHONE_NUMBER_ID"))
-
-
 def _send_webpush(address: str, payload: dict) -> None:
     if not webpush_enabled():
         return
@@ -82,76 +78,9 @@ def _send_telegram(chat_id: str, title: str, body: str) -> None:
     send_telegram_message(chat_id, f"🔔 *{title}*\n{body}")
 
 
-def _normalise_phone(phone: str) -> str:
-    """Strip '+', spaces, hyphens, etc., returning only digits."""
-    return "".join(c for c in phone if c.isdigit())
-
-
-_WA_API = "https://graph.facebook.com/v20.0/{phone_number_id}/messages"
-
-
-def send_whatsapp_message(to_phone: str, text: str, *, template: str | None = None) -> bool:
-    """Send a WhatsApp message via the Cloud API. Returns True on success, False (and logs) on any
-    failure — never raises, so one bad send never breaks the alert loop. When `template` is given,
-    sends an approved template message (required for business-initiated alerts outside the 24h
-    window); otherwise sends a plain text message (only valid inside a 24h customer-service window)."""
-    if not whatsapp_enabled():
-        return False
-    token = os.environ["WHATSAPP_TOKEN"]
-    url = _WA_API.format(phone_number_id=os.environ["WHATSAPP_PHONE_NUMBER_ID"])
-    to = _normalise_phone(to_phone)     # digits only, E.164 without '+', e.g. 6591234567
-    if template:
-        body = {
-            "messaging_product": "whatsapp",
-            "to": to,
-            "type": "template",
-            "template": {
-                "name": template,
-                "language": {"code": "en"},
-                "components": [
-                    {
-                        "type": "body",
-                        "parameters": [{"type": "text", "text": text}]
-                    }
-                ]
-            }
-        }
-    else:
-        body = {
-            "messaging_product": "whatsapp",
-            "to": to,
-            "type": "text",
-            "text": {"body": text}
-        }
-    try:
-        r = requests.post(url, json=body, headers={"Authorization": f"Bearer {token}"}, timeout=10)
-        if r.status_code >= 400:
-            logger.warning("[whatsapp] send failed %s: %s", r.status_code, r.text[:300])
-            return False
-        return True
-    except Exception as err:
-        logger.warning("[whatsapp] send error: %s", err)
-        return False
-
-
-def _send_whatsapp(client_id: str, phone: str, title: str, body: str) -> None:
-    try:
-        from tools import alerts as _alerts
-        msg = f"🔔 *{title}*\n{body}"
-        if whatsapp_enabled() and phone:
-            send_whatsapp_message(
-                phone,
-                f"{title}: {body}",
-                template=os.environ.get("WHATSAPP_ALERT_TEMPLATE", "merlion_alert")
-            )
-        _alerts.add_whatsapp_message(client_id, "bot", msg)
-    except Exception as e:
-        logger.warning(f"[alerts] WhatsApp dispatch failed: {e}")
-
-
 def dispatch(client_id: str, title: str, body: str, channels) -> None:
     """Fan one alert out to the user's linked channels. `channels` is an iterable of rows/dicts with
-    `kind` ('webpush'|'telegram'|'whatsapp') and `address`."""
+    `kind` ('webpush'|'telegram') and `address`."""
     payload = {"title": title, "body": body}
     for ch in channels:
         kind = ch["kind"] if hasattr(ch, "keys") else ch[0]
@@ -160,5 +89,3 @@ def dispatch(client_id: str, title: str, body: str, channels) -> None:
             _send_webpush(address, payload)
         elif kind == "telegram":
             _send_telegram(address, title, body)
-        elif kind == "whatsapp":
-            _send_whatsapp(client_id, address, title, body)

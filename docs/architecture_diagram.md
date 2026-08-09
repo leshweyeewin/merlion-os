@@ -51,7 +51,7 @@ flowchart TD
 | **`tools/iras.py`** | `calculate_tax_relief_optimizer` | Computes progressive IRAS income tax, CPF SA (RSTU) vs. SRS top-up optimization under the S$80,000 statutory relief cap. |
 | **`tools/cpf.py`** | `calculate_cpf_life_payouts` | Simulates projected monthly retirement payouts under CPF LIFE Standard, Basic, and Escalating annuity plans. |
 | **`tools/scam_checker.py`**| `check_scam_risk` | 5-layer heuristic phishing analyzer checking SMS/URLs against `@scamshieldalert` advisories, Punycode spoofing, and OTP asks. |
-| **`tools/alerts.py`** | `evaluate_watchlist_alerts` | Background preference evaluator dispatching threshold notifications for COE, BTO, resale, tax, and MRT events to Telegram, WhatsApp, and Web Push. |
+| **`tools/alerts.py`** | `evaluate_watchlist_alerts` | Background preference evaluator dispatching threshold notifications for COE, BTO, resale, tax, and MRT events to Telegram and Web Push. |
 | **`tools/core.py`** | `_fetch_datagovsg_csv_rows`, `_cached_rows` | Shared data.gov.sg CSV fetching, TTL response caching (5-min / 30-min), and async execution helpers. |
 
 ---

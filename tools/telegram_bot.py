@@ -43,14 +43,17 @@ _LINKISH_RE = re.compile(r"(https?://|www\.|\b[a-z0-9-]+\.[a-z]{2,}\b)", re.I)
 
 _WELCOME = (
     "👋 MerlionOS bot\n"
-    "Two things I can do:\n"
-    "1) Alerts — open the My Alerts tab in MerlionOS, tap Link Telegram, and send me the 6-digit "
+    "Three things I can do:\n"
+    "1) Ask me anything — just type a question about Singapore government services "
+    "(e.g. 'what HDB grants can a first-time buyer get?') and I'll answer.\n"
+    "2) Alerts — open the My Alerts tab in MerlionOS, tap Link Telegram, and send me the 6-digit "
     "code it shows.\n"
-    "2) Scam check — forward me a suspicious SMS or link and I'll flag the red flags.\n\n"
+    "3) Scam check — forward me a suspicious SMS or link and I'll flag the red flags.\n\n"
     "Commands: /check <message>, /stop to unlink, /help."
 )
 _HELP = (
     "MerlionOS bot\n"
+    "• Just type a question about Singapore government services and I'll answer it.\n"
     "• Send the 6-digit code from My Alerts → Link Telegram to receive alerts here.\n"
     "• Forward or paste a suspicious message/link (or use /check <message>) to scan it for scams.\n"
     "• /stop — stop receiving alerts here.\n"
@@ -115,13 +118,18 @@ def handle_update(update: dict, reply=None) -> None:
         _try_pair(chat_id, text, reply)
         return
 
-    # Not a command or code: if it looks like a pasted message/link, scan it; else nudge.
-    if _LINKISH_RE.search(text) or len(text) > 30:
+    # A bare greeting → show what the bot can do, rather than spending an AI call on "hi".
+    if text.lower() in ("hi", "hello", "hey", "start", "menu"):
+        reply(chat_id, _WELCOME)
+        return
+
+    # Not a command or code: a message that looks like a link/URL is auto-scanned for scams (a
+    # useful safety reflex); anything else is a genuine question, so answer it with the AI Co-Pilot.
+    if _LINKISH_RE.search(text):
         _run_scam_check(chat_id, text, reply)
         return
 
-    reply(chat_id, "Send the 6-digit code from My Alerts to link this chat, or forward a "
-          "suspicious message/link and I'll scan it. /help for more.")
+    reply(chat_id, _ai_reply(text))
 
 
 def _try_pair(chat_id, code: str, reply) -> None:
@@ -136,6 +144,29 @@ def _try_pair(chat_id, code: str, reply) -> None:
     else:
         reply(chat_id, "❌ That code is invalid or expired (codes last 10 min). "
               "Open My Alerts → Link Telegram for a new one.")
+
+
+def _ai_reply(text: str) -> str:
+    """Answer a free-form question with the MerlionOS AI Co-Pilot and return the reply text.
+
+    Runs the async chat loop in a fresh event loop via asyncio.run — safe because handle_update is
+    always called from a non-async thread (the polling daemon thread, or the webhook endpoint's
+    anyio.to_thread offload). Single-turn/stateless: Telegram messages carry no session, so no
+    history is threaded (the simplest thing that works). Never raises — returns a friendly fallback
+    on any error so a model hiccup can't kill the bot. Patched wholesale in tests to avoid a real
+    model call."""
+    import asyncio
+    try:
+        from tools.chat import run_chat_loop
+        answer, _, _ = asyncio.run(run_chat_loop(user_prompt=text, history=[], file=None, persona=None))
+        answer = (answer or "").strip()
+        # Telegram caps a message at 4096 chars; leave headroom for the truncation note.
+        if len(answer) > 3900:
+            answer = answer[:3900] + "\n\n…(truncated — ask a narrower question for the full answer)"
+        return answer or "Sorry, I couldn't come up with an answer. Try rephrasing your question?"
+    except Exception as e:
+        logger.warning(f"[alerts] telegram AI reply failed: {type(e).__name__}: {e}")
+        return "I couldn't answer that right now — please try again in a moment."
 
 
 def _run_scam_check(chat_id, message: str, reply) -> None:

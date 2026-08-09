@@ -16,14 +16,14 @@ The **MerlionOS Co-Pilot** serves as a unified AI assistant for Singapore public
           ┌────────────────────────────────┼────────────────────────────────┐
           ▼                                ▼                                ▼
 ┌──────────────────┐            ┌──────────────────┐            ┌──────────────────┐
-│ Document Copilot │            │ Persona Context  │            │ WhatsApp Channel │
-│  Multimodal AI   │            │ 5 Life-Stages    │            │    Simulator     │
+│ Document Copilot │            │ Persona Context  │            │ Telegram Channel │
+│  Multimodal AI   │            │ 5 Life-Stages    │            │    Co-Pilot      │
 └─────────┬────────┘            └─────────┬────────┘            └─────────┬────────┘
           │                               │                               │
           ▼                               ▼                               ▼
 ┌──────────────────┐            ┌──────────────────┐            ┌──────────────────┐
-│ PDF PII Redaction│            │  Intent Routing  │            │ Multi-Channel    │
-│  & Vision Stream │            │ & Policy Engine  │            │ Webhook Stream   │
+│ PDF PII Redaction│            │  Intent Routing  │            │ Same run_chat_   │
+│  & Vision Stream │            │ & Policy Engine  │            │ loop engine      │
 └──────────────────┘            └──────────────────┘            └──────────────────┘
 ```
 
@@ -76,20 +76,22 @@ When a persona is active, `getActivePersona()` attaches structured context param
 
 ---
 
-## 4. Multi-Channel WhatsApp Simulator
+## 4. Telegram Channel Co-Pilot
 
-In addition to the Web Drawer Co-Pilot, MerlionOS includes a dedicated **WhatsApp Channel Simulator** tab (`static/js/whatsapp.js`). This allows users to test how the AI Co-Pilot handles public sector enquiries over messaging channels:
+Beyond the in-app Web Drawer, the same AI Co-Pilot is exposed over **Telegram** (`tools/telegram_bot.py`) — so a resident can ask government-services questions from the messaging app they already use, no dashboard visit required:
 
-- Mimics authentic WhatsApp chat bubble interface with timestamped delivery receipts.
-- Includes pre-built quick prompt buttons (*"Check BTO eligibility"*, *"Tax filing deadline"*, *"Find nearest polyclinic"*).
-- Connects directly to backend `/api/chat` or live WhatsApp Business API webhooks (`tools/whatsapp.py`).
+- Any free-form message is answered by the **same `run_chat_loop` engine** the web drawer uses (`_ai_reply` bridges the sync bot handler to the async chat loop, single-turn/stateless).
+- Bot commands still work alongside chat: pairing codes link alerts, `/check <message>` runs a scam scan, `/stop` unlinks, `/help` explains. A message containing a link is auto-scanned for scams as a safety reflex.
+- Runs by long-polling (local dev, no public URL) or webhook (Render); see [docs/data_sources.md](data_sources.md) for the alerts/Telegram wiring.
+
+> **Why Telegram and not WhatsApp?** An anonymous showcase visitor can open a Telegram bot instantly, whereas WhatsApp's Business Cloud API requires business verification, an approved template, and per-recipient opt-in — infeasible to demo live and inappropriate for a non-official to send government-styled messages. A WhatsApp simulator previously stood in for this; it was removed in favour of the real, try-it-now Telegram channel.
 
 ---
 
 ## 5. Verification & Unit Tests
 
-The Co-Pilot suite is validated by 4 dedicated test suites:
+The Co-Pilot suite is validated by these dedicated test suites:
 - `tests/test_chat_models.py`: Validates chat request building and model responses.
 - `tests/test_document_copilot.py`: Validates document simulation and vision analysis payloads.
 - `tests/test_pdf_redaction.py`: Validates regex NRIC/FIN and PII redaction.
-- `tests/test_whatsapp_api.py` / `tests/test_whatsapp_real.py`: Validates WhatsApp channel handling.
+- `tests/test_telegram_bot.py`: Validates bot command routing, AI Co-Pilot answering, scam auto-scan, and the webhook.

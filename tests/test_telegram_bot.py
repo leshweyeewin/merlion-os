@@ -80,10 +80,23 @@ def test_invalid_code_is_rejected(db):
     assert "invalid or expired" in sent[0][1]
 
 
-def test_non_code_text_gets_hint(db):
+def test_greeting_shows_welcome(db):
+    # A bare greeting shows the welcome/menu rather than spending an AI call.
     sent, reply = _capture()
     telegram_bot.handle_update(_msg("hi"), reply=reply)
-    assert "6-digit code" in sent[0][1]
+    assert "Ask me anything" in sent[0][1]
+
+
+def test_freeform_question_routes_to_ai(db, monkeypatch):
+    # A genuine question (not a command, code, greeting, or link) is answered by the AI Co-Pilot.
+    # Patch the _ai_reply seam so no real model call is made.
+    calls = []
+    monkeypatch.setattr(telegram_bot, "_ai_reply",
+                        lambda text: calls.append(text) or "🇸🇬 Here's what I found.")
+    sent, reply = _capture()
+    telegram_bot.handle_update(_msg("what HDB grants can a first-time buyer get?"), reply=reply)
+    assert calls == ["what HDB grants can a first-time buyer get?"]
+    assert sent[0][1] == "🇸🇬 Here's what I found."
 
 
 def test_pasted_scam_message_is_scanned(db):

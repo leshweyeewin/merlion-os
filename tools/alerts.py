@@ -102,15 +102,6 @@ def _init_schema(conn):
             read_at    REAL
         );
         CREATE INDEX IF NOT EXISTS idx_notif_client ON notifications(client_id, created_at);
-
-        CREATE TABLE IF NOT EXISTS whatsapp_messages (
-            id         TEXT PRIMARY KEY,
-            client_id  TEXT NOT NULL,
-            sender     TEXT NOT NULL,          -- 'user' | 'bot'
-            message    TEXT NOT NULL,
-            created_at REAL NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_wa_msg_client ON whatsapp_messages(client_id, created_at);
         """
     )
     conn.commit()
@@ -195,7 +186,7 @@ def _clean_client_id(client_id: str) -> str:
 
 def add_channel(client_id: str, kind: str, address: str) -> None:
     client_id = _clean_client_id(client_id)
-    if kind not in ("webpush", "telegram", "whatsapp"):
+    if kind not in ("webpush", "telegram"):
         raise ValueError("bad channel kind")
     with _conn() as conn:
         conn.execute(
@@ -527,62 +518,5 @@ def run_evaluator_loop(interval_seconds: int = 300, dispatch=None, stop_event=No
             stop_event.wait(interval_seconds)
         else:
             time.sleep(interval_seconds)
-
-
-# ── WhatsApp simulated messaging helpers ────────────────────────────────────────
-
-def add_whatsapp_message(client_id: str, sender: str, message: str) -> None:
-    """Inserts a new message into the simulated WhatsApp message log."""
-    client_id = _clean_client_id(client_id)
-    if sender not in ("user", "bot"):
-        raise ValueError("sender must be 'user' or 'bot'")
-    with _conn() as conn:
-        conn.execute(
-            "INSERT INTO whatsapp_messages (id, client_id, sender, message, created_at) VALUES (?,?,?,?,?)",
-            (uuid.uuid4().hex, client_id, sender, message, time.time())
-        )
-        conn.commit()
-
-
-def list_whatsapp_messages(client_id: str) -> list:
-    """Retrieves all simulated WhatsApp messages for the given client in chronological order."""
-    client_id = _clean_client_id(client_id)
-    with _conn() as conn:
-        rows = conn.execute(
-            "SELECT sender, message, created_at FROM whatsapp_messages WHERE client_id=? ORDER BY created_at ASC",
-            (client_id,)
-        ).fetchall()
-    return [dict(r) for r in rows]
-
-
-def redeem_pairing_code_whatsapp(code: str, whatsapp_phone: str) -> str | None:
-    """Binds a WhatsApp number as a channel for a browser client using a 6-digit code."""
-    with _conn() as conn:
-        row = conn.execute("SELECT client_id, expires_at FROM pairing_codes WHERE code=?", (str(code),)).fetchone()
-        if not row or row["expires_at"] < time.time():
-            return None
-        client_id = row["client_id"]
-        conn.execute("DELETE FROM pairing_codes WHERE code=?", (str(code),))
-        conn.commit()
-    add_channel(client_id, "whatsapp", str(whatsapp_phone))
-    return client_id
-
-
-def unlink_whatsapp_chat(whatsapp_phone: str) -> int:
-    """Removes all WhatsApp channels matching the given phone number. Returns the count of removed rows."""
-    with _conn() as conn:
-        cur = conn.execute("DELETE FROM channels WHERE kind='whatsapp' AND address=?", (str(whatsapp_phone),))
-        conn.commit()
-        return cur.rowcount
-
-
-def client_id_for_whatsapp(whatsapp_phone: str) -> str | None:
-    """Resolves the linked client_id for a given WhatsApp phone number from the channels table."""
-    with _conn() as conn:
-        row = conn.execute(
-            "SELECT client_id FROM channels WHERE kind='whatsapp' AND address=?",
-            (str(whatsapp_phone),)
-        ).fetchone()
-        return row["client_id"] if row else None
 
 

@@ -119,7 +119,7 @@ merlion-os/
 │   └── test_tax_calculator.js    # Client-side tax bracket calculator Node test
 ├── tools/                # Modular statutory boards execution and chat modules
 │   ├── __init__.py       # Package exports and interfaces
-│   ├── alert_delivery.py # Multi-channel notification dispatchers (Telegram/WhatsApp/Push)
+│   ├── alert_delivery.py # Multi-channel notification dispatchers (Telegram/Push)
 │   ├── alerts.py         # SQLite alert store & background evaluation engine
 │   ├── chat.py           # Gemini parallel routing and fallback logic
 │   ├── civic.py          # ICA and IRAS scrapers

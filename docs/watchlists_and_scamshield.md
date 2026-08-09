@@ -9,7 +9,7 @@ This document details the architecture, background event pipelines, multi-channe
 Civic web applications often suffer from low user retention because citizens only visit during annual tax filing or flat application cycles. 
 
 MerlionOS turns one-time visits into an ongoing habit through two critical engines:
-1. **Proactive Watchlists & Triggered Alerts**: Allowing citizens to set custom event triggers (COE drops, BTO launches, town resale price shifts, tax deadlines, MRT disruptions) delivered straight to Telegram, WhatsApp, or Web Push notifications.
+1. **Proactive Watchlists & Triggered Alerts**: Allowing citizens to set custom event triggers (COE drops, BTO launches, town resale price shifts, tax deadlines, MRT disruptions) delivered straight to Telegram or Web Push notifications.
 2. **Community ScamShield Checker**: Ingesting official `@scamshieldalert` advisories and providing heuristic analysis of suspicious SMS messages or URLs to protect Singaporeans from impersonation scams.
 
 ---
@@ -83,7 +83,6 @@ Singapore citizens are frequently targeted by SMS phishing scams impersonating I
 5. **Layer 5: `@scamshieldalert` Cross-Reference**: Matches URLs and phone numbers against live advisories published by the National Crime Prevention Council (NCPC) and SPF ScamShield feeds.
 
 ### 3.2 Cross-Channel Availability
-The ScamShield Checker is accessible across 3 touchpoints:
+The ScamShield Checker is accessible across 2 touchpoints:
 - **Web App Dashboard**: Dedicated input box on SG Hub (`#scam-checker-input`).
-- **Telegram Bot (`@MerlionOS_Bot`)**: Users can forward suspicious SMS messages directly to the bot for an instant safety verdict.
-- **WhatsApp Channel Simulator**: Users can paste links to receive an automated verification response.
+- **Telegram Bot (`@MerlionOS_Bot`)**: Users can forward suspicious SMS messages or links directly to the bot for an instant safety verdict (any message containing a link is auto-scanned).

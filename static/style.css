@@ -2756,18 +2756,15 @@ body.elderly-mode .portal-group-header h3 {
 body.elderly-mode .hub-card p,
 body.elderly-mode .portal-card p,
 body.elderly-mode .message-content p,
-body.elderly-mode .message-content li,
-body.elderly-mode .wa-message-text {
+body.elderly-mode .message-content li {
     font-size: 16px !important;
     font-weight: 500 !important;
 }
-body.elderly-mode .message-content strong,
-body.elderly-mode .wa-message-text strong {
+body.elderly-mode .message-content strong {
     font-size: 16.5px !important;
     font-weight: 700 !important;
 }
-body.elderly-mode .suggestion-chip,
-body.elderly-mode .wa-command-pill {
+body.elderly-mode .suggestion-chip {
     font-size: 14.5px !important;
     padding: 10px 16px !important;
     border-radius: 20px !important;
@@ -2784,185 +2781,6 @@ body.elderly-mode .ai-disclaimer-banner {
     font-size: 14.5px !important;
     padding: 12px !important;
     border-left-width: 4px !important;
-}
-
-/* ── WhatsApp Web Simulator Layout ── */
-.wa-container {
-    display: flex;
-    flex-direction: column;
-    height: calc(100vh - 160px);
-    min-height: 500px;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-    background: #0b141a; /* Dark theme WA bg */
-    font-family: Segoe UI, Helvetica Neue, Helvetica, Lucida Grande, Arial, Ubuntu, Cantarell, Fira Sans, sans-serif;
-    position: relative;
-}
-.wa-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: #202c33;
-    padding: 10px 16px;
-    color: #e9edef;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-.wa-bot-profile {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-.wa-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: var(--primary);
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-}
-.wa-bot-info {
-    display: flex;
-    flex-direction: column;
-}
-.wa-bot-name {
-    font-weight: 600;
-    font-size: 15px;
-    color: #e9edef;
-}
-.wa-bot-status {
-    font-size: 12px;
-    color: #8696a0;
-}
-.wa-bot-status.online {
-    color: #00a884; /* WA green */
-}
-.wa-chat-area {
-    flex: 1;
-    background-color: #0b141a;
-    background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 0);
-    background-size: 24px 24px;
-    padding: 16px 24px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-.wa-system-message {
-    align-self: center;
-    background: #182229;
-    color: #ffd279;
-    font-size: 11.5px;
-    padding: 6px 12px;
-    border-radius: 6.5px;
-    text-align: center;
-    max-width: 85%;
-    box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
-    border: 1px solid rgba(255,255,255,0.05);
-}
-.wa-message-row {
-    display: flex;
-    width: 100%;
-}
-.wa-message-row.wa-row-sent {
-    justify-content: flex-end;
-}
-.wa-bubble {
-    max-width: 65%;
-    padding: 8px 10px 10px 10px;
-    border-radius: 8px;
-    font-size: 14px;
-    line-height: 1.45;
-    position: relative;
-    box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
-    word-break: break-word;
-}
-.wa-msg-received {
-    background: #202c33;
-    color: #e9edef;
-    border-top-left-radius: 0;
-}
-.wa-msg-sent {
-    background: #005c4b; /* WA dark green bubble */
-    color: #e9edef;
-    border-top-right-radius: 0;
-}
-.wa-message-meta {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 4px;
-    margin-top: 4px;
-    font-size: 10px;
-    color: #8696a0;
-    text-align: right;
-    user-select: none;
-}
-.wa-ticks {
-    color: #53bdeb; /* blue double tick */
-}
-.wa-input-area {
-    background: #202c33;
-    padding: 10px 16px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    border-top: 1px solid rgba(255,255,255,0.05);
-}
-.wa-input-wrapper {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    background: #2a3942;
-    border-radius: 8px;
-    padding: 0 12px;
-}
-.wa-input-wrapper input {
-    flex: 1;
-    border: none;
-    background: transparent;
-    padding: 10px 0;
-    color: #e9edef;
-    font-size: 14.5px;
-    outline: none;
-}
-.wa-send-btn {
-    background: transparent;
-    border: none;
-    color: #8696a0;
-    font-size: 18px;
-    cursor: pointer;
-    transition: color 0.15s;
-    padding: 8px;
-}
-.wa-send-btn:hover {
-    color: #e9edef;
-}
-.wa-command-pill-box {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    padding: 8px 16px;
-    background: #111b21;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-.wa-command-pill {
-    background: #202c33;
-    border: 1px solid rgba(255,255,255,0.08);
-    color: #8696a0;
-    border-radius: 16px;
-    padding: 6px 12px;
-    font-size: 11.5px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s;
-}
-.wa-command-pill:hover {
-    background: #2a3942;
-    color: #e9edef;
 }
 
 /* ── Document Copilot Simulation section ── */
