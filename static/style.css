@@ -2404,6 +2404,22 @@ body {
     overflow-y: auto;
 }
 
+/* Header-level persona menu: right-align on desktop so it doesn't overflow viewport right */
+.persona-menu--header {
+    right: 0;
+    left: auto;
+}
+
+/* On narrow screens flip to left-align — avoids the dropdown cutting off to the left */
+@media (max-width: 600px) {
+    .persona-menu--header {
+        left: 0;
+        right: auto;
+        /* Prevent the menu from being wider than the viewport */
+        max-width: min(280px, calc(100vw - 24px));
+    }
+}
+
 .persona-menu-item {
     display: flex;
     align-items: flex-start;
