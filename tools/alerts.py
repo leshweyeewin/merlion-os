@@ -575,3 +575,14 @@ def unlink_whatsapp_chat(whatsapp_phone: str) -> int:
         conn.commit()
         return cur.rowcount
 
+
+def client_id_for_whatsapp(whatsapp_phone: str) -> str | None:
+    """Resolves the linked client_id for a given WhatsApp phone number from the channels table."""
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT client_id FROM channels WHERE kind='whatsapp' AND address=?",
+            (str(whatsapp_phone),)
+        ).fetchone()
+        return row["client_id"] if row else None
+
+
