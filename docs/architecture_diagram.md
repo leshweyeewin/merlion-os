@@ -28,6 +28,28 @@ flowchart TD
 
 ---
 
+## 🛠️ Complete 15 Backend Tools Registry
+
+| Tool File | Tool Name(s) | Primary Responsibility & Architectural Function |
+| :--- | :--- | :--- |
+| **`tools/civic.py`** | `get_government_grants`, `find_eligible_benefits` | Evaluates national benefit schemes (Assurance Package, GST Voucher, CDC Vouchers, EHG, Workfare, SkillsFuture) deterministically over profile inputs. |
+| **`tools/search.py`** | `search_government_portal` | Scrapes `.gov.sg` pages with BeautifulSoup4, enforcing post-redirect domain validation to prevent phishing hijacks and blocking auth pages. |
+| **`tools/environment.py`** | `get_weather_and_psi` | Fetches live NEA weather forecasts, PSI air quality gauges, and UV index readings. |
+| **`tools/housing.py`** | `get_hdb_bto_launches`, `get_hdb_resale_trends` | Scrapes HDB newsroom BTO launches and runs linear regression forecasting on BigQuery/data.gov.sg resale price indices. |
+| **`tools/transport.py`** | `get_mrt_status`, `get_coe_bidding_trends` | Live LTA DataMall MRT disruption grid, 2km taxi density map plotting, and linear-regression COE premium forecasts. |
+| **`tools/jobs.py`** | `get_job_market_analytics` | Computes Hiring Pressure Index and YoY vacancy trends via BigQuery (`sg_jobs.vacancies`), falling back to data.gov.sg CSV snapshots. |
+| **`tools/wages.py`** | `get_occupational_wages` | Queries MOM Occupational Wage tables to analyze tech vs. workforce-wide salary growth trends. |
+| **`tools/knowledge.py`** | `search_knowledge_base` | RAG vector search over 109-chunk civic corpus embedded with `gemini-embedding-001` via cosine similarity. |
+| **`tools/chat.py`** | `run_chat_loop`, `run_chat_stream` | Orchestrates multi-turn conversation memory, Gemini parallel tool calling, streaming SSE tokens, and 4-tier failover ladder. |
+| **`tools/security.py`** | `scan_pii`, `check_text_safety_with_ai` | Multi-layer PII Guardrails (Regex, Luhn-gated credit card check, OCR screenshot scan, opt-in AI semantic gate). |
+| **`tools/iras.py`** | `calculate_tax_relief_optimizer` | Computes progressive IRAS income tax, CPF SA (RSTU) vs. SRS top-up optimization under the S$80,000 statutory relief cap. |
+| **`tools/cpf.py`** | `calculate_cpf_life_payouts` | Simulates projected monthly retirement payouts under CPF LIFE Standard, Basic, and Escalating annuity plans. |
+| **`tools/scam_checker.py`**| `check_scam_risk` | 5-layer heuristic phishing analyzer checking SMS/URLs against `@scamshieldalert` advisories, Punycode spoofing, and OTP asks. |
+| **`tools/alerts.py`** | `evaluate_watchlist_alerts` | Background preference evaluator dispatching threshold notifications for COE, BTO, resale, tax, and MRT events to Telegram, WhatsApp, and Web Push. |
+| **`tools/core.py`** | `_fetch_datagovsg_csv_rows`, `_cached_rows` | Shared data.gov.sg CSV fetching, TTL response caching (5-min / 30-min), and async execution helpers. |
+
+---
+
 ## 🛡️ Privacy Guardrail Architecture (defense-in-depth, block-don't-redact)
 
 Personal identifiers are stopped **before any bytes reach the LLM**. Detection is layered so no single check is a single point of failure, and each layer fails in the direction that does the least harm. Mirrored in the root [`README.md`](../README.md) — keep in sync.

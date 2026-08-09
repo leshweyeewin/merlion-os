@@ -7,6 +7,101 @@
 // agencies most relevant to that person, so the "one portal across 82 boards" story lands with
 // a concrete user in mind instead of a generic wall of cards.
 const PERSONA_STORAGE_KEY = "merlionos-demo-persona";
+const PERSONA_LOCALIZATION = {
+    en: {
+        labels: { "guest": "Guest", "new-citizen": "New citizen", "young-family": "Young family", "fresh-grad": "Fresh graduate", "retiree": "Retiree" },
+        tryAs: "Try as",
+        personalizedFor: "Personalized for",
+        jumpToAgencies: "Jump to the agencies that matter most for this life-stage:",
+        clear: "Clear",
+        demoTag: "Demo",
+        quickTasks: {
+            "Renew passport": "Renew passport", "File income tax": "File income tax", "Top up CPF": "Top up CPF", "CDC vouchers": "CDC vouchers", "Apply for BTO": "Apply for BTO", "Road tax & COE": "Road tax & COE", "Register a company": "Register a company", "Find courses": "Find courses", "Check NS status": "Check NS status", "Singapore Journey": "Singapore Journey", "First tax filing": "First tax filing", "SkillsFuture courses": "SkillsFuture courses", "Baby Bonus": "Baby Bonus", "Childcare grants": "Childcare grants", "Primary school reg": "Primary school reg", "MediSave for delivery": "MediSave for delivery", "BTO upgrading": "BTO upgrading", "Job Search": "Job Search", "Career conversion": "Career conversion", "CPF LIFE": "CPF LIFE", "MediShield Life": "MediShield Life", "Eldercare grants": "Eldercare grants", "Senior Bonus": "Senior Bonus", "ActiveSG credits": "ActiveSG credits"
+        },
+        descs: {
+            "guest": "No personalization — browse everything.",
+            "new-citizen": "32, just naturalised, renting in Punggol, tech sector.",
+            "young-family": "35, new baby, HDB owner in Sengkang, healthcare sector.",
+            "fresh-grad": "25, job-seeking, living in Jurong West, public sector candidate.",
+            "retiree": "67, retired, HDB owner in Toa Payoh, focus on CPF LIFE & MediShield."
+        }
+    },
+    zh: {
+        labels: { "guest": "访客", "new-citizen": "新公民", "young-family": "年轻家庭", "fresh-grad": "应届毕业生", "retiree": "退休人士" },
+        tryAs: "切换身份",
+        personalizedFor: "为您定制",
+        jumpToAgencies: "快速跳转至适合该阶段的政府机构门户：",
+        clear: "清除",
+        demoTag: "演示",
+        quickTasks: {
+            "Renew passport": "更新护照", "File income tax": "申报所得税", "Top up CPF": "充值 CPF", "CDC vouchers": "领取 CDC 消费券", "Apply for BTO": "申请 BTO 组屋", "Road tax & COE": "路税与 COE", "Register a company": "注册公司", "Find courses": "查找技能课程", "Check NS status": "查询国民服役", "Singapore Journey": "新加坡公民之旅", "First tax filing": "首次申报所得税", "SkillsFuture courses": "SkillsFuture 课程", "Baby Bonus": "育儿津贴与花红", "Childcare grants": "托儿补助金", "Primary school reg": "小一入学报名", "MediSave for delivery": "生育 MediSave 扣除", "BTO upgrading": "BTO 提升住房", "Job Search": "求职与职位搜索", "Career conversion": "职业转型计划", "CPF LIFE": "CPF LIFE 终身养老金", "MediShield Life": "终身健保", "Eldercare grants": "乐龄护理津贴", "Senior Bonus": "乐龄特别花红", "ActiveSG credits": "乐龄运动积分"
+        },
+        descs: {
+            "guest": "无个性化配置 — 浏览所有功能",
+            "new-citizen": "32岁，刚入籍公民，租住榜鹅，科技行业。",
+            "young-family": "35岁，新手父母，盛港组屋业主，医疗保健行业。",
+            "fresh-grad": "25岁，寻找首份工作，居住在裕廊西，公共部门准员工。",
+            "retiree": "67岁，退休人士，大巴窑组屋业主，关注养老金与医疗。"
+        }
+    },
+    ms: {
+        labels: { "guest": "Tetamu", "new-citizen": "Warganegara baru", "young-family": "Keluarga muda", "fresh-grad": "Graduan baru", "retiree": "Pesara" },
+        tryAs: "Cuba sebagai",
+        personalizedFor: "Disesuaikan untuk",
+        jumpToAgencies: "Lompat ke agensi penting untuk fasa kehidupan ini:",
+        clear: "Kosongkan",
+        demoTag: "Demo",
+        quickTasks: {
+            "Renew passport": "Perbaharui pasport", "File income tax": "Failkan cukai", "Top up CPF": "Tambah nilai CPF", "CDC vouchers": "Baucar CDC", "Apply for BTO": "Memohon BTO", "Road tax & COE": "Cukai jalan & COE", "Register a company": "Daftar syarikat", "Find courses": "Cari kursus", "Check NS status": "Semak status NS", "Singapore Journey": "Singapura Journey", "First tax filing": "Failkan cukai pertama", "SkillsFuture courses": "Kursus SkillsFuture", "Baby Bonus": "Bonus Bayi", "Childcare grants": "Geran penjagaan anak", "Primary school reg": "Pendaftaran sekolah rendah", "MediSave for delivery": "MediSave untuk bersalin", "BTO upgrading": "Naik taraf BTO", "Job Search": "Cari Kerja", "Career conversion": "Penukaran Kerjaya", "CPF LIFE": "CPF LIFE", "MediShield Life": "MediShield Life", "Eldercare grants": "Geran penjagaan warga emas", "Senior Bonus": "Bonus Warga Emas", "ActiveSG credits": "Kredit ActiveSG"
+        },
+        descs: {
+            "guest": "Tiada pemperibadian — semak semua.",
+            "new-citizen": "32, baru dinaturalisasikan, menyewa di Punggol, sektor teknologi.",
+            "young-family": "35, bayi baru, pemilik HDB di Sengkang, sektor kesihatan.",
+            "fresh-grad": "25, mencari pekerjaan pertama, tinggal di Jurong West.",
+            "retiree": "67, bersara, pemilik HDB di Toa Payoh."
+        }
+    },
+    ta: {
+        labels: { "guest": "விருந்தினர்", "new-citizen": "புதிய குடிமகன்", "young-family": "இளம் குடும்பம்", "fresh-grad": "புதிய பட்டதாரி", "retiree": "ஓய்வுபெற்றவர்" },
+        tryAs: "முயற்சிக்க",
+        personalizedFor: "தனிப்பயனாக்கப்பட்டது",
+        jumpToAgencies: "முக்கிய ஏஜென்சிகளுக்கு செல்லவும்:",
+        clear: "அழி",
+        demoTag: "டெமோ",
+        quickTasks: {
+            "Renew passport": "பாஸ்போர்ட் புதுப்பித்தல்", "File income tax": "வருமான வரி தாக்கல்", "Top up CPF": "CPF டாப் அப்", "CDC vouchers": "CDC வவுச்சர்கள்", "Apply for BTO": "BTO விண்ணப்பிக்க", "Road tax & COE": "சாலை வரி & COE", "Register a company": "நிறுவனம் பதிவு செய்ய", "Find courses": "பயிற்சிகள் தேட", "Check NS status": "NS நிலையை சரிபார்க்க", "Singapore Journey": "சிங்கப்பூர் பயணம்", "First tax filing": "முதல் வரி தாக்கல்", "SkillsFuture courses": "SkillsFuture பயிற்சிகள்", "Baby Bonus": "குழந்தை போனஸ்", "Childcare grants": "குழந்தை பராமரிப்பு மானியம்", "Primary school reg": "தொடக்கப்பள்ளி பதிவு", "MediSave for delivery": "பிரசவத்திற்கு MediSave", "BTO upgrading": "BTO மேம்பாடு", "Job Search": "வேலை தேடுதல்", "Career conversion": "தொழில் மாற்றம்", "CPF LIFE": "CPF LIFE", "MediShield Life": "MediShield Life", "Eldercare grants": "முதியோர் பராமரிப்பு மானியம்", "Senior Bonus": "மூத்த குடிமகன் போனஸ்", "ActiveSG credits": "ActiveSG கிரெடிட்கள்"
+        },
+        descs: {
+            "guest": "தனிப்பயனாக்கம் இல்லை — அனைத்தையும் பார்க்கவும்.",
+            "new-citizen": "32, புதிதாக குடியுரிமை பெற்றவர், பொங்கோலில் வாடகை, தொழில்நுட்பத் துறை.",
+            "young-family": "35, புதிய குழந்தை, செங்காங்கில் HDB உரிமையாளர்.",
+            "fresh-grad": "25, முதல் வேலை தேடுகிறார், ஜூரோங் வெஸ்ட்.",
+            "retiree": "67, ஓய்வு பெற்றவர், தோவா பயோவில் HDB உரிமையாளர்."
+        }
+    }
+};
+
+function _getPersonaLoc() {
+    const lang = window.currentLanguage || localStorage.getItem("merlion_language") || "en";
+    return PERSONA_LOCALIZATION[lang] || PERSONA_LOCALIZATION.en;
+}
+
+function _getLocalizedPersonaLabel(pKey) {
+    const loc = _getPersonaLoc();
+    return (loc.labels && loc.labels[pKey]) || (_getPersonaByKey(pKey)?.label || pKey);
+}
+
+function _getLocalizedPersonaDesc(pKey) {
+    const loc = _getPersonaLoc();
+    return (loc.descs && loc.descs[pKey]) || (_getPersonaByKey(pKey)?.desc || "");
+}
+
+function _getLocalizedQuickTask(taskName) {
+    const loc = _getPersonaLoc();
+    return (loc.quickTasks && loc.quickTasks[taskName]) || taskName;
+}
+
 const PERSONAS = [
     {
         key: "guest",
@@ -85,55 +180,52 @@ const PERSONAS = [
         key: "fresh-grad",
         emoji: "🎓",
         label: "Fresh graduate",
-        desc: "24, first job hunt, living in Jurong, finance sector.",
-        greeting: "Hey! I can help you find jobs and career programmes, understand your first CPF contributions, and use your SkillsFuture credit. Where do we start?",
-        agencies: ["mom", "wsg", "skillsfuture", "cpf", "iras"],
-        quickTasks: ["Find jobs", "SkillsFuture credits", "Career conversion", "First tax filing", "CPF OA rates", "CDC vouchers"],
+        desc: "25, job-seeking, living in Jurong West, public sector candidate.",
+        greeting: "Hello! I can guide you on MySkillsFuture credits, job vacancy trends, salary benchmarks, and CPF contribution rules. What's on your mind?",
+        agencies: ["wsg", "skillsfuture", "mom", "cpf", "nlb", "mccy"],
+        quickTasks: ["SkillsFuture courses", "Job Search", "Top up CPF", "Career conversion", "CDC vouchers"],
         chatPrompts: [
-            { label: "Job Search", query: "What WSG career coaching and MyCareersFuture job programmes are available for fresh graduates?" },
-            { label: "SkillsFuture", query: "How do I claim my $500 SkillsFuture Credit for professional training courses?" },
-            { label: "First CPF", query: "How are CPF Ordinary, Special, and MediSave contributions allocated for a first job?" },
-            { label: "First Tax", query: "Do fresh graduates earning under $20,000 need to file income tax with IRAS?" }
+            { label: "Wage Explorer", query: "What are the starting salaries and YoY wage growth for entry-level tech and finance roles?" },
+            { label: "SkillsFuture", query: "How do I claim my $500 SkillsFuture Credit for career courses?" },
+            { label: "CPF Rates", query: "What is the employee and employer CPF contribution rate for a 25-year-old?" }
         ],
         hubTabs: [
-            { tab: "hub-jobs-pane", reason: "Where the jobs are hiring" },
-            { tab: "hub-community-pane", reason: "Budget deals & meetups" },
-            { tab: "hub-tax-pane", reason: "Your first income-tax filing" },
+            { tab: "hub-jobs-pane", reason: "Job market analytics & wage benchmarks" },
+            { tab: "hub-community-pane", reason: "Lifestyle deals & learning events" },
         ],
         context: {
-            label: "a fresh graduate",
-            age: 24,
-            life_stage: "a fresh graduate searching for a first full-time job",
+            label: "a fresh graduate entering the workforce",
+            age: 25,
+            life_stage: "recent university graduate looking for first job and skill upgrading",
             housing: "living with parents",
             town: "Jurong West",
-            sector: "finance",
+            sector: "job seeker",
         },
     },
     {
         key: "retiree",
-        emoji: "🌴",
+        emoji: "🍵",
         label: "Retiree",
-        desc: "64, planning CPF payouts, AMK, fully-paid flat.",
-        greeting: "Welcome! I can help you understand CPF LIFE payouts, healthcare subsidies, MediShield Life, and community support schemes. What can I look up for you?",
-        agencies: ["cpf", "moh", "healthhub", "hpb", "cdc"],
-        quickTasks: ["CPF LIFE payouts", "HealthHub appts", "Silver housing bonus", "Pioneer subsidies", "MediShield Life", "CDC vouchers"],
+        desc: "67, retired, HDB owner in Toa Payoh, focus on CPF LIFE & MediShield.",
+        greeting: "Good day! I can assist with CPF LIFE payout projections, MediSave for clinic visits, Silver Support, and active aging programmes.",
+        agencies: ["cpf", "healthhub", "hpb", "pa", "msf", "nlb"],
+        quickTasks: ["CPF LIFE", "MediShield Life", "Eldercare grants", "Senior Bonus", "ActiveSG credits", "CDC vouchers"],
         chatPrompts: [
-            { label: "CPF LIFE", query: "When can I start CPF LIFE payouts and what are the Standard vs Escalating payout plans?" },
-            { label: "Silver Housing", query: "How does the Silver Housing Bonus work when right-sizing to a smaller HDB flat?" },
-            { label: "Healthcare Subsidies", query: "What polyclinic and MediShield Life subsidies apply to Pioneer and Merdeka Generation seniors?" },
-            { label: "Active Ageing", query: "What subsidized senior activities and fitness programmes are offered by ActiveSG and PA?" }
+            { label: "CPF LIFE Payouts", query: "How are monthly payouts calculated under CPF LIFE Standard vs Basic Plan?" },
+            { label: "Senior Subsidies", query: "What healthcare subsidies, Pioneer/Merdeka Generation benefits am I eligible for at polyclinics?" },
+            { label: "Silver Support", query: "What are the eligibility criteria for the Silver Support Scheme quarterly cash payouts?" }
         ],
         hubTabs: [
-            { tab: "hub-tax-pane", reason: "CPF & wealth planning" },
-            { tab: "hub-env-pane", reason: "Daily weather & air quality" },
-            { tab: "hub-gov-transit-pane", reason: "Health & scam advisories" },
+            { tab: "hub-community-pane", reason: "Community & senior wellness activities" },
+            { tab: "hub-hdb-pane", reason: "Lease Buyback & Silver Housing Bonus" },
         ],
         context: {
-            label: "a resident planning retirement",
-            age: 64,
-            life_stage: "planning retirement, CPF LIFE payouts and healthcare coverage",
-            housing: "owns a fully-paid HDB flat",
-            town: "Ang Mo Kio",
+            label: "a retired senior citizen",
+            age: 67,
+            life_stage: "retiree managing retirement payouts and healthcare benefits",
+            housing: "owns a fully paid-up HDB flat",
+            town: "Toa Payoh",
+            sector: "retired",
         },
     },
 ];
@@ -144,11 +236,43 @@ function _getPersonaByKey(key) {
     return PERSONAS.find(p => p.key === key) || PERSONAS[0];
 }
 
+function getActivePersonaKey() {
+    return _activePersonaKey;
+}
+window.getActivePersonaKey = getActivePersonaKey;
+
 // Returns the active persona's backend context ({label, age, life_stage, ...}) or null for Guest.
 // Used by the chat request builder to personalize Co-Pilot answers.
 function getActivePersona() {
     const p = _getPersonaByKey(_activePersonaKey);
     return (p && p.key !== "guest" && p.context) ? p.context : null;
+}
+
+function renderPersonaMenuItems() {
+    const menus = Array.from(document.querySelectorAll(".persona-menu"));
+    if (!menus.length) return;
+    const menuItemsHtml = PERSONAS.map(p => {
+        const label = _getLocalizedPersonaLabel(p.key);
+        const desc = _getLocalizedPersonaDesc(p.key);
+        return `
+        <button type="button" class="persona-menu-item${p.key === _activePersonaKey ? " selected" : ""}" role="option" data-persona="${p.key}" aria-selected="${p.key === _activePersonaKey}">
+            <span class="persona-emoji" aria-hidden="true">${p.emoji}</span>
+            <span>
+                <span class="persona-item-label">${escapeHTML(label)}</span>
+                <span class="persona-item-desc">${escapeHTML(desc)}</span>
+            </span>
+        </button>`;
+    }).join("");
+
+    menus.forEach(menu => {
+        menu.innerHTML = menuItemsHtml;
+        menu.querySelectorAll(".persona-menu-item").forEach(item => {
+            item.addEventListener("click", () => {
+                applyPersona(item.getAttribute("data-persona"));
+                menu.classList.add("hidden");
+            });
+        });
+    });
 }
 
 function initPersona() {
@@ -161,18 +285,7 @@ function initPersona() {
         if (saved && _getPersonaByKey(saved).key === saved) _activePersonaKey = saved;
     } catch (e) { /* localStorage may be unavailable */ }
 
-    const menuItemsHtml = PERSONAS.map(p => `
-        <button type="button" class="persona-menu-item${p.key === _activePersonaKey ? " selected" : ""}" role="option" data-persona="${p.key}" aria-selected="${p.key === _activePersonaKey}">
-            <span class="persona-emoji" aria-hidden="true">${p.emoji}</span>
-            <span>
-                <span class="persona-item-label">${escapeHTML(p.label)}</span>
-                <span class="persona-item-desc">${escapeHTML(p.desc)}</span>
-            </span>
-        </button>`).join("");
-
-    menus.forEach(menu => {
-        menu.innerHTML = menuItemsHtml;
-    });
+    renderPersonaMenuItems();
 
     const closeAllMenus = () => {
         menus.forEach(m => m.classList.add("hidden"));
@@ -200,15 +313,6 @@ function initPersona() {
         if (!isClickInside) closeAllMenus();
     });
 
-    menus.forEach(menu => {
-        menu.querySelectorAll(".persona-menu-item").forEach(item => {
-            item.addEventListener("click", () => {
-                applyPersona(item.getAttribute("data-persona"));
-                closeAllMenus();
-            });
-        });
-    });
-
     applyPersona(_activePersonaKey, /*silent=*/true);
 }
 
@@ -217,12 +321,16 @@ function applyPersona(key, silent) {
     try { localStorage.setItem(PERSONA_STORAGE_KEY, _activePersonaKey); } catch (e) { /* ignore */ }
 
     const persona = _getPersonaByKey(_activePersonaKey);
+    const loc = _getPersonaLoc();
+    const localizedLabel = _getLocalizedPersonaLabel(persona.key);
     const btns = Array.from(document.querySelectorAll(".persona-select-btn"));
     const labels = Array.from(document.querySelectorAll(".persona-select-label"));
     const menus = Array.from(document.querySelectorAll(".persona-menu"));
     const isGuest = persona.key === "guest";
 
-    labels.forEach(lbl => { lbl.textContent = `Try as: ${persona.label}`; });
+    renderPersonaMenuItems();
+
+    labels.forEach(lbl => { lbl.textContent = `${loc.tryAs}: ${localizedLabel}`; });
     btns.forEach(btn => { btn.classList.toggle("persona-active", !isGuest); });
 
     menus.forEach(menu => {
@@ -249,6 +357,10 @@ function renderPersonaPortalBanner(persona) {
         return;
     }
 
+    const loc = _getPersonaLoc();
+    const localizedLabel = _getLocalizedPersonaLabel(persona.key);
+    const localizedDesc = _getLocalizedPersonaDesc(persona.key);
+
     const chips = (persona.agencies || []).map(agency => {
         const card = document.querySelector(`.service-card[data-agency="${agency}"]`);
         const name = card ? (card.querySelector("h3")?.textContent || agency) : agency;
@@ -259,12 +371,12 @@ function renderPersonaPortalBanner(persona) {
 
     banner.innerHTML = `
         <div class="ppb-top">
-            <span class="ppb-title">${persona.emoji} Personalized for ${escapeHTML(persona.label)}
-                <span class="ppb-demo-tag" title="Demo profile only — no real SingPass or identity data is used">Demo</span>
+            <span class="ppb-title">${persona.emoji} ${escapeHTML(loc.personalizedFor)} ${escapeHTML(localizedLabel)}
+                <span class="ppb-demo-tag" title="Demo profile only — no real SingPass or identity data is used">${escapeHTML(loc.demoTag)}</span>
             </span>
-            <button type="button" class="ppb-clear" id="ppb-clear-btn"><i class="fa-solid fa-xmark"></i> Clear</button>
+            <button type="button" class="ppb-clear" id="ppb-clear-btn"><i class="fa-solid fa-xmark"></i> ${escapeHTML(loc.clear)}</button>
         </div>
-        <div class="ppb-sub">${escapeHTML(persona.desc)} Jump to the agencies that matter most for this life-stage:</div>
+        <div class="ppb-sub">${escapeHTML(localizedDesc)} ${escapeHTML(loc.jumpToAgencies)}</div>
         <div class="ppb-chips">${chips || '<span style="font-size:12px;color:var(--text-muted);">No matching portals on screen.</span>'}</div>`;
     banner.classList.remove("hidden");
 
@@ -365,14 +477,16 @@ function renderPersonaQuickTasks(persona) {
 
     chipsEl.innerHTML = "";
     tasks.forEach(task => {
+        const localizedTask = _getLocalizedQuickTask(task);
         const chip = document.createElement("button");
         chip.type = "button";
         chip.className = "quick-task-chip";
-        chip.textContent = task;
+        chip.textContent = localizedTask;
+        chip.setAttribute("data-task-key", task);
         chip.addEventListener("click", () => {
             const active = chip.classList.contains("active-chip");
             chipsEl.querySelectorAll(".quick-task-chip").forEach(c => c.classList.remove("active-chip"));
-            input.value = active ? "" : task;
+            input.value = active ? "" : localizedTask;
             if (!active) chip.classList.add("active-chip");
             if (typeof window.applyPortalSearch === "function") {
                 window.applyPortalSearch(input.value);

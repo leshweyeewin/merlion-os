@@ -34,7 +34,7 @@
                 </div>
                 <div class="logo-text">
                     <h1>MerlionOS</h1>
-                    <span>Public service directory</span>
+                    <span data-translate="logo-subtitle">Public service directory</span>
                 </div>
             </div>
             <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
@@ -79,7 +79,7 @@
                 </div>
                 <div class="system-status">
                     <span class="status-indicator online"></span>
-                    <span>Active Engine</span>
+                    <span data-translate="active-engine-label">Active Engine</span>
                 </div>
             </div>
         </header>
@@ -109,20 +109,17 @@
                 <div class="onboarding-inner">
                     <div class="onboarding-icon" aria-hidden="true">🦁</div>
                     <div class="onboarding-body">
-                        <div class="onboarding-title">Welcome to MerlionOS — Singapore's AI-powered public service brain
+                        <div class="onboarding-title" data-translate="onboarding-title">Welcome to MerlionOS — Singapore's AI-powered public service brain
                         </div>
                         <div class="onboarding-feats">
-                            <span><i class="fa-solid fa-magnifying-glass"></i><span>Search 30+ agencies in plain English
-                                    — <em>"renew passport"</em>, <em>"top up CPF"</em></span></span>
-                            <span><i class="fa-solid fa-robot"></i><span>Ask the AI Copilot any government question and
-                                    get cited, actionable answers</span></span>
-                            <span><i class="fa-solid fa-chart-line"></i><span>Live dashboards — MRT status, PSI, BTO
-                                    launches, job market &amp; COE trends</span></span>
+                            <span><i class="fa-solid fa-magnifying-glass"></i><span data-translate="onboarding-feat1">Search 30+ agencies in plain English — <em>"renew passport"</em>, <em>"top up CPF"</em></span></span>
+                            <span><i class="fa-solid fa-robot"></i><span data-translate="onboarding-feat2">Ask the AI Copilot any government question and get cited, actionable answers</span></span>
+                            <span><i class="fa-solid fa-chart-line"></i><span data-translate="onboarding-feat3">Live dashboards — MRT status, PSI, BTO launches, job market &amp; COE trends</span></span>
                         </div>
                     </div>
                     <button type="button" class="onboarding-dismiss" id="onboarding-dismiss"
                         aria-label="Dismiss welcome banner">
-                        <i class="fa-solid fa-xmark"></i> Got it
+                        <i class="fa-solid fa-xmark"></i> <span data-translate="onboarding-dismiss">Got it</span>
                     </button>
                 </div>
             </div>
@@ -136,6 +133,7 @@
                     <div class="portal-search-box">
                         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
                         <input type="text" id="portal-search-input"
+                            data-translate-placeholder="portal-search-placeholder"
                             placeholder='What do you need? Try "renew passport", "pay road tax", "change company address"...'
                             autocomplete="off" aria-label="Search all portals by everyday task">
                         <button type="button" class="portal-search-clear hidden" id="portal-search-clear"
@@ -148,25 +146,24 @@
                 </div>
 
                 <div class="directory-toolbar" style="margin-bottom: 16px;">
-                    <span class="reorder-hint"><i class="fa-solid fa-arrows-up-down-left-right"></i> Drag any card to
-                        rearrange your portal — hover a card and click the eye icon to hide it.</span>
+                    <span class="reorder-hint"><i class="fa-solid fa-arrows-up-down-left-right"></i> <span data-translate="reorder-hint">Drag any card to rearrange your portal — hover a card and click the eye icon to hide it.</span></span>
                     <div class="toolbar-btn-group">
                         <button type="button" class="reset-layout-btn" id="sort-alphabetical-btn"
                             title="Sort portals alphabetically">
-                            <i class="fa-solid fa-arrow-down-a-z" id="sort-icon"></i> Sort
+                            <i class="fa-solid fa-arrow-down-a-z" id="sort-icon"></i> <span data-translate="btn-sort">Sort</span>
                         </button>
                         <button type="button" class="reset-layout-btn" id="mp-show-all-global">
-                            <i class="fa-solid fa-eye"></i> Show all
+                            <i class="fa-solid fa-eye"></i> <span data-translate="btn-show-all">Show all</span>
                         </button>
                         <button type="button" class="reset-layout-btn" id="mp-hide-all-global">
-                            <i class="fa-solid fa-eye-slash"></i> Hide all
+                            <i class="fa-solid fa-eye-slash"></i> <span data-translate="btn-hide-all">Hide all</span>
                         </button>
                         <button type="button" class="reset-layout-btn" id="reset-layout-btn">
-                            <i class="fa-solid fa-rotate-left"></i> Reset layout
+                            <i class="fa-solid fa-rotate-left"></i> <span data-translate="btn-reset-layout">Reset layout</span>
                         </button>
                         <div class="manage-portals-wrap" style="position: relative; display: inline-block;">
                             <button type="button" class="reset-layout-btn manage-portals-btn" id="manage-portals-btn">
-                                <i class="fa-solid fa-eye-slash"></i> Manage Portals<span class="hidden-count-badge"
+                                <i class="fa-solid fa-eye-slash"></i> <span data-translate="btn-manage-portals">Manage Portals</span><span class="hidden-count-badge"
                                     id="hidden-portals-count" style="display:none;">0</span>
                             </button>
                             <div class="hidden-portals-dropdown hidden" id="hidden-portals-dropdown"></div>
@@ -178,14 +175,14 @@
                 <div class="my-matters-section hidden" id="my-matters-section">
                     <div class="my-matters-header">
                         <div class="my-matters-title-group">
-                            <span><i class="fa-solid fa-star"></i> My Matters</span>
-                            <span class="my-matters-badge">Pinned</span>
+                            <span><i class="fa-solid fa-star"></i> <span data-translate="my-matters-title">My Matters</span></span>
+                            <span class="my-matters-badge" data-translate="my-matters-pinned">Pinned</span>
                         </div>
-                        <span class="my-matters-hint">Your bookmarked portals — click ★ on any card to pin it
+                        <span class="my-matters-hint" data-translate="my-matters-hint">Your bookmarked portals — click ★ on any card to pin it
                             here</span>
                         <button type="button" class="my-matters-clear hidden" id="my-matters-clear"
                             title="Remove all pinned portals">
-                            <i class="fa-solid fa-xmark"></i> Clear all
+                            <i class="fa-solid fa-xmark"></i> <span data-translate="my-matters-clear">Clear all</span>
                         </button>
                     </div>
                     <div class="my-matters-grid" id="my-matters-grid"></div>
@@ -193,7 +190,7 @@
 
                 <!-- Section Header for main grid -->
                 <div class="all-portals-header" id="all-portals-header">
-                    <span><i class="fa-solid fa-layer-group"></i> All Statutory Portals</span>
+                    <span><i class="fa-solid fa-layer-group"></i> <span data-translate="all-portals-title">All Statutory Portals</span></span>
                 </div>
 
                 <div class="grid-container">
@@ -2703,7 +2700,7 @@
                     <!-- AI disclaimer notice -->
                     <div class="ai-disclaimer-banner">
                         <i class="fa-solid fa-triangle-exclamation"></i>
-                        <span>AI can make mistakes and this is <strong>not financial, tax or legal advice</strong>.
+                        <span data-translate="chat-disclaimer">AI can make mistakes and this is <strong>not financial, tax or legal advice</strong>.
                             Please double-check responses against official government portals before acting.</span>
                     </div>
                     <!-- Demo persona selector — no real identity data; tailors Co-Pilot guidance to a life-stage -->
@@ -2806,7 +2803,7 @@
                             <!-- Images go to the vision channel; PDFs are text-extracted and PII-redacted server-side -->
                             <input type="file" id="chat-file-input" style="display:none;"
                                 accept="image/jpeg,image/png,image/webp,application/pdf">
-                            <input type="text" id="user-input" placeholder="Type query or paste gov.sg URL..." required
+                            <input type="text" id="user-input" data-translate-placeholder="chat-input-placeholder" placeholder="Type query or paste gov.sg URL..." required
                                 autocomplete="off" aria-label="User query">
                             <button type="submit" class="send-btn" aria-label="Send message">
                                 <i class="fa-solid fa-paper-plane"></i>
@@ -2814,7 +2811,7 @@
                         </div>
                         <!-- Privacy Warning Note -->
                         <div
-                            style="margin-top:8px; padding:8px 12px; background:rgba(255,193,7,0.1); border-left:3px solid #ffc107; border-radius:3px; font-size:12px; color:var(--text-muted);">
+                            style="margin-top:8px; padding:8px 12px; background:rgba(255,193,7,0.1); border-left:3px solid #ffc107; border-radius:3px; font-size:12px; color:var(--text-muted);" data-translate="privacy-note">
                             🔒 <strong>Privacy Note:</strong> Do not upload ID cards, passports, tax returns, or
                             sensitive personal statements. Uploaded images are processed by AI for analysis only.
                         </div>
