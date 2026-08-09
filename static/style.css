@@ -2967,11 +2967,35 @@ body.elderly-mode .ai-disclaimer-banner {
 
 /* ── Document Copilot Simulation section ── */
 .doc-simulation-card {
-    margin-bottom: 12px;
-    padding: 12px 14px;
+    margin: 0 18px 8px;
+    padding: 8px 12px;
     background: rgba(26, 115, 232, 0.05);
     border: 1px solid rgba(26, 115, 232, 0.15);
     border-radius: 8px;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+}
+.doc-simulation-card summary.doc-sim-summary {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-main);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    list-style: none;
+    user-select: none;
+}
+.doc-simulation-card summary::-webkit-details-marker {
+    display: none;
+}
+.doc-simulation-card summary .details-chevron {
+    font-size: 11px;
+    color: var(--text-muted);
+    transition: transform 0.2s ease;
+}
+.doc-simulation-card[open] summary .details-chevron {
+    transform: rotate(180deg);
 }
 .doc-sim-buttons {
     display: flex;

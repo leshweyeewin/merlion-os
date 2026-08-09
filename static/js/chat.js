@@ -945,6 +945,9 @@ document.addEventListener("DOMContentLoaded", () => {
             userInput.required = false;
         }
 
+        const details = document.getElementById("doc-simulation-details");
+        if (details) details.removeAttribute("open");
+
         // Trigger submit
         const form = document.getElementById("chat-form");
         if (form) {

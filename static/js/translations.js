@@ -185,13 +185,14 @@ function translateUI(lang = currentLanguage) {
         };
 
         // Find standard key
-        let standardKey = "BTO vs Resale";
+        let standardKey = null;
         for (const [k, v] of Object.entries(chipTranslations.en)) {
             if (chip.getAttribute("data-query") === langQueries.en[k] || chip.textContent.includes(v)) {
                 standardKey = k;
                 break;
             }
         }
+        if (!standardKey) return;
 
         // Apply translations
         if (chipTranslations[lang] && chipTranslations[lang][standardKey]) {

@@ -2762,24 +2762,29 @@
                     </div>
 
                     <!-- Document Copilot Simulator section -->
-                    <div class="doc-simulation-card">
-                        <h4 style="margin:0 0 4px 0; font-size:13px; color:var(--text-main); font-weight:700;" data-translate="document-copilot-title">Document Copilot</h4>
-                        <p style="margin:0 0 10px 0; font-size:11.5px; color:var(--text-muted); line-height:1.3;" data-translate="document-copilot-desc">Generate and upload simulated mock documents to test the multimodal vision and policy advice engines.</p>
-                        <div class="doc-sim-buttons">
-                            <button type="button" class="doc-sim-btn" id="sim-noa-btn">
-                                <i class="fa-solid fa-file-invoice-dollar" style="color: #ea4335;"></i>
-                                <span data-translate="sim-noa">Simulate IRAS Notice of Assessment (NOA)</span>
-                            </button>
-                            <button type="button" class="doc-sim-btn" id="sim-cpf-btn">
-                                <i class="fa-solid fa-file-shield" style="color: #34a853;"></i>
-                                <span data-translate="sim-cpf">Simulate CPF Statement</span>
-                            </button>
-                            <button type="button" class="doc-sim-btn" id="sim-payslip-btn">
-                                <i class="fa-solid fa-file-invoice" style="color: #4285f4;"></i>
-                                <span data-translate="sim-payslip">Simulate monthly payslip</span>
-                            </button>
+                    <details class="doc-simulation-card" id="doc-simulation-details">
+                        <summary class="doc-sim-summary">
+                            <span><i class="fa-solid fa-file-alt" style="color:var(--primary); margin-right:6px;"></i> <span data-translate="document-copilot-title">Document Copilot</span> <span style="font-weight:400; font-size:11px; color:var(--text-muted);">(Simulate mock statement)</span></span>
+                            <i class="fa-solid fa-chevron-down details-chevron"></i>
+                        </summary>
+                        <div class="doc-sim-content">
+                            <p style="margin:6px 0 10px 0; font-size:11.5px; color:var(--text-muted); line-height:1.3;" data-translate="document-copilot-desc">Generate and upload simulated mock documents to test the multimodal vision and policy advice engines.</p>
+                            <div class="doc-sim-buttons">
+                                <button type="button" class="doc-sim-btn" id="sim-noa-btn">
+                                    <i class="fa-solid fa-file-invoice-dollar" style="color: #ea4335;"></i>
+                                    <span data-translate="sim-noa">Simulate IRAS Notice of Assessment (NOA)</span>
+                                </button>
+                                <button type="button" class="doc-sim-btn" id="sim-cpf-btn">
+                                    <i class="fa-solid fa-file-shield" style="color: #34a853;"></i>
+                                    <span data-translate="sim-cpf">Simulate CPF Statement</span>
+                                </button>
+                                <button type="button" class="doc-sim-btn" id="sim-payslip-btn">
+                                    <i class="fa-solid fa-file-invoice" style="color: #4285f4;"></i>
+                                    <span data-translate="sim-payslip">Simulate monthly payslip</span>
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    </details>
 
                     <form class="input-form" id="chat-form">
                         <div class="upload-preview hidden" id="upload-preview"
