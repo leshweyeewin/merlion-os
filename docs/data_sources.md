@@ -1,6 +1,10 @@
-# 📊 Live Data Dashboard & Exact Data Sources
+## 1. Executive Summary
 
-All data panels in the **SG Hub Dashboard** load on-demand when clicked and show a **"Last synced"** SGT timestamp. Below are the exact sources and APIs feeding the UI:
+MerlionOS integrates live data feeds from Singapore public APIs (LTA DataMall, NEA API, data.gov.sg), partitioned Google Cloud BigQuery economic analytics, and community broadcast channels. All data panels in the **SG Hub Dashboard** load on-demand when clicked and display a **"Last synced"** SGT timestamp. This reference documents the REST endpoints, schemas, caching rules, and linear-regression forecasting algorithms powering SG Hub live dashboards.
+
+---
+
+## 2. API & Data Source Reference Table
 
 | UI Sub-Panel | Data Source / API Endpoint | Display Details |
 |---|---|---|

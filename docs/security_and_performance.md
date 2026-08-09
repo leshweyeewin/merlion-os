@@ -1,6 +1,11 @@
-# 🛡️ Security & Performance
+## 1. Executive Summary
 
-## Security Hardening
+This document specifies the security guardrails, client-side URL sanitization (`safeURL`), domain allowlist post-redirect checks, per-IP rate limiting, PII Guardrails, and response compression mechanisms protecting MerlionOS and citizen data.
+
+---
+
+## 2. Security Hardening
+
 MerlionOS is built with robust security protections to govern the AI agent and web interface:
 - **XSS Sanitization (`safeURL`):** Client-side Javascript filters URLs starting with `javascript:`, `data:`, or `vbscript:` and escapes double/single quotes to prevent HTML attribute breakouts.
 - **Redirection Verification:** The backend BeautifulSoup scraper follows redirect chains but validates that the final landing domain belongs to the `.gov.sg` domain or trusted public domains (`healthhub.sg`, `wsg.sg`, `cdc.gov.sg`).

@@ -1,8 +1,12 @@
 # 🏛️ Singapore Government Digital Services & Portals Directory
 
-MerlionOS features a drag-and-drop reorderable grid representing all **93 digital portals** required for citizen life. Rather than being limited strictly to statutory boards, this directory is a curated compilation of the major public touchpoints in Singapore.
+## 1. Executive Summary
 
-## 📊 Classification of the 93 Portals
+MerlionOS features a drag-and-drop reorderable grid representing all **93 statutory portals** and digital public services required for citizen life in Singapore. Rather than requiring citizens to memorize agency acronyms or search endpoints individually, the directory organizes statutory boards, executive ministries, constitutional organs, and citizen digital platforms into a unified, intent-searchable portal grid with custom persistence.
+
+---
+
+## 2. Classification of the 93 Portals
 
 The directory is divided into four main administrative categories:
 1. **Ministries & Executive Offices (16)** — The main policy-making government bodies headed by Cabinet Ministers.

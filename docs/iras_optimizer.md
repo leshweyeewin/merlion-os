@@ -1,6 +1,12 @@
-# ⚖️ IRAS Tax & Wealth — Personal Tax Relief Optimizer
+## 1. Executive Summary
 
-MerlionOS includes an interactive **CPF Special Account (RSTU) vs. SRS Top-up Optimizer** that helps you maximise tax savings within a given top-up budget, using Singapore's progressive resident tax brackets (YA 2024–2026).
+The IRAS Tax Relief & SRS Optimizer evaluates progressive Singapore personal income tax brackets, computes optimal allocations between CPF Special Account (RSTU) top-ups and Supplementary Retirement Scheme (SRS) contributions, and accounts for pre-existing statutory reliefs while enforcing the **S$80,000 statutory relief cap**.
+
+---
+
+## 2. Interactive Optimizer Capabilities
+
+MerlionOS includes an interactive **CPF Special Account (RSTU) vs. SRS Top-up Optimizer** that helps citizens maximise tax savings within a given top-up budget, using Singapore's progressive resident tax brackets (YA 2024–2026).
 
 ## What it does
 - **Progressive tax tiers** — a live table showing the effective and marginal rates applied to your reference income (assessable income minus pre-existing reliefs), recomputed dynamically from the shared bracket constant.

@@ -1,4 +1,10 @@
-# 🏗️ MerlionOS System Architecture Diagram
+## 1. Executive Summary
+
+MerlionOS is a unified, redirect-hardened public sector AI coordination brain built on FastAPI and Google Gemini 2.5 Flash. This document details the system component architecture, 15 backend tool modules, privacy guardrail layers, and 4-tier AI chat failover ladder.
+
+---
+
+## 2. System Architecture Flowchart
 
 This is the official system architecture diagram for **MerlionOS**, as published in the blog post and submission kit. It mirrors the diagram in the root [`README.md`](../README.md) — keep the two in sync.
 
@@ -50,7 +56,7 @@ flowchart TD
 
 ---
 
-## 🛡️ Privacy Guardrail Architecture (defense-in-depth, block-don't-redact)
+## 🛡️ Privacy Guardrail Architecture — defense-in-depth (*block for images/prompts, redact for PDFs*)
 
 Personal identifiers are stopped **before any bytes reach the LLM**. Detection is layered so no single check is a single point of failure, and each layer fails in the direction that does the least harm. Mirrored in the root [`README.md`](../README.md) — keep in sync.
 

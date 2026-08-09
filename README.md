@@ -52,7 +52,7 @@ flowchart TD
 
 Two decisions define how MerlionOS behaves under pressure: **how it protects citizen data** and **how it stays up when the AI does not.** Both are deliberate, layered, and fail in a chosen direction rather than by accident.
 
-### 1. Privacy Guardrail — defense-in-depth, *block-don't-redact*
+### 1. Privacy Guardrail — defense-in-depth (*block for images/prompts, redact for PDFs*)
 
 Personal identifiers are stopped **before any bytes reach the LLM**. Detection is layered so no single check is a single point of failure, and each layer fails in the direction that does the least harm.
 

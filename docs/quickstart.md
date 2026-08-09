@@ -1,12 +1,16 @@
-# 💻 Local Quickstart & Setup
+## 1. Executive Summary
 
-## 1. Project Dependencies
+This guide provides step-by-step instructions for setting up MerlionOS in a local development environment, configuring environment API keys, running FastMCP agent tool daemons, and executing the 389-test verification suite.
+
+---
+
+## 2. Project Dependencies
 Ensure you are in the project root folder.
 ```bash
 pip install -r requirements.txt
 ```
 
-## 2. Set API Keys & Start Server
+## 3. Set API Keys & Start Server
 Create a `.env` file in the project root folder (you can copy `.env.example` as a template). The server automatically reads variables from `.env` on startup.
 
 **Create `.env` file:**
