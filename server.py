@@ -1131,6 +1131,75 @@ async def scam_check(request: Request):
     return result
 
 
+# ── On-demand translation of live government prose ───────────────────────────────────────────────
+# The dashboard keeps official feed text (LTA advisories, ICA news titles) in its English source and
+# only translates a block when the user clicks "Translate" (see hub.js proseBlock/bindProseTranslate).
+# This endpoint translates one block at a time via Gemini, with an in-memory cache so repeat requests
+# for the same (lang, text) are free. Chrome labels are NOT translated here — those ship as static
+# dictionary entries (translations.js → HUB_I18N); this is only for live, source-English data.
+_TRANSLATE_LANGS = {"zh": "Simplified Chinese", "ms": "Malay", "ta": "Tamil"}
+_TRANSLATE_MAX_CHARS = 2000
+_translation_cache: dict[tuple[str, str], str] = {}
+
+
+@app.post("/api/translate")
+async def translate_text(request: Request):
+    body = await request.json()
+    text = (body.get("text") or "").strip()
+    target = (body.get("target_lang") or "").strip().lower()
+    if not text:
+        raise HTTPException(status_code=400, detail="no text to translate")
+    if len(text) > _TRANSLATE_MAX_CHARS:
+        raise HTTPException(status_code=400,
+                            detail=f"text too long (max {_TRANSLATE_MAX_CHARS} characters)")
+    if target not in _TRANSLATE_LANGS:
+        raise HTTPException(status_code=400, detail="unsupported target language")
+
+    cache_key = (target, text)
+    if cache_key in _translation_cache:
+        return {"translated": _translation_cache[cache_key]}
+
+    lang_name = _TRANSLATE_LANGS[target]
+    system_rule = (
+        f"You are a translation engine for a Singapore government services portal. Translate the "
+        f"user's text into {lang_name}. Preserve the meaning exactly — this is official public-service "
+        f"information. Keep MRT/LRT line and station names, agency acronyms (LTA, ICA, COE, HDB, CPF), "
+        f"dates, times, and numbers unchanged. Output only the translation, with no notes, quotes, or "
+        f"preamble."
+    )
+
+    # Try PRIMARY_MODEL first, fall back to FALLBACK_MODEL on quota (429), matching the safety filter.
+    for model in [PRIMARY_MODEL, FALLBACK_MODEL]:
+        try:
+            response = await _get_safety_client().aio.models.generate_content(
+                model=model,
+                contents=[types.Content(role="user", parts=[types.Part.from_text(text=text)])],
+                config=types.GenerateContentConfig(
+                    system_instruction=system_rule,
+                    temperature=0.0,
+                ),
+            )
+            translated = (response.text or "").strip()
+            if translated:
+                # Bound the cache — live prose is a tiny set, but never let it grow without limit.
+                if len(_translation_cache) > 500:
+                    _translation_cache.clear()
+                _translation_cache[cache_key] = translated
+                return {"translated": translated}
+            logger.warning("Translation returned empty output (model=%s, target=%s)", model, target)
+        except genai_errors.ClientError as e:
+            if e.code == 429 and model == PRIMARY_MODEL:
+                logger.warning("Primary model quota exceeded for translate, trying fallback: %s", e.message)
+                continue
+            logger.warning("Translation failed: %s", e)
+            break
+        except Exception as err:
+            logger.warning("Translation failed: %s", err)
+            break
+
+    raise HTTPException(status_code=502, detail="translation unavailable")
+
+
 # ── Benefits Finder (eligibility screener) ──────────────────────────────────────────────────────
 # A small profile → the government schemes the person is likely eligible for, with indicative
 # amounts and official links. Deterministic/offline engine; informational, not an official ruling.

@@ -6,6 +6,19 @@ function initSgHub() {
     let sgHubLoaded = false;
     let sgHubJobsData = null;
 
+    // Last Transit & Transport payload, kept so a language switch can re-render the pane's chrome
+    // labels in the new language without re-fetching (see the merlion:languagechange listener below).
+    let lastTransitData = null;
+
+    // Hub chrome-label lookup — resolves against js/translations.js → window.hubT (HUB_I18N), falling
+    // back to the key itself if translations haven't loaded. fmt() fills {placeholder} tokens.
+    const T = (key) => (window.hubT ? window.hubT(key) : key);
+    const fmt = (str, vars) => str.replace(/\{(\w+)\}/g, (m, k) => (vars && k in vars) ? String(vars[k]) : m);
+
+    // In-memory cache of on-demand government-prose translations, keyed by `${lang}\n${sourceText}`,
+    // so re-clicking Translate (or re-rendering) never re-hits /api/translate for the same text.
+    const proseTranslationCache = new Map();
+
     const mainTabHubBtn = document.getElementById("main-tab-hub-btn");
     const mainTabPortalsBtn = document.getElementById("main-tab-portals-btn");
     const mainTabButtons = document.querySelectorAll(".main-tab-btn");
@@ -656,9 +669,9 @@ function initSgHub() {
         if (!status) return '';
         if (status.is_live) {
             return `<span style="display:inline-flex; align-items:center; gap:5px; background:#eafaf1; color:#1a7f3c; border:1px solid #a3d9b1; font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px; text-transform:uppercase; letter-spacing:0.4px;">
-                <span style="width:6px; height:6px; border-radius:50%; background:#1a7f3c; display:inline-block;"></span>Live</span>`;
+                <span style="width:6px; height:6px; border-radius:50%; background:#1a7f3c; display:inline-block;"></span>${escapeHTML(T('live'))}</span>`;
         }
-        const note = status.note || 'Showing last known data — live source unavailable';
+        const note = status.note || T('last-known');
         return `<span title="${escapeHTML(note)}" style="display:inline-flex; align-items:center; gap:5px; background:#fffbeb; color:#b45309; border:1px solid #fcd34d; font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px;">
             <i class="fa-solid fa-triangle-exclamation"></i>${escapeHTML(note)}</span>`;
     }
@@ -674,7 +687,7 @@ function initSgHub() {
     function syncBanner(status) {
         const badge = feedStatusBadge(status);
         return `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; font-weight: 600; flex-wrap: wrap;">
-            <span style="display:inline-flex; align-items:center; gap:4px;"><i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML((status && status.synced_at) || getRetrievalTimestamp())}</span>
+            <span style="display:inline-flex; align-items:center; gap:4px;"><i class="fa-solid fa-clock-rotate-left"></i> ${escapeHTML(T('last-synced'))} ${escapeHTML((status && status.synced_at) || getRetrievalTimestamp())}</span>
             ${badge}
         </div>`;
     }
@@ -1325,7 +1338,7 @@ function initSgHub() {
 
     function renderTransportPane(taxiAvailability, coe, coeHistory) {
         const banner = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
-            <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML((coe && coe.synced_at) || getRetrievalTimestamp())}
+            <i class="fa-solid fa-clock-rotate-left"></i> ${escapeHTML(T('last-synced'))} ${escapeHTML((coe && coe.synced_at) || getRetrievalTimestamp())}
         </div>`;
 
         // COE trend metadata (category colours + whether there's enough history to chart) is used
@@ -1340,7 +1353,7 @@ function initSgHub() {
         if (taxiEventsContent) {
             const taxiHtml = !taxiAvailability
                 ? `<div style="background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px; color: var(--text-subtle); font-size: 13px;">
-                    🚕 Taxi availability unavailable (LTA DataMall key not configured).
+                    🚕 ${escapeHTML(T('taxi-unavailable'))}
                 </div>`
                 : `<div id="taxi-stat-block" style="background: var(--bg-muted); border: 1px solid var(--border); padding: 14px; border-radius: 8px;">
                     ${islandwideTaxiHtml(taxiAvailability)}
@@ -1348,9 +1361,9 @@ function initSgHub() {
 
             const taxiMapHtml = taxiAvailability ? `
                 <div style="margin-top: 14px;">
-                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🗺️ Live Taxi Positions Map — ${taxiAvailability.count.toLocaleString()} available islandwide</div>
+                    <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">🗺️ ${escapeHTML(fmt(T('taxi-map-title'), { n: taxiAvailability.count.toLocaleString() }))}</div>
                     <div id="taxi-map" style="height: 280px; border-radius: 10px; border: 1px solid var(--border); position: relative; z-index: 1;"></div>
-                    <div style="font-size: 10.5px; color: var(--text-muted); margin-top: 5px;">Showing up to 500 sampled positions · Source: LTA DataMall · ${escapeHTML(taxiAvailability.retrieved_at)}</div>
+                    <div style="font-size: 10.5px; color: var(--text-muted); margin-top: 5px;">${fmt(escapeHTML(T('taxi-map-footer')), { ts: escapeHTML(taxiAvailability.retrieved_at) })}</div>
                 </div>` : '';
 
             taxiEventsContent.innerHTML = banner + taxiHtml + taxiMapHtml;
@@ -1361,26 +1374,26 @@ function initSgHub() {
             const coeCategoriesHtml = (coe && coe.categories && coe.categories.length)
                 ? coe.categories.map(c => `
                     <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; min-width: 130px; flex: 1;">
-                        <span style="background:${coeCategoryColors[c.category] || 'var(--primary)'}; color:#fff; font-size:10px; font-weight:800; padding:2px 7px; border-radius:4px;">CAT ${escapeHTML(c.category)}</span>
+                        <span style="background:${coeCategoryColors[c.category] || 'var(--primary)'}; color:#fff; font-size:10px; font-weight:800; padding:2px 7px; border-radius:4px;">${escapeHTML(T('coe-cat'))} ${escapeHTML(c.category)}</span>
                         <div style="font-size: 15px; font-weight: 700; color: var(--text-main); margin-top: 6px;">${escapeHTML(c.premium)}</div>
                         <div style="font-size: 10px; color: var(--text-muted);">${escapeHTML(c.label)}</div>
                         ${c.momentum ? `<div style="font-size: 10px; color: var(--text-muted); margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">📶 ${escapeHTML(c.momentum)}</div>` : ''}
                         ${c.movement_reason ? `<div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">🔍 ${escapeHTML(c.movement_reason)}</div>` : ''}
                     </div>`).join('')
-                : `<p style="color: var(--text-subtle); margin:0; font-size: 13px;">COE data unavailable.</p>`;
+                : `<p style="color: var(--text-subtle); margin:0; font-size: 13px;">${escapeHTML(T('coe-unavailable'))}</p>`;
 
             const coeCaption = (coeHistory && coeHistory.insight)
                 ? coeHistory.insight
-                : "Two bidding rounds per month — hover for every category's exact premium.";
+                : T('coe-default-caption');
             const coeHistoryHtml = hasCoeHistory ? `
-                <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 8px;">📈 COE Premium Trend — Last ${coeHistory.exercises.length} Exercises</div>
+                <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 8px;">📈 ${escapeHTML(fmt(T('coe-trend'), { n: coeHistory.exercises.length }))}</div>
                 <div id="coe-trend-chart" style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 10px 10px 4px;"></div>
                 <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;">💡 ${escapeHTML(coeCaption)}</div>
             ` : '';
 
             coeEventsContent.innerHTML = banner + `
                 <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px;">
-                    <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 8px;">🚗 COE BIDDING — ${coe ? escapeHTML(coe.exercise) : 'N/A'}</span>
+                    <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 8px;">🚗 ${escapeHTML(T('coe-bidding'))} — ${coe ? escapeHTML(coe.exercise) : 'N/A'}</span>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                         ${coeCategoriesHtml}
                     </div>
@@ -1410,9 +1423,9 @@ function initSgHub() {
             if (taxiMapEl && typeof L === "undefined") {
                 // Leaflet failed to load from its CDN (e.g. blocked/stalled network) — the div
                 // would otherwise stay blank forever with no indication anything went wrong.
-                taxiMapEl.innerHTML = "<div style='display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:12px;text-align:center;padding:0 16px;'>⚠️ Map library failed to load (check your network connection), positions unavailable.</div>";
+                taxiMapEl.innerHTML = `<div style='display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:12px;text-align:center;padding:0 16px;'>${escapeHTML(T('taxi-map-lib-fail'))}</div>`;
             } else if (taxiMapEl && (!positions || positions.length === 0)) {
-                taxiMapEl.innerHTML = "<div style='display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:12px;'>No taxi position data available right now.</div>";
+                taxiMapEl.innerHTML = `<div style='display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:12px;'>${escapeHTML(T('taxi-no-positions'))}</div>`;
             } else if (taxiMapEl) {
                 const tmap = L.map(taxiMapEl, { zoomControl: true, scrollWheelZoom: false })
                     .setView([1.3521, 103.8198], 11);
@@ -1435,7 +1448,7 @@ function initSgHub() {
         } catch (e) {
             console.error("Failed to render taxi map:", e);
             const taxiMapEl = document.getElementById("taxi-map");
-            if (taxiMapEl) taxiMapEl.innerHTML = "<div style='display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:12px;'>⚠️ Couldn't render the map.</div>";
+            if (taxiMapEl) taxiMapEl.innerHTML = `<div style='display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:12px;'>${escapeHTML(T('taxi-map-fail'))}</div>`;
         }
 
         bindTaxiButtons(taxiAvailability);
@@ -1445,27 +1458,27 @@ function initSgHub() {
 
     function islandwideTaxiHtml(taxiAvailability) {
         return `
-            <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">🚕 TAXIS AVAILABLE ISLANDWIDE</span>
+            <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">🚕 ${escapeHTML(T('taxi-islandwide'))}</span>
             <strong style="font-size: 22px; color: var(--primary); display:block;">${taxiAvailability.count.toLocaleString()}</strong>
             <span style="font-size: 10px; color: var(--text-muted); display:block; margin-bottom:8px;">${escapeHTML(taxiAvailability.retrieved_at)}</span>
-            <button type="button" id="taxi-around-you-btn" style="${TAXI_BTN_STYLE}" title="Uses your location to count taxis within 2km">
-                <i class="fa-solid fa-location-crosshairs"></i> Around You (2km)
+            <button type="button" id="taxi-around-you-btn" style="${TAXI_BTN_STYLE}" title="${escapeHTML(T('around-you-tip'))}">
+                <i class="fa-solid fa-location-crosshairs"></i> ${escapeHTML(T('around-you'))}
             </button>
         `;
     }
 
     function nearbyTaxiHtml(nearby) {
         return `
-            <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">🚕 TAXIS WITHIN ${nearby.nearby_radius_km}KM${nearby.area_name ? "" : " OF YOU"}</span>
-            ${nearby.area_name ? `<span style="font-size: 13px; font-weight: 700; color: var(--text-main); display:block; margin-bottom: 2px;"><i class="fa-solid fa-location-dot" style="color: var(--primary);"></i> Near ${escapeHTML(nearby.area_name)}</span>` : ""}
+            <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">🚕 ${escapeHTML(fmt(T(nearby.area_name ? 'taxi-within-area' : 'taxi-within-you'), { km: nearby.nearby_radius_km }))}</span>
+            ${nearby.area_name ? `<span style="font-size: 13px; font-weight: 700; color: var(--text-main); display:block; margin-bottom: 2px;"><i class="fa-solid fa-location-dot" style="color: var(--primary);"></i> ${escapeHTML(fmt(T('near-area'), { area: nearby.area_name }))}</span>` : ""}
             <strong style="font-size: 22px; color: var(--primary); display:block;">${nearby.nearby_count.toLocaleString()}</strong>
-            <span style="font-size: 10px; color: var(--text-muted); display:block; margin-bottom:8px;">${nearby.count.toLocaleString()} available islandwide &middot; ${escapeHTML(nearby.retrieved_at)}</span>
+            <span style="font-size: 10px; color: var(--text-muted); display:block; margin-bottom:8px;">${escapeHTML(fmt(T('n-available-islandwide'), { n: nearby.count.toLocaleString() }))} &middot; ${escapeHTML(nearby.retrieved_at)}</span>
             <div style="display:flex; gap:6px;">
                 <button type="button" id="taxi-around-you-btn" style="${TAXI_BTN_STYLE}">
-                    <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                    <i class="fa-solid fa-arrows-rotate"></i> ${escapeHTML(T('refresh'))}
                 </button>
                 <button type="button" id="taxi-show-all-btn" style="${TAXI_BTN_STYLE}">
-                    <i class="fa-solid fa-globe"></i> Show All
+                    <i class="fa-solid fa-globe"></i> ${escapeHTML(T('show-all'))}
                 </button>
             </div>
         `;
@@ -1491,7 +1504,7 @@ function initSgHub() {
             weight: 2,
             fillColor: '#2563eb',
             fillOpacity: 1
-        }).addTo(tmap).bindTooltip("You are here", { permanent: false, direction: "top" });
+        }).addTo(tmap).bindTooltip(T('taxi-you-here'), { permanent: false, direction: "top" });
         // animate:false — Leaflet's animated setView doesn't reliably persist in this app's
         // layout (likely a CSS transition conflict from an ancestor), leaving the map visually
         // stuck at its old center/zoom even though the marker itself is placed correctly.
@@ -1522,15 +1535,15 @@ function initSgHub() {
         aroundBtn.addEventListener("click", async () => {
             const originalLabel = aroundBtn.innerHTML;
             aroundBtn.disabled = true;
-            aroundBtn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Locating...`;
+            aroundBtn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> ${escapeHTML(T('locating'))}`;
 
             let loc;
             try {
                 loc = await getBrowserLocation();
             } catch (err) {
-                const reason = err && err.code === 1 ? "Location access denied."
-                    : err && err.code === 3 ? "Location request timed out."
-                        : "Location unavailable.";
+                const reason = err && err.code === 1 ? T('loc-denied')
+                    : err && err.code === 3 ? T('loc-timeout')
+                        : T('loc-unavailable');
                 aroundBtn.disabled = false;
                 aroundBtn.innerHTML = originalLabel;
                 showTaxiError(block, reason);
@@ -1547,12 +1560,91 @@ function initSgHub() {
             } catch (err) {
                 aroundBtn.disabled = false;
                 aroundBtn.innerHTML = originalLabel;
-                showTaxiError(block, "Couldn't fetch nearby taxis. Try again.");
+                showTaxiError(block, T('taxi-fetch-fail'));
             }
         });
     }
 
+    // ── On-demand translation for live government prose ──────────────────────────────────────────
+    // Official feed text (advisories, news titles) stays in its English source by default — silently
+    // machine-translating safety-critical advisories risks misrepresenting them. Instead each prose
+    // block gets a "Translate" button (only when a non-English UI language is active) that calls
+    // /api/translate on click, caches the result, and offers a toggle back to the original.
+
+    // Wraps a live-prose string in a block with its stored original + (when the UI isn't English) a
+    // Translate toggle. `text` is the raw source; it is escaped here.
+    function proseBlock(text, { inline = false } = {}) {
+        const esc = escapeHTML(text);
+        const lang = window.currentLanguage || "en";
+        const btn = (lang === "en")
+            ? ""
+            : `<button type="button" class="gov-prose-translate" style="margin-top:6px; background:none; border:none; padding:0; color:var(--link); font-size:11px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
+                    <i class="fa-solid fa-language"></i> <span class="gpt-label">${escapeHTML(T('btn-translate'))}</span>
+                </button>`;
+        return `<span class="gov-prose-block" style="display:${inline ? 'inline' : 'block'};">
+            <span class="gov-prose-text" data-orig="${esc}" data-state="orig" style="display:${inline ? 'inline' : 'block'};">${esc}</span>
+            ${btn}
+        </span>`;
+    }
+
+    // Wires every Translate toggle inside `container`. Idempotent per element (guards with a flag).
+    function bindProseTranslate(container) {
+        if (!container) return;
+        container.querySelectorAll(".gov-prose-translate").forEach(btn => {
+            if (btn.dataset.bound === "1") return;
+            btn.dataset.bound = "1";
+            btn.addEventListener("click", async () => {
+                const block = btn.closest(".gov-prose-block");
+                const textEl = block && block.querySelector(".gov-prose-text");
+                const labelEl = btn.querySelector(".gpt-label");
+                if (!textEl) return;
+                const orig = textEl.getAttribute("data-orig") || textEl.textContent;
+
+                // Toggle back to the original if we're currently showing a translation.
+                if (textEl.getAttribute("data-state") === "trans") {
+                    textEl.textContent = orig;
+                    textEl.setAttribute("data-state", "orig");
+                    if (labelEl) labelEl.textContent = T("btn-translate");
+                    return;
+                }
+
+                const lang = window.currentLanguage || "en";
+                const cacheKey = `${lang}\n${orig}`;
+                if (proseTranslationCache.has(cacheKey)) {
+                    textEl.textContent = proseTranslationCache.get(cacheKey);
+                    textEl.setAttribute("data-state", "trans");
+                    if (labelEl) labelEl.textContent = T("btn-show-original");
+                    return;
+                }
+
+                btn.disabled = true;
+                if (labelEl) labelEl.textContent = T("translating");
+                try {
+                    const res = await fetch("/api/translate", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: orig, target_lang: lang })
+                    });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const out = await res.json();
+                    const translated = (out && out.translated) || "";
+                    if (!translated) throw new Error("empty translation");
+                    proseTranslationCache.set(cacheKey, translated);
+                    textEl.textContent = translated;
+                    textEl.setAttribute("data-state", "trans");
+                    if (labelEl) labelEl.textContent = T("btn-show-original");
+                } catch (err) {
+                    console.error("Translate failed:", err);
+                    if (labelEl) labelEl.textContent = T("translate-fail");
+                } finally {
+                    btn.disabled = false;
+                }
+            });
+        });
+    }
+
     function renderTransitPane(data) {
+        lastTransitData = data;
         renderPaneStatus("hub-transport-status", data.data_status);
         renderTransportPane(data.taxi_availability, data.coe, data.coe_history);
 
@@ -1578,16 +1670,17 @@ function initSgHub() {
                                     ${icon} <span style="background:${labelBg}; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:10px;">${escapeHTML(news.category)}</span>
                                     ${news.date ? `<span style="font-weight:normal; color:var(--text-muted);">${escapeHTML(news.date)}</span>` : ''}
                                 </span>
-                                <a href="${safeURL(news.url)}" target="_blank" style="color: var(--link); text-decoration:none; font-size:12px;"><i class="fa-solid fa-up-right-from-square"></i> View</a>
+                                <a href="${safeURL(news.url)}" target="_blank" style="color: var(--link); text-decoration:none; font-size:12px;"><i class="fa-solid fa-up-right-from-square"></i> ${escapeHTML(T('ica-view'))}</a>
                             </div>
-                            <div style="color: var(--text-main); line-height:1.4; font-weight:500;">${escapeHTML(news.title)}</div>
+                            <div style="color: var(--text-main); line-height:1.4; font-weight:500;">${proseBlock(news.title)}</div>
                         </div>
                     </div>`;
                 });
             } else {
-                icaHtml = `<p style="color: var(--text-subtle); margin: 0; font-style: italic;">No active checkpoint or media updates reported.</p>`;
+                icaHtml = `<p style="color: var(--text-subtle); margin: 0; font-style: italic;">${escapeHTML(T('ica-empty'))}</p>`;
             }
             icaEventsContent.innerHTML = syncBanner(data.ica_status) + icaHtml;
+            bindProseTranslate(icaEventsContent);
         }
 
         // ── Transit section: LTA DataMall structured view OR key-not-configured notice ──
@@ -1599,19 +1692,19 @@ function initSgHub() {
             const overallNormal = ta.status === "Normal";
             const apiTimestamp = `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; display:flex; align-items:center; gap:6px; font-weight:600;">
                 <i class="fa-solid fa-satellite-dish" style="color:#005EC4;"></i>
-                <span>LTA DataMall Live Feed</span>
-                <span style="font-size:10px; font-weight:normal; color:var(--text-muted); background:var(--border); padding:2px 7px; border-radius:4px;">Retrieved: ${escapeHTML(ta.retrieved_at)}</span>
+                <span>${escapeHTML(T('lta-live-feed'))}</span>
+                <span style="font-size:10px; font-weight:normal; color:var(--text-muted); background:var(--border); padding:2px 7px; border-radius:4px;">${escapeHTML(T('retrieved'))} ${escapeHTML(ta.retrieved_at)}</span>
             </div>`;
 
             if (overallNormal) {
                 mrtHtml += `<div style="display:flex; align-items:center; gap:8px; color: #1a7f3c; background: #eafaf1; border: 1px solid #a3d9b1; padding:14px 16px; border-radius:10px; font-size:14px; font-weight:700; margin-bottom:14px;">
                     <i class="fa-solid fa-circle-check" style="font-size:18px;"></i>
-                    🟢 All MRT & LRT Lines Operating Normally
+                    🟢 ${escapeHTML(T('all-normal'))}
                 </div>`;
             } else {
                 mrtHtml += `<div style="display:flex; align-items:center; gap:8px; color: #c0392b; background: #fdecea; border: 1px solid #e8b4b1; padding:14px 16px; border-radius:10px; font-size:14px; font-weight:700; margin-bottom:14px;">
                     <i class="fa-solid fa-triangle-exclamation" style="font-size:18px;"></i>
-                    ⚠️ Train Service Disruptions / Minor Delays Active
+                    ⚠️ ${escapeHTML(T('disruptions-active'))}
                 </div>`;
             }
 
@@ -1621,9 +1714,9 @@ function initSgHub() {
                 ta.messages.forEach(msg => {
                     mrtHtml += `<div style="background:#fffbeb; border:1px solid #fef3c7; border-left:4px solid #d97706; border-radius:8px; padding:12px; font-size:13px; margin-bottom:8px; line-height:1.5; color:#92400e;">
                         <div style="font-weight:700; margin-bottom:4px; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:#b45309;">
-                            <i class="fa-solid fa-bullhorn"></i> Official Advisory (${escapeHTML(msg.created_date)})
+                            <i class="fa-solid fa-bullhorn"></i> ${escapeHTML(T('official-advisory'))} (${escapeHTML(msg.created_date)})
                         </div>
-                        <div>${escapeHTML(msg.content)}</div>
+                        ${proseBlock(msg.content)}
                     </div>`;
                 });
                 mrtHtml += `</div>`;
@@ -1640,7 +1733,7 @@ function initSgHub() {
                 mrtHtml += `<div style="background:${statusBg}; border:1px solid ${statusBorder}; border-radius:8px; padding:10px 12px;">
                     <div style="display:flex; align-items:center; gap:7px; margin-bottom:4px;">
                         <span style="background:${escapeHTML(line.line_color)}; color:#fff; font-size:10px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">${escapeHTML(line.line_code)}</span>
-                        <span style="font-size:12px; font-weight:700; color:${statusColor};">${statusIcon} ${isDisrupted ? "Affected" : "Normal"}</span>
+                        <span style="font-size:12px; font-weight:700; color:${statusColor};">${statusIcon} ${escapeHTML(isDisrupted ? T('status-affected') : T('status-normal'))}</span>
                     </div>
                     <div style="font-size:11px; color:var(--text-muted);">${escapeHTML(line.line_name)}</div>
                 </div>`;
@@ -1650,25 +1743,26 @@ function initSgHub() {
             // Disruption detail cards (using exact LTA guide parameters)
             const disruptedLines = ta.lines.filter(l => l.status === "Disrupted");
             if (disruptedLines.length > 0) {
-                mrtHtml += `<div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Disruption Scope</div>`;
+                mrtHtml += `<div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">${escapeHTML(T('disruption-scope'))}</div>`;
                 disruptedLines.forEach(line => {
                     line.affected_segments.forEach(seg => {
                         mrtHtml += `<div style="background:var(--bg-muted); border:1px solid #e8b4b1; border-left: 4px solid ${escapeHTML(line.line_color)}; border-radius:8px; padding:12px; font-size:13px; margin-bottom:8px; line-height:1.5;">
                             <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; font-weight:700;">
                                 <span style="background:${escapeHTML(line.line_color)}; color:#fff; font-size:10px; font-weight:800; padding:2px 8px; border-radius:4px;">${escapeHTML(line.line_code)}</span>
                                 <span style="color:#c0392b;">${escapeHTML(line.line_name)}</span>
-                                ${seg.direction ? `<span style="font-size:11px; color:var(--text-muted);">• Direction: ${escapeHTML(seg.direction)}</span>` : ''}
+                                ${seg.direction ? `<span style="font-size:11px; color:var(--text-muted);">• ${escapeHTML(T('direction'))} ${escapeHTML(seg.direction)}</span>` : ''}
                             </div>
-                            ${seg.stations ? `<div style="font-size:12px; color:var(--text-main); margin-bottom:6px; font-weight:600;"><i class="fa-solid fa-location-dot" style="color:var(--text-muted);"></i> Affected Stations: <span style="color:#c0392b;">${escapeHTML(seg.stations)}</span></div>` : ''}
+                            ${seg.stations ? `<div style="font-size:12px; color:var(--text-main); margin-bottom:6px; font-weight:600;"><i class="fa-solid fa-location-dot" style="color:var(--text-muted);"></i> ${escapeHTML(T('affected-stations'))} <span style="color:#c0392b;">${escapeHTML(seg.stations)}</span></div>` : ''}
 
-                            ${seg.free_public_bus ? `<div style="font-size:12px; color:#1a7f3c; margin-bottom:4px; font-weight:600;"><i class="fa-solid fa-bus"></i> Free Public Bus Boarding: <span>${escapeHTML(seg.free_public_bus)}</span></div>` : ''}
-                            ${seg.free_mrt_shuttle ? `<div style="font-size:12px; color:#005EC4; margin-bottom:4px; font-weight:600;"><i class="fa-solid fa-bus-simple"></i> Free MRT Shuttle: <span>${escapeHTML(seg.free_mrt_shuttle)}</span> (${escapeHTML(seg.mrt_shuttle_direction)})</div>` : ''}
+                            ${seg.free_public_bus ? `<div style="font-size:12px; color:#1a7f3c; margin-bottom:4px; font-weight:600;"><i class="fa-solid fa-bus"></i> ${escapeHTML(T('free-public-bus'))} <span>${escapeHTML(seg.free_public_bus)}</span></div>` : ''}
+                            ${seg.free_mrt_shuttle ? `<div style="font-size:12px; color:#005EC4; margin-bottom:4px; font-weight:600;"><i class="fa-solid fa-bus-simple"></i> ${escapeHTML(T('free-mrt-shuttle'))} <span>${escapeHTML(seg.free_mrt_shuttle)}</span> (${escapeHTML(seg.mrt_shuttle_direction)})</div>` : ''}
                         </div>`;
                     });
                 });
             }
 
             mrtEventsContent.innerHTML = apiTimestamp + mrtHtml;
+            bindProseTranslate(mrtEventsContent);
 
         } else {
             // ── No LTA DataMall key configured: show a clear scope-bounded notice ──
@@ -2544,6 +2638,13 @@ function initSgHub() {
             const sector = btn.getAttribute("data-sector");
             loadJobSectorData(sector);
         });
+    });
+
+    // Re-render the Transit & Transport pane's chrome labels when the language changes. Only this
+    // pane is wired for translation so far (the proven pattern); other panes keep their English
+    // chrome until the same hubT treatment is rolled out to them. No-op until the pane has loaded.
+    document.addEventListener("merlion:languagechange", () => {
+        if (lastTransitData) renderTransitPane(lastTransitData);
     });
 
     // Plain-English glossary moved to its own module: static/js/glossary.js
