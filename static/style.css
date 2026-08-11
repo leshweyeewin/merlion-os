@@ -2219,6 +2219,37 @@ body {
     border-color: var(--primary) !important;
 }
 
+/* Inner segmented toggle used inside a pane (Money Planner: Home Cost | CPF LIFE | Benefits; Alerts &
+   Safety: My Alerts | Scam Checker). Distinct class from .hub-sub-tab-btn so the global sub-tab
+   switcher never treats these as pane switchers. */
+.hub-toggle-btn {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: var(--font-primary);
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.hub-toggle-btn:hover {
+    border-color: var(--border-hover);
+    color: var(--text-main);
+    background: var(--bg-muted);
+}
+
+.hub-toggle-btn.active-tool {
+    background: var(--primary-soft);
+    color: var(--primary);
+    border-color: var(--primary);
+}
+
 /* Unread-count pill on the "My Alerts" sub-tab. */
 .alerts-badge {
     display: inline-flex;

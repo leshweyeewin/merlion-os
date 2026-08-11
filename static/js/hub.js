@@ -474,8 +474,6 @@ function initSgHub() {
             jobsContent.innerHTML = skeletonRows(4, ["tall", "full", "long", "medium"]);
         } else if (paneId === "hub-community-pane") {
             communityEventsContent.innerHTML = skeletonRows(4, ["medium", "long", "short"]);
-        } else if (paneId === "hub-env-pane") {
-            weatherContent.innerHTML = skeletonCardGrid(8);
         }
     }
 
@@ -514,8 +512,6 @@ function initSgHub() {
             if (retrenchmentDetailsEl) retrenchmentDetailsEl.innerHTML = "<span style='color: var(--text-error);'>⚠️ Failed to load retrenchment data.</span>";
         } else if (paneId === "hub-community-pane") {
             communityEventsContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load community feeds.</p>";
-        } else if (paneId === "hub-env-pane") {
-            weatherContent.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load environment metrics.</p>";
         }
     }
 
@@ -573,27 +569,36 @@ function initSgHub() {
         throw lastErr;
     }
 
-    async function loadSgHubPaneData(paneId) {
-        // My Alerts is an interactive, self-managing pane (js/alerts.js) — re-render it fresh on
-        // every visit so new notifications show, rather than caching it like the read-only panes.
-        if (paneId === "hub-alerts-pane") {
-            if (window.MerlionAlerts) window.MerlionAlerts.load();
-            return;
+    // Weather & PSI card lives inside the Transit & Transport pane now. It has its own endpoint, so it
+    // loads independently of the transit feeds and fills the moved #hub-weather-content card.
+    async function loadTransportWeather() {
+        const el = document.getElementById("hub-weather-content");
+        if (!el) return;
+        el.innerHTML = skeletonCardGrid(8);
+        try {
+            const data = await fetchJsonWithRetry("/api/sg-hub/weather");
+            renderWeatherPane(data);
+        } catch (err) {
+            console.error("Failed to load weather", err);
+            el.innerHTML = "<p style='color: var(--text-error); margin:0;'>⚠️ Failed to load environment metrics.</p>";
         }
-        if (paneId === "hub-scam-pane") {
+    }
+
+    async function loadSgHubPaneData(paneId) {
+        if (paneId === "hub-safety-pane") {
+            // Alerts & Safety = My Alerts + Scam Checker behind an inner toggle. Both are interactive,
+            // self-managing panes; render both on open (Alerts is the default-visible one). Re-toggling
+            // to Alerts reloads it (MerlionSafety.select) so new notifications surface on each visit.
+            if (window.MerlionAlerts) window.MerlionAlerts.load();
             if (window.MerlionScam) window.MerlionScam.load();
             return;
         }
-        if (paneId === "hub-benefits-pane") {
-            if (window.MerlionBenefits) window.MerlionBenefits.load();
-            return;
-        }
-        if (paneId === "hub-upfront-pane") {
+        if (paneId === "hub-money-pane") {
+            // Home Cost + CPF LIFE + Benefits Finder share this tab. All three are deterministic/offline
+            // calculators, so render all on open — the inner toggle then just shows/hides, no re-fetch.
             if (window.MerlionUpfront) window.MerlionUpfront.load();
-            return;
-        }
-        if (paneId === "hub-cpflife-pane") {
             if (window.MerlionCpfLife) window.MerlionCpfLife.load();
+            if (window.MerlionBenefits) window.MerlionBenefits.load();
             return;
         }
         if (paneId === "hub-journeys-pane") {
@@ -608,7 +613,6 @@ function initSgHub() {
         else if (paneId === "hub-hdb-pane") endpoint = "/api/sg-hub/hdb";
         else if (paneId === "hub-jobs-pane") endpoint = "/api/sg-hub/jobs?sector=tech";
         else if (paneId === "hub-community-pane") endpoint = "/api/sg-hub/community";
-        else if (paneId === "hub-env-pane") endpoint = "/api/sg-hub/weather";
         else if (paneId === "hub-tax-pane") endpoint = "/api/sg-hub/tax";
 
         if (!endpoint) return;
@@ -619,6 +623,10 @@ function initSgHub() {
 
         loadingSgHubPanes[paneId] = true;
         showPaneLoader(paneId);
+
+        // Weather & PSI is folded into the Transit & Transport tab — fetch it in parallel (its own
+        // endpoint) so the weather card fills independently of the transit feeds.
+        if (paneId === "hub-transport-pane") loadTransportWeather();
 
         try {
             const data = await fetchJsonWithRetry(endpoint);
@@ -633,8 +641,6 @@ function initSgHub() {
                 renderJobsPane(data);
             } else if (paneId === "hub-community-pane") {
                 renderCommunityPane(data);
-            } else if (paneId === "hub-env-pane") {
-                renderWeatherPane(data);
             } else if (paneId === "hub-tax-pane") {
                 renderTaxPane(data);
             }
@@ -2639,6 +2645,46 @@ function initSgHub() {
             loadJobSectorData(sector);
         });
     });
+
+    // Generic inner segmented toggle, shared by the Money Planner and Alerts & Safety panes: shows one
+    // content div at a time (by data-tool → content-id map) and marks the active button. Scoped per
+    // pane so the two toggles never affect each other.
+    function selectInnerTool(paneId, contentMap, tool) {
+        if (!contentMap[tool]) return;
+        Object.entries(contentMap).forEach(([t, id]) => {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle("hidden", t !== tool);
+        });
+        document.querySelectorAll(`#${paneId} .hub-toggle-btn`).forEach(b => {
+            b.classList.toggle("active-tool", b.getAttribute("data-tool") === tool);
+        });
+    }
+
+    // Wires a pane's inner toggle buttons to selectInnerTool + returns a select() for deep-linking.
+    function wireInnerToggle(paneId, contentMap, onSelect) {
+        const select = (tool) => {
+            selectInnerTool(paneId, contentMap, tool);
+            if (onSelect) onSelect(tool);
+        };
+        document.querySelectorAll(`#${paneId} .hub-toggle-btn`).forEach(btn => {
+            btn.addEventListener("click", () => select(btn.getAttribute("data-tool")));
+        });
+        return select;
+    }
+
+    // Money Planner (Home Cost | CPF LIFE | Benefits) and Alerts & Safety (My Alerts | Scam Checker).
+    // Exposed as window.MerlionMoney/MerlionSafety.select so journeys.js can deep-link to a specific
+    // tool. Toggling back to My Alerts reloads it so new notifications surface on each visit.
+    window.MerlionMoney = {
+        select: wireInnerToggle("hub-money-pane", {
+            upfront: "hub-upfront-content", cpflife: "hub-cpflife-content", benefits: "hub-benefits-content"
+        })
+    };
+    window.MerlionSafety = {
+        select: wireInnerToggle("hub-safety-pane", {
+            alerts: "hub-alerts-content", scam: "hub-scam-content"
+        }, (tool) => { if (tool === "alerts" && window.MerlionAlerts) window.MerlionAlerts.load(); })
+    };
 
     // Re-render the Transit & Transport pane's chrome labels when the language changes. Only this
     // pane is wired for translation so far (the proven pattern); other panes keep their English

@@ -16,7 +16,7 @@
     <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Style Sheet -->
-    <link rel="stylesheet" href="style.css?v=insight27">
+    <link rel="stylesheet" href="style.css?v=insight29">
     <!-- Leaflet JS & CSS for Interactive Maps -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
@@ -1925,23 +1925,11 @@
                     <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-community-pane">
                         <i class="fa-solid fa-tags"></i> <span data-translate="hub-sub-tab-deals">Kiasu Deals</span>
                     </button>
-                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-env-pane">
-                        <i class="fa-solid fa-cloud-sun"></i> <span data-translate="hub-sub-tab-env">Weather &amp; PSI</span>
+                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-money-pane">
+                        <i class="fa-solid fa-piggy-bank"></i> <span data-translate="hub-sub-tab-money">Money Planner</span>
                     </button>
-                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-alerts-pane">
-                        <i class="fa-solid fa-bell"></i> <span data-translate="hub-sub-tab-alerts">My Alerts</span> <span id="alerts-tab-badge" class="alerts-badge hidden">0</span>
-                    </button>
-                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-scam-pane">
-                        <i class="fa-solid fa-shield-halved"></i> <span data-translate="hub-sub-tab-scam">Scam Checker</span>
-                    </button>
-                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-benefits-pane">
-                        <i class="fa-solid fa-hand-holding-dollar"></i> <span data-translate="hub-sub-tab-benefits">Benefits Finder</span>
-                    </button>
-                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-upfront-pane">
-                        <i class="fa-solid fa-house-circle-check"></i> <span data-translate="hub-sub-tab-home-cost">Home Cost</span>
-                    </button>
-                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-cpflife-pane">
-                        <i class="fa-solid fa-piggy-bank"></i> <span data-translate="hub-sub-tab-cpf-life">CPF LIFE</span>
+                    <button class="hub-sub-tab-btn" data-hub-sub-tab="hub-safety-pane">
+                        <i class="fa-solid fa-shield-halved"></i> <span data-translate="hub-sub-tab-safety">Alerts &amp; Safety</span> <span id="alerts-tab-badge" class="alerts-badge hidden">0</span>
                     </button>
                 </div>
 
@@ -1998,6 +1986,18 @@
                             media releases, and checkpoint updates fetched directly from the ICA Newsroom.</p>
                         <div id="hub-ica-events-content">
                             <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading ICA
+                                advisories...</p>
+                        </div>
+                    </div>
+
+                    <!-- Weather & PSI (folded into this tab; loaded in parallel via loadTransportWeather) -->
+                    <div class="hub-pane-status" id="hub-env-status"></div>
+                    <div class="hub-card">
+                        <h3>
+                            <i class="fa-solid fa-cloud-sun"></i> Live Weather &amp; Air Quality (NEA)
+                        </h3>
+                        <div id="hub-weather-content">
+                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading environment
                                 advisories...</p>
                         </div>
                     </div>
@@ -2245,52 +2245,50 @@
                     </div>
                 </div>
 
-                <!-- Weather & PSI Pane -->
-                <div class="hub-sub-pane hidden" id="hub-env-pane">
-                    <div class="hub-pane-status" id="hub-env-status"></div>
-                    <div class="hub-card">
-                        <h3>
-                            <i class="fa-solid fa-cloud-sun"></i> Live Weather &amp; Air Quality (NEA)
-                        </h3>
-                        <div id="hub-weather-content">
-                            <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading environment
-                                advisories...</p>
-                        </div>
+                <!-- Alerts & Safety Pane — My Alerts (js/alerts.js) + Scam Checker (js/scam.js) share one
+                     tab via the inner toggle. Alerts shows by default; toggling back to it reloads so new
+                     notifications surface (see MerlionSafety.select in hub.js). Badge stays on the tab. -->
+                <div class="hub-sub-pane hidden" id="hub-safety-pane">
+                    <div class="hub-tool-toggle" style="display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap;">
+                        <button type="button" class="hub-toggle-btn active-tool" data-tool="alerts">
+                            <i class="fa-solid fa-bell"></i> <span data-translate="hub-sub-tab-alerts">My Alerts</span>
+                        </button>
+                        <button type="button" class="hub-toggle-btn" data-tool="scam">
+                            <i class="fa-solid fa-shield-halved"></i> <span data-translate="hub-sub-tab-scam">Scam Checker</span>
+                        </button>
                     </div>
-                </div>
-
-                <!-- My Alerts Pane — watchlists & notifications (rendered by js/alerts.js) -->
-                <div class="hub-sub-pane hidden" id="hub-alerts-pane">
                     <div id="hub-alerts-content">
                         <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading your alerts…</p>
                     </div>
-                </div>
-
-                <!-- Scam Checker Pane — paste-a-message risk check (rendered by js/scam.js) -->
-                <div class="hub-sub-pane hidden" id="hub-scam-pane">
-                    <div id="hub-scam-content">
+                    <div id="hub-scam-content" class="hidden">
                         <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading scam checker…</p>
                     </div>
                 </div>
 
-                <!-- Benefits Finder Pane — eligibility screener (rendered by js/benefits.js) -->
-                <div class="hub-sub-pane hidden" id="hub-benefits-pane">
-                    <div id="hub-benefits-content">
-                        <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading benefits finder…</p>
+                <!-- Money Planner Pane — Home Cost (js/upfront.js), CPF LIFE (js/cpflife.js) and Benefits
+                     Finder (js/benefits.js) calculators share one tab, switched by the inner segmented
+                     toggle. Each renders into its own content div; only one shows at a time (see
+                     MerlionMoney.select in hub.js). -->
+                <div class="hub-sub-pane hidden" id="hub-money-pane">
+                    <div class="hub-tool-toggle" style="display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap;">
+                        <button type="button" class="hub-toggle-btn active-tool" data-tool="upfront">
+                            <i class="fa-solid fa-house-circle-check"></i> <span data-translate="hub-sub-tab-home-cost">Home Cost</span>
+                        </button>
+                        <button type="button" class="hub-toggle-btn" data-tool="cpflife">
+                            <i class="fa-solid fa-piggy-bank"></i> <span data-translate="hub-sub-tab-cpf-life">CPF LIFE</span>
+                        </button>
+                        <button type="button" class="hub-toggle-btn" data-tool="benefits">
+                            <i class="fa-solid fa-hand-holding-dollar"></i> <span data-translate="hub-sub-tab-benefits">Benefits Finder</span>
+                        </button>
                     </div>
-                </div>
-
-                <!-- Home Upfront-Cost Pane — stamp duty + down-payment + grant (rendered by js/upfront.js) -->
-                <div class="hub-sub-pane hidden" id="hub-upfront-pane">
                     <div id="hub-upfront-content">
                         <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading home cost calculator…</p>
                     </div>
-                </div>
-
-                <!-- CPF LIFE Pane — retirement payout projector (rendered by js/cpflife.js) -->
-                <div class="hub-sub-pane hidden" id="hub-cpflife-pane">
-                    <div id="hub-cpflife-content">
+                    <div id="hub-cpflife-content" class="hidden">
                         <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading CPF LIFE projector…</p>
+                    </div>
+                    <div id="hub-benefits-content" class="hidden">
+                        <p style="color: var(--text-subtle); margin: 0; font-style: italic;">Loading benefits finder…</p>
                     </div>
                 </div>
 
@@ -2821,21 +2819,21 @@
         }
     </script>
     <!-- Front-end modules (load order = dependency order; all share global scope) -->
-    <script src="js/translations.js?v=insight24"></script>
+    <script src="js/translations.js?v=insight26"></script>
     <script src="js/utils.js?v=insight13"></script>
     <script src="js/tax.js?v=insight13"></script>
     <script src="js/glossary.js?v=insight25"></script>
     <script src="js/charts.js?v=insight29"></script>
     <script src="js/persona.js?v=insight23"></script>
-    <script src="js/portals.js?v=insight25"></script>
+    <script src="js/portals.js?v=insight26"></script>
     <script src="js/chat.js?v=insight23"></script>
-    <script src="js/hub.js?v=insight38"></script>
+    <script src="js/hub.js?v=insight40"></script>
     <script src="js/alerts.js?v=insight2"></script>
     <script src="js/scam.js?v=insight1"></script>
     <script src="js/benefits.js?v=insight1"></script>
     <script src="js/upfront.js?v=insight1"></script>
     <script src="js/cpflife.js?v=insight1"></script>
-    <script src="js/journeys.js?v=insight1"></script>
+    <script src="js/journeys.js?v=insight3"></script>
 </body>
 
 </html>

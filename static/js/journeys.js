@@ -15,8 +15,11 @@
             ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     }
 
-    const TOOL_PANE = { benefits: "hub-benefits-pane", upfront: "hub-upfront-pane",
-                        cpflife: "hub-cpflife-pane", scam: "hub-scam-pane" };
+    // Tools now live in two shared pane: Money Planner (Home Cost | CPF LIFE | Benefits) and Alerts &
+    // Safety (My Alerts | Scam Checker). Each tool maps to its pane; openTool() opens the pane then
+    // selects the specific tool via the pane's inner toggle.
+    const TOOL_PANE = { benefits: "hub-money-pane", upfront: "hub-money-pane",
+                        cpflife: "hub-money-pane", scam: "hub-safety-pane" };
     const TOOL_LABEL = { benefits: "Benefits Finder", upfront: "Home Cost",
                          cpflife: "CPF LIFE", scam: "Scam Checker" };
 
@@ -25,6 +28,12 @@
         if (!pane) return;
         const btn = document.querySelector('.hub-sub-tab-btn[data-hub-sub-tab="' + pane + '"]');
         if (btn) btn.click();
+        // Select the specific tool inside its shared pane.
+        if ((tool === "upfront" || tool === "cpflife" || tool === "benefits") && window.MerlionMoney) {
+            window.MerlionMoney.select(tool);
+        } else if (tool === "scam" && window.MerlionSafety) {
+            window.MerlionSafety.select("scam");
+        }
     }
 
     const container = () => document.getElementById("hub-journeys-content");

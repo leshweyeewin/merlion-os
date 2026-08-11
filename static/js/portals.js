@@ -85,7 +85,7 @@ function initPortalSearch() {
         { terms: "job vacancy salary wage pay retrenchment career hiring increment", label: "📊 Live job market, wages & retrenchment data", pane: "hub-jobs-pane" },
         { terms: "tax deadline relief srs cpf top up optimizer bracket filing due", label: "⚖️ Tax deadlines & relief optimizer", pane: "hub-tax-pane" },
         { terms: "deal promo discount lobang food event", label: "🎟️ Community deals & meetups", pane: "hub-community-pane" },
-        { terms: "weather rain forecast psi haze air uv temperature humidity", label: "🌤️ Live weather, PSI & UV index", pane: "hub-env-pane" },
+        { terms: "weather rain forecast psi haze air uv temperature humidity", label: "🌤️ Live weather, PSI & UV index", pane: "hub-transport-pane" },
     ];
 
     const searchIndex = Array.from(grid.querySelectorAll(".service-card")).map(card => ({
