@@ -722,6 +722,9 @@ function translateUI(lang = currentLanguage) {
     currentLanguage = lang;
     window.currentLanguage = lang;
     localStorage.setItem("merlion_language", lang);
+    // Drives the CSS that shows the live-prose "Translate" buttons only in non-English (:root[lang=…]),
+    // and is correct for accessibility. hub.js prose blocks rely on this.
+    document.documentElement.setAttribute("lang", lang);
 
     // 1. Translate all data-translate elements
     const elements = document.querySelectorAll("[data-translate]");

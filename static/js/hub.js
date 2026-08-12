@@ -834,6 +834,7 @@ function initSgHub() {
         if (irasNewsContent) {
             irasNewsContent.innerHTML = renderAgencyNewsCards(
                 data.iras_news, data.iras_news_status, "No recent IRAS updates.");
+            bindProseTranslate(irasNewsContent);
         }
 
         // Brackets are defined globally in tax.js to prevent early reference errors
@@ -1260,7 +1261,7 @@ function initSgHub() {
 
         weatherContent.innerHTML = `
             <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 16px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
-                <i class="fa-solid fa-clock-rotate-left"></i> Last synced: ${escapeHTML(data.synced_at || getRetrievalTimestamp())}
+                <i class="fa-solid fa-clock-rotate-left"></i> ${escapeHTML(T('last-synced'))} ${escapeHTML(data.synced_at || getRetrievalTimestamp())}
             </div>
 
             <!-- PSI Gauge Card -->
@@ -1577,14 +1578,13 @@ function initSgHub() {
     // block gets a "Translate" button (only when a non-English UI language is active) that calls
     // /api/translate on click, caches the result, and offers a toggle back to the original.
 
-    // Wraps a live-prose string in a block with its stored original + (when the UI isn't English) a
-    // Translate toggle. `text` is the raw source; it is escaped here.
+    // Wraps a live-prose string in a block with its stored original + a Translate toggle. The button is
+    // ALWAYS emitted but hidden by CSS when the UI language is English (:root[lang="en"]) — panes other
+    // than transit don't re-render on language switch, so emitting unconditionally + toggling via CSS is
+    // what makes the button appear on a tab that was first viewed in English. `text` is escaped here.
     function proseBlock(text, { inline = false } = {}) {
         const esc = escapeHTML(text);
-        const lang = window.currentLanguage || "en";
-        const btn = (lang === "en")
-            ? ""
-            : `<button type="button" class="gov-prose-translate" style="margin-top:6px; background:none; border:none; padding:0; color:var(--link); font-size:11px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
+        const btn = `<button type="button" class="gov-prose-translate" style="margin-top:6px; background:none; border:none; padding:0; color:var(--link); font-size:11px; font-weight:600; cursor:pointer; align-items:center; gap:4px;">
                     <i class="fa-solid fa-language"></i> <span class="gpt-label">${escapeHTML(T('btn-translate'))}</span>
                 </button>`;
         return `<span class="gov-prose-block" style="display:${inline ? 'inline' : 'block'};">
@@ -1793,7 +1793,7 @@ function initSgHub() {
                     <span style="color: var(--primary); font-size: 11px;"><i class="fa-solid fa-calendar-day"></i> ${escapeHTML(news.date)}</span>
                     <a href="${safeURL(news.link)}" target="_blank" style="color: var(--link); text-decoration:none; font-size: 11px; white-space:nowrap;"><i class="fa-solid fa-up-right-from-square"></i> Read More</a>
                 </div>
-                <div style="color: var(--text-main); line-height:1.45; font-weight:600;">${escapeHTML(news.title)}</div>
+                <div style="color: var(--text-main); line-height:1.45; font-weight:600;">${proseBlock(news.title)}</div>
             </div>`;
         });
         return syncBanner(status) + (html || `<p style='color: var(--text-subtle); margin:0;'>${escapeHTML(emptyLabel)}</p>`);
@@ -1805,6 +1805,7 @@ function initSgHub() {
         if (cdcNewsContent) {
             cdcNewsContent.innerHTML = renderAgencyNewsCards(
                 data.cdc_news, data.cdc_news_status, "No recent CDC media releases.");
+            bindProseTranslate(cdcNewsContent);
         }
 
         let govHtml = "";
@@ -1817,7 +1818,7 @@ function initSgHub() {
                     </span>
                     <a href="${safeURL(evt.link)}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Alert</a>
                 </div>
-                <div style="color: var(--text-main); line-height:1.45; white-space: pre-wrap;">${escapeHTML(evt.content)}</div>
+                <div style="color: var(--text-main); line-height:1.45; white-space: pre-wrap;">${proseBlock(evt.content)}</div>
             </div>`;
         });
 
@@ -1832,7 +1833,7 @@ function initSgHub() {
                 const alertItems = activeAlerts.map(a =>
                     `<div style="display:flex; align-items:flex-start; gap:8px; margin-bottom:6px;">
                         <i class="fa-solid fa-triangle-exclamation" style="color:#dc2626; margin-top:2px; flex-shrink:0;"></i>
-                        <span>${escapeHTML(a.message)}</span>
+                        <span>${proseBlock(a.message, { inline: true })}</span>
                     </div>`
                 ).join('');
                 floodBannerHtml = `
@@ -1873,6 +1874,7 @@ function initSgHub() {
         </div>` : '';
 
         govEventsContent.innerHTML = banner + floodBannerHtml + windowChip + (govHtml || "<p style='color: var(--text-subtle); margin:0;'>No official alerts.</p>");
+        bindProseTranslate(govEventsContent);
     }
 
     function renderCommunityPane(data) {
@@ -1901,10 +1903,11 @@ function initSgHub() {
                     </span>
                     <a href="${safeURL(evt.link)}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Post</a>
                 </div>
-                <div style="color: var(--text-main); line-height:1.45; white-space: pre-wrap;">${escapeHTML(evt.content)}</div>
+                <div style="color: var(--text-main); line-height:1.45; white-space: pre-wrap;">${proseBlock(evt.content)}</div>
             </div>`;
         });
         communityEventsContent.innerHTML = banner + windowChip + (commHtml || "<p style='color: var(--text-subtle); margin:0;'>No community updates.</p>");
+        bindProseTranslate(communityEventsContent);
     }
 
     function renderHdbPane(data) {
@@ -1919,10 +1922,11 @@ function initSgHub() {
                     <span style="color: var(--primary); font-size: 11px;"><i class="fa-solid fa-calendar-day"></i> ${escapeHTML(news.date)}</span>
                     <a href="${safeURL(news.link)}" target="_blank" style="color: var(--link); text-decoration:none; font-size: 11px;"><i class="fa-solid fa-up-right-from-square"></i> Read Press Release</a>
                 </div>
-                <div style="color: var(--text-main); line-height:1.45; font-weight:600;">${escapeHTML(news.title)}</div>
+                <div style="color: var(--text-main); line-height:1.45; font-weight:600;">${proseBlock(news.title)}</div>
             </div>`;
         });
         hdbNewsContent.innerHTML = syncBanner(data.hdb_news_status) + (hdbNewsHtml || "<p style='color: var(--text-subtle); margin:0;'>No active news releases.</p>");
+        bindProseTranslate(hdbNewsContent);
 
         renderHdbResalePane(data.resale, data.resale_history);
     }
@@ -2691,6 +2695,22 @@ function initSgHub() {
     // chrome until the same hubT treatment is rolled out to them. No-op until the pane has loaded.
     document.addEventListener("merlion:languagechange", () => {
         if (lastTransitData) renderTransitPane(lastTransitData);
+    });
+
+    // Live-prose Translate buttons live on several panes that DON'T re-render on language switch. On a
+    // language change: revert any block currently showing a translation back to its source (the cached
+    // translation was for the previous language) and relabel every button in the new language. The CSS
+    // (:root[lang=…]) handles show/hide. Runs across all panes, whether or not they've re-rendered.
+    document.addEventListener("merlion:languagechange", () => {
+        document.querySelectorAll(".gov-prose-block").forEach(block => {
+            const textEl = block.querySelector(".gov-prose-text");
+            const labelEl = block.querySelector(".gpt-label");
+            if (textEl && textEl.getAttribute("data-state") === "trans") {
+                textEl.textContent = textEl.getAttribute("data-orig") || textEl.textContent;
+                textEl.setAttribute("data-state", "orig");
+            }
+            if (labelEl) labelEl.textContent = T("btn-translate");
+        });
     });
 
     // Plain-English glossary moved to its own module: static/js/glossary.js

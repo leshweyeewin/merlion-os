@@ -2250,6 +2250,14 @@ body {
     border-color: var(--primary);
 }
 
+/* On-demand "Translate" toggle on live government prose. Emitted on every prose block but shown only
+   when a non-English UI language is active (translateUI sets <html lang>). Hidden by default so an
+   English-first page never shows it, and tabs that don't re-render on language switch still reveal it. */
+.gov-prose-translate { display: none; }
+:root[lang="zh"] .gov-prose-translate,
+:root[lang="ms"] .gov-prose-translate,
+:root[lang="ta"] .gov-prose-translate { display: inline-flex; }
+
 /* Unread-count pill on the "My Alerts" sub-tab. */
 .alerts-badge {
     display: inline-flex;
