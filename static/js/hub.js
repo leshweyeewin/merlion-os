@@ -6,9 +6,10 @@ function initSgHub() {
     let sgHubLoaded = false;
     let sgHubJobsData = null;
 
-    // Last Transit & Transport payload, kept so a language switch can re-render the pane's chrome
-    // labels in the new language without re-fetching (see the merlion:languagechange listener below).
+    // Last-rendered payload per pane, kept so a language switch can re-render that pane's chrome labels
+    // in the new language without re-fetching (see the merlion:languagechange listener below).
     let lastTransitData = null;
+    let lastGovData = null, lastHdbData = null, lastJobsData = null, lastTaxData = null, lastCommunityData = null, lastWeatherData = null;
 
     // Hub chrome-label lookup — resolves against js/translations.js → window.hubT (HUB_I18N), falling
     // back to the key itself if translations haven't loaded. fmt() fills {placeholder} tokens.
@@ -699,6 +700,7 @@ function initSgHub() {
     }
 
     function renderTaxPane(data) {
+        lastTaxData = data;
         if (!taxDeadlinesContent) return;
 
         // Populate limits fetched dynamically
@@ -1161,6 +1163,7 @@ function initSgHub() {
     }
 
     function renderWeatherPane(data) {
+        lastWeatherData = data;
         renderPaneStatus("hub-env-status", data.data_status);
         const psi = data.psi || { value: 28, status: 'Good' };
         const forecasts = data.forecasts || [];
@@ -1206,17 +1209,17 @@ function initSgHub() {
             </div>`;
 
         const rainfallLabel = (cc.rainfall_stations_total)
-            ? `${cc.rainfall_max ?? 0} mm max (${cc.rainfall_stations_wet}/${cc.rainfall_stations_total} areas)`
+            ? fmt(T('w-rainfall-val'), { max: cc.rainfall_max ?? 0, wet: cc.rainfall_stations_wet, total: cc.rainfall_stations_total })
             : 'N/A';
 
         // UV Index: NEA 5-tier scale
         const uvVal = cc.uv_index != null ? cc.uv_index : null;
         const uvLabel = uvVal == null ? 'N/A'
-            : uvVal <= 2 ? `${uvVal} Low`
-                : uvVal <= 5 ? `${uvVal} Moderate`
-                    : uvVal <= 7 ? `${uvVal} High`
-                        : uvVal <= 10 ? `${uvVal} Very High`
-                            : `${uvVal} Extreme`;
+            : uvVal <= 2 ? `${uvVal} ${T('w-uv-low')}`
+                : uvVal <= 5 ? `${uvVal} ${T('w-uv-moderate')}`
+                    : uvVal <= 7 ? `${uvVal} ${T('w-uv-high')}`
+                        : uvVal <= 10 ? `${uvVal} ${T('w-uv-very-high')}`
+                            : `${uvVal} ${T('w-uv-extreme')}`;
         const uvColor = uvVal == null ? 'var(--text-muted)'
             : uvVal <= 2 ? '#10b981'
                 : uvVal <= 5 ? '#f59e0b'
@@ -1227,21 +1230,21 @@ function initSgHub() {
         // A missing reading is almost always "after dark" rather than a broken feed,
         // so explain the N/A instead of leaving it bare and looking like a data gap.
         const uvSub = uvVal == null
-            ? `<div style="font-size: 9px; font-weight: 600; color: var(--text-muted); margin-top: 3px; line-height: 1.3;" title="NEA publishes the UV index during daylight hours only (about 07:00–19:00 SGT).">Not published overnight</div>`
+            ? `<div style="font-size: 9px; font-weight: 600; color: var(--text-muted); margin-top: 3px; line-height: 1.3;" title="NEA publishes the UV index during daylight hours only (about 07:00–19:00 SGT).">${escapeHTML(T('w-uv-overnight'))}</div>`
             : '';
         const uvTile = `
             <div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 10px; padding: 12px 10px; text-align:center; min-width:100px; flex: 1;">
                 <div style="font-size: 22px; margin-bottom: 4px;">☀️</div>
-                <div style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">UV Index</div>
+                <div style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">${escapeHTML(T('w-uv-index'))}</div>
                 <div style="font-size: 14px; font-weight: 700; color: ${uvColor};">${uvLabel}</div>
                 ${uvSub}
             </div>`;
 
         const currentConditionsTiles = [
-            statTile('🌡️', 'Air Temp', cc.air_temperature != null ? `${cc.air_temperature}°C` : 'N/A'),
-            statTile('💧', 'Humidity', cc.humidity != null ? `${cc.humidity}%` : 'N/A'),
-            statTile('💨', 'Wind', (cc.wind_speed != null && cc.wind_direction) ? `${cc.wind_speed} km/h ${cc.wind_direction}` : 'N/A'),
-            statTile('🌧️', 'Rainfall', rainfallLabel),
+            statTile('🌡️', T('w-air-temp'), cc.air_temperature != null ? `${cc.air_temperature}°C` : 'N/A'),
+            statTile('💧', T('w-humidity'), cc.humidity != null ? `${cc.humidity}%` : 'N/A'),
+            statTile('💨', T('w-wind'), (cc.wind_speed != null && cc.wind_direction) ? `${cc.wind_speed} km/h ${cc.wind_direction}` : 'N/A'),
+            statTile('🌧️', T('w-rainfall'), rainfallLabel),
             statTile('🍃', 'PM2.5', data.pm25 != null ? `${data.pm25} µg/m³` : 'N/A'),
             uvTile
         ].join('');
@@ -1268,25 +1271,25 @@ function initSgHub() {
             <div style="background: ${psiBg}; border: 1px solid ${psiColor}33; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
                 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 12px; flex-wrap:wrap; gap:8px;">
                     <div>
-                        <div style="font-size: 11px; font-weight: 700; color: ${psiColor}; text-transform: uppercase; letter-spacing: 0.5px;">🍃 NEA Live PSI — 24-Hr National Reading</div>
+                        <div style="font-size: 11px; font-weight: 700; color: ${psiColor}; text-transform: uppercase; letter-spacing: 0.5px;">🍃 ${escapeHTML(T('w-psi-header'))}</div>
                         <div style="font-size: 32px; font-weight: 800; color: ${psiColor}; line-height: 1.1; margin-top:4px;">${psi.value}</div>
                     </div>
                     <div style="text-align: right;">
-                        <span style="background: ${psiColor}; color: #fff; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 20px;">${escapeHTML(psi.status)}</span>
-                        <div style="font-size: 11px; color: ${psiColor}; margin-top: 6px;">Suitable for general outdoor activity</div>
+                        <span style="background: ${psiColor}; color: #fff; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 20px;">${escapeHTML(T('w-psi-' + String(psi.status).toLowerCase().replace(/ /g, '-')))}</span>
+                        <div style="font-size: 11px; color: ${psiColor}; margin-top: 6px;">${escapeHTML(T('w-psi-advisory'))}</div>
                     </div>
                 </div>
                 <div style="background: #fff3; border-radius: 4px; height: 8px; overflow: hidden;">
                     <div style="width: ${psiPct}%; background: ${psiColor}; height: 100%; border-radius: 4px; transition: width 0.8s ease;"></div>
                 </div>
                 <div style="display:flex; justify-content:space-between; font-size:10px; color:${psiColor}; margin-top:4px; font-weight:600;">
-                    <span>0 Good</span><span>51 Moderate</span><span>101 Unhealthy</span><span>300+</span>
+                    <span>0 ${escapeHTML(T('w-psi-good'))}</span><span>51 ${escapeHTML(T('w-psi-moderate'))}</span><span>101 ${escapeHTML(T('w-psi-unhealthy'))}</span><span>300+</span>
                 </div>
             </div>
 
             <!-- Current Conditions -->
             <div style="margin-bottom: 16px;">
-                <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">🌤️ Current Conditions (NEA Station Average)</div>
+                <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">🌤️ ${escapeHTML(T('w-current-conditions'))}</div>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                     ${currentConditionsTiles}
                 </div>
@@ -1294,16 +1297,16 @@ function initSgHub() {
 
             <!-- 2-Hr Regional Forecast Cards -->
             <div style="margin-bottom: 16px;">
-                <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">⛅ 2-Hour Regional Forecast</div>
+                <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">⛅ ${escapeHTML(T('w-forecast-2hr'))}</div>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                    ${forecastCards || '<p style="color:var(--text-subtle); margin:0;">Forecast data unavailable.</p>'}
+                    ${forecastCards || `<p style="color:var(--text-subtle); margin:0;">${escapeHTML(T('w-forecast-unavail'))}</p>`}
                 </div>
             </div>
 
             <!-- 24-Hour Outlook -->
             <div>
-                <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">📅 24-Hour Outlook</div>
-                ${outlookHtml || '<p style="color:var(--text-subtle); margin:0;">Outlook data unavailable.</p>'}
+                <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">📅 ${escapeHTML(T('w-outlook-24hr'))}</div>
+                ${outlookHtml || `<p style="color:var(--text-subtle); margin:0;">${escapeHTML(T('w-outlook-unavail'))}</p>`}
             </div>
         `;
 
@@ -1796,7 +1799,7 @@ function initSgHub() {
             html += `<div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 8px;">
                 <div style="display:flex; justify-content:space-between; margin-bottom: 6px; font-weight:600; gap:8px; flex-wrap:wrap;">
                     <span style="color: var(--primary); font-size: 11px;"><i class="fa-solid fa-calendar-day"></i> ${escapeHTML(news.date)}</span>
-                    <a href="${safeURL(news.link)}" target="_blank" style="color: var(--link); text-decoration:none; font-size: 11px; white-space:nowrap;"><i class="fa-solid fa-up-right-from-square"></i> Read More</a>
+                    <a href="${safeURL(news.link)}" target="_blank" style="color: var(--link); text-decoration:none; font-size: 11px; white-space:nowrap;"><i class="fa-solid fa-up-right-from-square"></i> ${escapeHTML(T('js-read-more'))}</a>
                 </div>
                 <div style="color: var(--text-main); line-height:1.45; font-weight:600;">${proseBlock(news.title)}</div>
             </div>`;
@@ -1805,11 +1808,12 @@ function initSgHub() {
     }
 
     function renderGovUpdatesPane(data) {
+        lastGovData = data;
         const banner = syncBanner(data.data_status);
 
         if (cdcNewsContent) {
             cdcNewsContent.innerHTML = renderAgencyNewsCards(
-                data.cdc_news, data.cdc_news_status, "No recent CDC media releases.");
+                data.cdc_news, data.cdc_news_status, T('js-no-cdc'));
             bindProseTranslate(cdcNewsContent);
         }
 
@@ -1821,7 +1825,7 @@ function initSgHub() {
                         <i class="fa-solid fa-bullhorn"></i> ${escapeHTML(evt.source)}
                         ${evt.date ? `<span style="font-size:10px; font-weight:normal; color:var(--text-muted); background:var(--border); padding:2px 6px; border-radius:4px;">${escapeHTML(evt.date)}</span>` : ''}
                     </span>
-                    <a href="${safeURL(evt.link)}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Alert</a>
+                    <a href="${safeURL(evt.link)}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> ${escapeHTML(T('js-view-alert'))}</a>
                 </div>
                 <div style="color: var(--text-main); line-height:1.45; white-space: pre-wrap;">${proseBlock(evt.content)}</div>
             </div>`;
@@ -1873,16 +1877,17 @@ function initSgHub() {
         const within3days = !!(data.data_status && data.data_status.is_live);
         const windowChip = count ? `<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:2px 0 12px;">
             <span style="display:inline-flex; align-items:center; gap:6px; background:${within3days ? '#eef6ff' : 'var(--bg-muted)'}; color:${within3days ? '#1d4ed8' : 'var(--text-muted)'}; border:1px solid ${within3days ? '#bfdbfe' : 'var(--border)'}; font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px;">
-                <i class="fa-solid fa-clock"></i> ${within3days ? 'Official broadcasts from the last 3 days (72 hours)' : 'Latest available — nothing posted in the last 3 days'}
+                <i class="fa-solid fa-clock"></i> ${within3days ? escapeHTML(T('js-bc-window-live')) : escapeHTML(T('js-bc-window-stale'))}
             </span>
-            <span style="font-size:11px; color:var(--text-muted);">${count} post${count === 1 ? '' : 's'}</span>
+            <span style="font-size:11px; color:var(--text-muted);">${escapeHTML(fmt(T('js-posts'), { n: count }))}</span>
         </div>` : '';
 
-        govEventsContent.innerHTML = banner + floodBannerHtml + windowChip + (govHtml || "<p style='color: var(--text-subtle); margin:0;'>No official alerts.</p>");
+        govEventsContent.innerHTML = banner + floodBannerHtml + windowChip + (govHtml || `<p style='color: var(--text-subtle); margin:0;'>${escapeHTML(T('js-no-alerts'))}</p>`);
         bindProseTranslate(govEventsContent);
     }
 
     function renderCommunityPane(data) {
+        lastCommunityData = data;
         const banner = syncBanner(data.data_status);
         const events = data.community_events || [];
         const count = events.length;
@@ -1893,9 +1898,9 @@ function initSgHub() {
         const within24h = !!(data.data_status && data.data_status.is_live);
         const windowChip = count ? `<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:2px 0 12px;">
             <span style="display:inline-flex; align-items:center; gap:6px; background:${within24h ? '#eef6ff' : 'var(--bg-muted)'}; color:${within24h ? '#1d4ed8' : 'var(--text-muted)'}; border:1px solid ${within24h ? '#bfdbfe' : 'var(--border)'}; font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px;">
-                <i class="fa-solid fa-clock"></i> ${within24h ? 'Deals &amp; meetups from the last 24 hours' : 'Latest available — nothing posted in the last 24h'}
+                <i class="fa-solid fa-clock"></i> ${within24h ? escapeHTML(T('js-deals-window-live')) : escapeHTML(T('js-deals-window-stale'))}
             </span>
-            <span style="font-size:11px; color:var(--text-muted);">${count} post${count === 1 ? '' : 's'}</span>
+            <span style="font-size:11px; color:var(--text-muted);">${escapeHTML(fmt(T('js-posts'), { n: count }))}</span>
         </div>` : '';
 
         let commHtml = "";
@@ -1906,16 +1911,17 @@ function initSgHub() {
                         <i class="fa-solid fa-tags"></i> ${escapeHTML(evt.source)}
                         ${evt.date ? `<span style="font-size:10px; font-weight:normal; color:var(--text-muted); background:var(--border); padding:2px 6px; border-radius:4px;">${escapeHTML(evt.date)}</span>` : ''}
                     </span>
-                    <a href="${safeURL(evt.link)}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> View Post</a>
+                    <a href="${safeURL(evt.link)}" target="_blank" style="color: var(--link); text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> ${escapeHTML(T('js-view-post'))}</a>
                 </div>
                 <div style="color: var(--text-main); line-height:1.45; white-space: pre-wrap;">${proseBlock(evt.content)}</div>
             </div>`;
         });
-        communityEventsContent.innerHTML = banner + windowChip + (commHtml || "<p style='color: var(--text-subtle); margin:0;'>No community updates.</p>");
+        communityEventsContent.innerHTML = banner + windowChip + (commHtml || `<p style='color: var(--text-subtle); margin:0;'>${escapeHTML(T('js-no-community'))}</p>`);
         bindProseTranslate(communityEventsContent);
     }
 
     function renderHdbPane(data) {
+        lastHdbData = data;
         renderPaneStatus("hub-hdb-status", data.data_status);
         const banner = syncBanner(null);
         hdbLaunchesContent.innerHTML = banner + renderHdbLaunches(data.hdb);
@@ -1925,12 +1931,12 @@ function initSgHub() {
             hdbNewsHtml += `<div style="background: var(--bg-muted); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 8px;">
                 <div style="display:flex; justify-content:space-between; margin-bottom: 6px; font-weight:600;">
                     <span style="color: var(--primary); font-size: 11px;"><i class="fa-solid fa-calendar-day"></i> ${escapeHTML(news.date)}</span>
-                    <a href="${safeURL(news.link)}" target="_blank" style="color: var(--link); text-decoration:none; font-size: 11px;"><i class="fa-solid fa-up-right-from-square"></i> Read Press Release</a>
+                    <a href="${safeURL(news.link)}" target="_blank" style="color: var(--link); text-decoration:none; font-size: 11px;"><i class="fa-solid fa-up-right-from-square"></i> ${escapeHTML(T('js-read-release'))}</a>
                 </div>
                 <div style="color: var(--text-main); line-height:1.45; font-weight:600;">${proseBlock(news.title)}</div>
             </div>`;
         });
-        hdbNewsContent.innerHTML = syncBanner(data.hdb_news_status) + (hdbNewsHtml || "<p style='color: var(--text-subtle); margin:0;'>No active news releases.</p>");
+        hdbNewsContent.innerHTML = syncBanner(data.hdb_news_status) + (hdbNewsHtml || `<p style='color: var(--text-subtle); margin:0;'>${escapeHTML(T('js-no-hdbnews'))}</p>`);
         bindProseTranslate(hdbNewsContent);
 
         renderHdbResalePane(data.resale, data.resale_history);
@@ -2072,6 +2078,7 @@ function initSgHub() {
     }
 
     function renderJobsPane(data) {
+        lastJobsData = data;
         renderPaneStatus("hub-jobs-status", data.data_status);
         sgHubJobsData = data.jobs;
         renderSectorDetails("tech"); // Default to Tech
@@ -2700,6 +2707,12 @@ function initSgHub() {
     // chrome until the same hubT treatment is rolled out to them. No-op until the pane has loaded.
     document.addEventListener("merlion:languagechange", () => {
         if (lastTransitData) renderTransitPane(lastTransitData);
+        if (lastGovData) renderGovUpdatesPane(lastGovData);
+        if (lastHdbData) renderHdbPane(lastHdbData);
+        if (lastJobsData) renderJobsPane(lastJobsData);
+        if (lastTaxData) renderTaxPane(lastTaxData);
+        if (lastCommunityData) renderCommunityPane(lastCommunityData);
+        if (lastWeatherData) renderWeatherPane(lastWeatherData);
     });
 
     // Live-prose Translate buttons live on several panes that DON'T re-render on language switch. On a
