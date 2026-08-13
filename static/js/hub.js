@@ -1599,7 +1599,8 @@ function initSgHub() {
         container.querySelectorAll(".gov-prose-translate").forEach(btn => {
             if (btn.dataset.bound === "1") return;
             btn.dataset.bound = "1";
-            btn.addEventListener("click", async () => {
+            btn.addEventListener("click", async (ev) => {
+                ev.stopPropagation();  // so it works inside clickable cards (e.g. Life-Event journey cards)
                 const block = btn.closest(".gov-prose-block");
                 const textEl = block && block.querySelector(".gov-prose-text");
                 const labelEl = btn.querySelector(".gpt-label");
@@ -1648,6 +1649,10 @@ function initSgHub() {
             });
         });
     }
+
+    // Expose the live-prose translate helpers so other modules (e.g. js/journeys.js) can reuse the same
+    // on-demand Translate button + /api/translate flow for their own backend-sourced prose.
+    window.MerlionProse = { block: proseBlock, bind: bindProseTranslate };
 
     function renderTransitPane(data) {
         lastTransitData = data;

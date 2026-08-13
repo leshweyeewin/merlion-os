@@ -556,7 +556,14 @@ const HUB_I18N = {
         "btn-translate": "Translate",
         "btn-show-original": "Show original",
         "translating": "Translating…",
-        "translate-fail": "Translation unavailable"
+        "translate-fail": "Translation unavailable",
+        "journey-title": "Life-Event Journeys",
+        "journey-intro": "Hit a big life moment? Pick one below for a step-by-step checklist — what to do, who to contact, and the MerlionOS tools that help. Nothing you view is stored.",
+        "journey-steps": "{n} steps",
+        "journey-back": "All life events",
+        "journey-loading": "Loading…",
+        "journey-official-page": "Official page",
+        "journey-open-tool": "Open {tool} in MerlionOS"
     },
     zh: {
         "last-synced": "上次同步：",
@@ -605,7 +612,14 @@ const HUB_I18N = {
         "btn-translate": "翻译",
         "btn-show-original": "显示原文",
         "translating": "翻译中…",
-        "translate-fail": "无法翻译"
+        "translate-fail": "无法翻译",
+        "journey-title": "人生大事指南",
+        "journey-intro": "遇到人生大事？从下方选择一项，获取分步清单 —— 该做什么、联系谁，以及 MerlionOS 提供的实用工具。您查看的内容不会被存储。",
+        "journey-steps": "{n} 个步骤",
+        "journey-back": "所有人生大事",
+        "journey-loading": "加载中…",
+        "journey-official-page": "官方页面",
+        "journey-open-tool": "在 MerlionOS 中打开{tool}"
     },
     ms: {
         "last-synced": "Disegerakkan:",
@@ -654,7 +668,14 @@ const HUB_I18N = {
         "btn-translate": "Terjemah",
         "btn-show-original": "Tunjuk asal",
         "translating": "Menterjemah…",
-        "translate-fail": "Terjemahan tidak tersedia"
+        "translate-fail": "Terjemahan tidak tersedia",
+        "journey-title": "Perjalanan Peristiwa Hidup",
+        "journey-intro": "Menghadapi peristiwa hidup penting? Pilih satu di bawah untuk senarai semak langkah demi langkah — apa yang perlu dibuat, siapa yang perlu dihubungi, dan alat MerlionOS yang membantu. Tiada apa-apa yang anda lihat disimpan.",
+        "journey-steps": "{n} langkah",
+        "journey-back": "Semua peristiwa hidup",
+        "journey-loading": "Memuatkan…",
+        "journey-official-page": "Halaman rasmi",
+        "journey-open-tool": "Buka {tool} dalam MerlionOS"
     },
     ta: {
         "last-synced": "கடைசியாக ஒத்திசைக்கப்பட்டது:",
@@ -703,7 +724,14 @@ const HUB_I18N = {
         "btn-translate": "மொழிபெயர்",
         "btn-show-original": "மூலத்தைக் காட்டு",
         "translating": "மொழிபெயர்க்கிறது…",
-        "translate-fail": "மொழிபெயர்ப்பு கிடைக்கவில்லை"
+        "translate-fail": "மொழிபெயர்ப்பு கிடைக்கவில்லை",
+        "journey-title": "வாழ்க்கை நிகழ்வுப் பயணங்கள்",
+        "journey-intro": "ஒரு முக்கிய வாழ்க்கை நிகழ்வா? கீழே ஒன்றைத் தேர்ந்தெடுத்து படிப்படியான சரிபார்ப்புப் பட்டியலைப் பெறுங்கள் — என்ன செய்வது, யாரைத் தொடர்புகொள்வது, உதவும் MerlionOS கருவிகள். நீங்கள் பார்ப்பது எதுவும் சேமிக்கப்படாது.",
+        "journey-steps": "{n} படிகள்",
+        "journey-back": "அனைத்து வாழ்க்கை நிகழ்வுகள்",
+        "journey-loading": "ஏற்றுகிறது…",
+        "journey-official-page": "அதிகாரப்பூர்வ பக்கம்",
+        "journey-open-tool": "MerlionOS இல் {tool} ஐத் திறக்கவும்"
     }
 };
 
@@ -712,6 +740,13 @@ const HUB_I18N = {
 window.hubT = function (key, lang = window.currentLanguage || "en") {
     const table = HUB_I18N[lang] || HUB_I18N.en;
     return (table && table[key]) || HUB_I18N.en[key] || key;
+};
+
+// Resolve a static-shell UI label (the TRANSLATIONS dict — tab names, sub-tab labels, etc.) by key for
+// the active language, EN fallback. Lets JS modules reuse those labels (e.g. journeys.js naming a tool).
+window.uiT = function (key, lang = window.currentLanguage || "en") {
+    const table = TRANSLATIONS[lang] || TRANSLATIONS.en;
+    return (table && table[key]) || TRANSLATIONS.en[key] || key;
 };
 
 // Global language and elderly state

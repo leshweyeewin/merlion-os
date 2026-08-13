@@ -207,6 +207,26 @@ def fetch_weather_data() -> dict:
                 logger.warning(f"{endpoint} Fetch failed: {e}")
             return None
 
+        def fetch_uv():
+            # UV is NOT a per-station reading — it's a single national index published hourly, on its
+            # own v2 endpoint `uv` (not `uv-index`) with shape data.records[0].index[] = [{value, timestamp}].
+            # The old code called avg_station_reading("uv-index"), which hit a 404 and parsed the wrong
+            # shape, so UV was always N/A — day or night. Take the latest hourly value.
+            try:
+                r = _get("uv")
+                if r.status_code == 200:
+                    records = r.json().get("data", {}).get("records", [])
+                    if records:
+                        index = records[0].get("index", [])
+                        # Each entry is {"hour": ISO8601, "value": N}; the current reading is the latest hour.
+                        readings = [e for e in index if isinstance(e.get("value"), (int, float))]
+                        if readings:
+                            latest = max(readings, key=lambda e: e.get("hour") or "")
+                            return latest.get("value")
+            except Exception as e:
+                logger.warning(f"UV Index Fetch failed: {e}")
+            return None
+
         def fetch_wind_direction():
             try:
                 r_dir = _get("wind-direction")
@@ -267,7 +287,7 @@ def fetch_weather_data() -> dict:
             f_air = ex.submit(avg_station_reading, "air-temperature")
             f_humidity = ex.submit(avg_station_reading, "relative-humidity")
             f_wind = ex.submit(avg_station_reading, "wind-speed")
-            f_uv = ex.submit(avg_station_reading, "uv-index")
+            f_uv = ex.submit(fetch_uv)
             f_dir = ex.submit(fetch_wind_direction)
             f_rain = ex.submit(fetch_rainfall)
             f_outlook = ex.submit(fetch_outlook)
