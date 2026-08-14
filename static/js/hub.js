@@ -2702,9 +2702,8 @@ function initSgHub() {
         }, (tool) => { if (tool === "alerts" && window.MerlionAlerts) window.MerlionAlerts.load(); })
     };
 
-    // Re-render the Transit & Transport pane's chrome labels when the language changes. Only this
-    // pane is wired for translation so far (the proven pattern); other panes keep their English
-    // chrome until the same hubT treatment is rolled out to them. No-op until the pane has loaded.
+    // Re-render chrome labels when the language changes. Each renderer is a no-op until that pane
+    // has loaded; Money Planner modules use reload() to preserve any existing results.
     document.addEventListener("merlion:languagechange", () => {
         if (lastTransitData) renderTransitPane(lastTransitData);
         if (lastGovData) renderGovUpdatesPane(lastGovData);
@@ -2713,6 +2712,10 @@ function initSgHub() {
         if (lastTaxData) renderTaxPane(lastTaxData);
         if (lastCommunityData) renderCommunityPane(lastCommunityData);
         if (lastWeatherData) renderWeatherPane(lastWeatherData);
+        // Money Planner forms — re-render form chrome only, keeping any displayed results.
+        if (window.MerlionUpfront)  window.MerlionUpfront.reload();
+        if (window.MerlionCpfLife)  window.MerlionCpfLife.reload();
+        if (window.MerlionBenefits) window.MerlionBenefits.reload();
     });
 
     // Live-prose Translate buttons live on several panes that DON'T re-render on language switch. On a

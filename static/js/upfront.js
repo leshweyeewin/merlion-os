@@ -9,6 +9,9 @@
 
     const API = "/api/upfront-cost/estimate";
 
+    // i18n helper — falls back to the key string if translations haven't loaded yet.
+    const T = (k) => (window.hubT ? window.hubT(k) : k);
+
     function esc(s) {
         return String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
             ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -33,34 +36,47 @@
         renderForm(el);
     }
 
+    // reload() re-renders the form chrome in the current language without clearing the results div.
+    // Called by hub.js on merlion:languagechange.
+    function reload() {
+        const el = container();
+        if (!el) return;
+        // Preserve any rendered results (sibling div outside the form card)
+        const resultsEl = el.querySelector("#uf-results");
+        const savedResults = resultsEl ? resultsEl.innerHTML : null;
+        renderForm(el);
+        if (savedResults !== null) {
+            const newResults = el.querySelector("#uf-results");
+            if (newResults) newResults.innerHTML = savedResults;
+        }
+    }
+
     function renderForm(el) {
         el.innerHTML = `
         <div class="hub-card" style="margin-bottom:18px;">
-            <h3><i class="fa-solid fa-house-circle-check"></i> Home Upfront-Cost Calculator</h3>
+            <h3><i class="fa-solid fa-house-circle-check"></i> ${esc(T("uf-title"))}</h3>
             <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">
-                Before you get the keys, how much cash and CPF do you actually need? Enter a price and a
-                few details and we'll estimate the stamp duties, down-payment split, and any CPF Housing
-                Grant. Nothing you enter is stored.</p>
+                ${esc(T("uf-desc"))}</p>
             <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px;">
-                <label style="font-size:12px; color:var(--text-muted);">Purchase price (S$)<br>
+                <label style="font-size:12px; color:var(--text-muted);">${esc(T("uf-label-price"))}<br>
                     <input id="uf-price" type="number" min="1" step="1000" placeholder="e.g. 600000" style="${INP} width:100%; box-sizing:border-box;"></label>
-                <label style="font-size:12px; color:var(--text-muted);">Your residency<br>
-                    ${sel("uf-residency", [["citizen", "Singapore Citizen"], ["pr", "Permanent Resident"], ["foreigner", "Foreigner"]], "100%")}</label>
-                <label style="font-size:12px; color:var(--text-muted);">Residential properties you already own<br>
-                    ${sel("uf-props", [["0", "None — this is my first"], ["1", "One"], ["2", "Two or more"]], "100%")}</label>
-                <label style="font-size:12px; color:var(--text-muted);">Loan type<br>
-                    ${sel("uf-loan", [["bank", "Bank loan"], ["hdb", "HDB loan (HFE)"]], "100%")}</label>
-                <label style="font-size:12px; color:var(--text-muted);">Household (for grant)<br>
-                    ${sel("uf-household", [["family", "Family / couple"], ["single", "Single"]], "100%")}</label>
-                <label style="font-size:12px; color:var(--text-muted);">Gross monthly household income (S$)<br>
+                <label style="font-size:12px; color:var(--text-muted);">${esc(T("uf-label-residency"))}<br>
+                    ${sel("uf-residency", [["citizen", T("mp-opt-citizen")], ["pr", T("mp-opt-pr")], ["foreigner", T("mp-opt-foreigner")]], "100%")}</label>
+                <label style="font-size:12px; color:var(--text-muted);">${esc(T("uf-label-props"))}<br>
+                    ${sel("uf-props", [["0", T("mp-opt-none-first")], ["1", T("mp-opt-one")], ["2", T("mp-opt-two-plus")]], "100%")}</label>
+                <label style="font-size:12px; color:var(--text-muted);">${esc(T("uf-label-loan"))}<br>
+                    ${sel("uf-loan", [["bank", T("uf-opt-bank")], ["hdb", T("uf-opt-hdb-loan")]], "100%")}</label>
+                <label style="font-size:12px; color:var(--text-muted);">${esc(T("uf-label-household"))}<br>
+                    ${sel("uf-household", [["family", T("uf-opt-family")], ["single", T("uf-opt-single")]], "100%")}</label>
+                <label style="font-size:12px; color:var(--text-muted);">${esc(T("uf-label-income"))}<br>
                     <input id="uf-income" type="number" min="0" step="100" placeholder="Optional — for grant" style="${INP} width:100%; box-sizing:border-box;"></label>
             </div>
             <div style="display:flex; flex-wrap:wrap; gap:18px; margin-top:14px; font-size:13px; color:var(--text-main);">
-                <label style="cursor:pointer;"><input type="checkbox" id="uf-first"> First-timer household (no prior HDB flat / housing grant)</label>
+                <label style="cursor:pointer;"><input type="checkbox" id="uf-first"> ${esc(T("uf-label-first"))}</label>
             </div>
             <button id="uf-go" style="margin-top:16px; background:var(--primary); color:#fff; border:none;
                 border-radius:6px; padding:9px 20px; font-weight:700; font-size:13px; cursor:pointer;">
-                <i class="fa-solid fa-calculator"></i> Estimate my upfront cost</button>
+                <i class="fa-solid fa-calculator"></i> ${esc(T("uf-btn-go"))}</button>
             <span id="uf-msg" style="font-size:12px; margin-left:10px; color:var(--danger,#c0392b);"></span>
         </div>
         <div id="uf-results"></div>`;
@@ -84,8 +100,8 @@
         const msg = document.getElementById("uf-msg");
         const out = document.getElementById("uf-results");
         msg.textContent = "";
-        if (readInputs().price == null) { msg.textContent = "✗ Enter a purchase price first."; return; }
-        out.innerHTML = `<div class="hub-card"><p style="margin:0; color:var(--text-muted);">Working out your upfront cost…</p></div>`;
+        if (readInputs().price == null) { msg.textContent = T("uf-err-price"); return; }
+        out.innerHTML = `<div class="hub-card"><p style="margin:0; color:var(--text-muted);">${esc(T("uf-loading"))}</p></div>`;
         try {
             const res = await fetch(API, {
                 method: "POST",
@@ -152,5 +168,5 @@
                </div>`;
     }
 
-    window.MerlionUpfront = { load };
+    window.MerlionUpfront = { load, reload };
 })();

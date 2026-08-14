@@ -9,6 +9,9 @@
 
     const API = "/api/cpf-life/estimate";
 
+    // i18n helper — falls back to the key string if translations haven't loaded yet.
+    const T = (k) => (window.hubT ? window.hubT(k) : k);
+
     function esc(s) {
         return String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
             ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -34,25 +37,40 @@
         renderForm(el);
     }
 
+    // reload() re-renders the form chrome in the current language without clearing the results div.
+    // Called by hub.js on merlion:languagechange.
+    function reload() {
+        const el = container();
+        if (!el) return;
+        const resultsEl = el.querySelector("#cl-results");
+        const savedResults = resultsEl ? resultsEl.innerHTML : null;
+        renderForm(el);
+        if (savedResults !== null) {
+            const newResults = el.querySelector("#cl-results");
+            if (newResults) newResults.innerHTML = savedResults;
+        }
+    }
+
     function renderForm(el) {
         el.innerHTML = `
         <div class="hub-card" style="margin-bottom:18px;">
-            <h3><i class="fa-solid fa-piggy-bank"></i> CPF LIFE Payout Projector</h3>
+            <h3><i class="fa-solid fa-piggy-bank"></i> ${esc(T("cl-title"))}</h3>
             <p style="font-size:13px; color:var(--text-muted); margin-bottom:14px;">
-                How much monthly income will your CPF give you in retirement? Enter the savings you
-                expect to set aside in your Retirement Account at 55 and we'll show the Retirement Sum
-                tier it reaches and an indicative CPF LIFE payout. Nothing you enter is stored.</p>
+                ${esc(T("cl-desc"))}</p>
             <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px;">
-                <label style="font-size:12px; color:var(--text-muted);">Retirement Account savings at 55 (S$)<br>
+                <label style="font-size:12px; color:var(--text-muted);">${esc(T("cl-label-ra"))}<br>
                     <input id="cl-ra" type="number" min="0" step="1000" placeholder="e.g. 220400" style="${INP} width:100%; box-sizing:border-box;"></label>
-                <label style="font-size:12px; color:var(--text-muted);">Payout starts at age<br>
-                    ${sel("cl-age", [["65", "65 (default)"], ["66", "66"], ["67", "67"], ["68", "68"], ["69", "69"], ["70", "70 (highest)"]], "100%")}</label>
-                <label style="font-size:12px; color:var(--text-muted);">Your age now — optional<br>
+                <label style="font-size:12px; color:var(--text-muted);">${esc(T("cl-label-age"))}<br>
+                    ${sel("cl-age", [
+                        ["65", T("cl-opt-65")], ["66", T("cl-opt-66")], ["67", T("cl-opt-67")],
+                        ["68", T("cl-opt-68")], ["69", T("cl-opt-69")], ["70", T("cl-opt-70")]
+                    ], "100%")}</label>
+                <label style="font-size:12px; color:var(--text-muted);">${esc(T("cl-label-cur"))}<br>
                     <input id="cl-cur" type="number" min="0" max="120" placeholder="e.g. 40" style="${INP} width:100%; box-sizing:border-box;"></label>
             </div>
             <button id="cl-go" style="margin-top:16px; background:var(--primary); color:#fff; border:none;
                 border-radius:6px; padding:9px 20px; font-weight:700; font-size:13px; cursor:pointer;">
-                <i class="fa-solid fa-chart-line"></i> Project my payout</button>
+                <i class="fa-solid fa-chart-line"></i> ${esc(T("cl-btn-go"))}</button>
             <span id="cl-msg" style="font-size:12px; margin-left:10px; color:var(--danger,#c0392b);"></span>
         </div>
         <div id="cl-results"></div>`;
@@ -72,8 +90,8 @@
         const msg = document.getElementById("cl-msg");
         const out = document.getElementById("cl-results");
         msg.textContent = "";
-        if (readInputs().ra_savings == null) { msg.textContent = "✗ Enter your expected RA savings first."; return; }
-        out.innerHTML = `<div class="hub-card"><p style="margin:0; color:var(--text-muted);">Projecting your payout…</p></div>`;
+        if (readInputs().ra_savings == null) { msg.textContent = T("cl-err-ra"); return; }
+        out.innerHTML = `<div class="hub-card"><p style="margin:0; color:var(--text-muted);">${esc(T("cl-loading"))}</p></div>`;
         try {
             const res = await fetch(API, {
                 method: "POST",
@@ -134,5 +152,5 @@
                </div>`;
     }
 
-    window.MerlionCpfLife = { load };
+    window.MerlionCpfLife = { load, reload };
 })();
