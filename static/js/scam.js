@@ -8,6 +8,14 @@
 
     const API = "/api/scam/check";
 
+    // i18n helpers — chrome via the hub dictionary (window.hubT); backend result prose (red flags,
+    // advice, disclaimer) via the shared on-demand Translate button (window.MerlionProse). fmt() fills
+    // {placeholder} tokens. All fall back gracefully if translations/helpers haven't loaded yet.
+    const T = (k) => (window.hubT ? window.hubT(k) : k);
+    const fmt = (s, v) => s.replace(/\{(\w+)\}/g, (m, k) => (v && k in v) ? v[k] : m);
+    const pb = (s) => (window.MerlionProse ? window.MerlionProse.block(s) : esc(s));
+    const bindProse = (el) => { if (window.MerlionProse && el) window.MerlionProse.bind(el); };
+
     function esc(s) {
         return String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
             ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -35,28 +43,43 @@
         render(el);
     }
 
+    // reload() re-renders the form chrome in the current language, preserving the input text and any
+    // rendered result. Called by hub.js on merlion:languagechange.
+    function reload() {
+        const el = container();
+        if (!el) return;
+        const savedInput = (document.getElementById("scam-input") || {}).value || "";
+        const resultEl = document.getElementById("scam-result");
+        const savedResult = resultEl ? resultEl.innerHTML : null;
+        render(el);
+        const inp = document.getElementById("scam-input");
+        if (inp) inp.value = savedInput;
+        if (savedResult !== null) {
+            const newResult = document.getElementById("scam-result");
+            if (newResult) { newResult.innerHTML = savedResult; bindProse(newResult); }
+        }
+    }
+
     function render(el) {
         el.innerHTML = `
         <div class="hub-card" style="margin-bottom:18px;">
-            <h3><i class="fa-solid fa-shield-halved"></i> Scam Checker</h3>
+            <h3><i class="fa-solid fa-shield-halved"></i> ${esc(T("sc-title"))}</h3>
             <p style="font-size:13px; color:var(--text-muted); margin-bottom:12px;">
-                Got a suspicious SMS, WhatsApp, or email? Paste the message (or just the link) below and
-                we'll flag the tell-tale signs of a scam — impersonated banks/agencies, dodgy links,
-                pressure tactics. Nothing you paste is stored.</p>
-            <textarea id="scam-input" rows="5" placeholder="Paste the suspicious message or URL here…"
+                ${esc(T("sc-desc"))}</p>
+            <textarea id="scam-input" rows="5" placeholder="${esc(T("sc-placeholder"))}"
                 style="width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid var(--border);
                 border-radius:8px; background:var(--bg-panel); color:var(--text-main); font-size:13px;
                 font-family:inherit; resize:vertical;"></textarea>
             <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:10px;">
                 <button id="scam-check-btn" style="background:var(--primary); color:#fff; border:none;
                     border-radius:6px; padding:8px 18px; font-weight:700; font-size:13px; cursor:pointer;">
-                    <i class="fa-solid fa-magnifying-glass"></i> Check message</button>
+                    <i class="fa-solid fa-magnifying-glass"></i> ${esc(T("sc-btn-check"))}</button>
                 <button id="scam-clear-btn" style="background:none; border:1px solid var(--border);
-                    color:var(--text-muted); border-radius:6px; padding:8px 14px; font-size:12px; cursor:pointer;">Clear</button>
-                <span style="font-size:11px; color:var(--text-subtle);">or try an example:</span>
+                    color:var(--text-muted); border-radius:6px; padding:8px 14px; font-size:12px; cursor:pointer;">${esc(T("sc-btn-clear"))}</button>
+                <span style="font-size:11px; color:var(--text-subtle);">${esc(T("sc-try"))}</span>
                 ${EXAMPLES.map((_, i) => `<button class="scam-eg" data-eg="${i}" style="background:none;
                     border:1px dashed var(--border); color:var(--text-muted); border-radius:12px;
-                    padding:3px 10px; font-size:11px; cursor:pointer;">Example ${i + 1}</button>`).join("")}
+                    padding:3px 10px; font-size:11px; cursor:pointer;">${esc(fmt(T("sc-example"), { n: i + 1 }))}</button>`).join("")}
             </div>
         </div>
         <div id="scam-result"></div>`;
@@ -81,7 +104,7 @@
         const out = document.getElementById("scam-result");
         const text = (input.value || "").trim();
         if (!text) { out.innerHTML = ""; return; }
-        out.innerHTML = `<div class="hub-card"><p style="margin:0; color:var(--text-muted);">Checking…</p></div>`;
+        out.innerHTML = `<div class="hub-card"><p style="margin:0; color:var(--text-muted);">${esc(T("sc-checking"))}</p></div>`;
         try {
             const res = await fetch(API, {
                 method: "POST",
@@ -96,7 +119,7 @@
             renderResult(out, await res.json());
         } catch (err) {
             out.innerHTML = `<div class="hub-card"><p style="margin:0; color:var(--danger,#c0392b);">
-                Couldn't check that: ${esc(err.message)}</p></div>`;
+                ${esc(T("sc-error"))} ${esc(err.message)}</p></div>`;
         }
     }
 
@@ -104,16 +127,16 @@
         const lvl = LEVELS[r.level] || LEVELS.none;
         const reasons = (r.reasons || []).length
             ? `<ul style="margin:8px 0 0; padding-left:18px; font-size:13px; color:var(--text-main);">
-                ${r.reasons.map(x => `<li style="margin-bottom:4px;">${esc(x)}</li>`).join("")}</ul>`
-            : `<p style="font-size:13px; color:var(--text-muted); margin:8px 0 0;">No specific red flags detected in the text.</p>`;
+                ${r.reasons.map(x => `<li style="margin-bottom:4px;">${pb(x)}</li>`).join("")}</ul>`
+            : `<p style="font-size:13px; color:var(--text-muted); margin:8px 0 0;">${esc(T("sc-no-flags"))}</p>`;
 
         const urls = (r.urls || []).length
             ? `<div style="font-size:12px; color:var(--text-muted); margin-top:10px;">
-                Links found: ${r.urls.map(u => `<code style="background:var(--bg-panel); padding:1px 5px; border-radius:4px;">${esc(u)}</code>`).join(" ")}</div>`
+                ${esc(T("sc-links-found"))} ${r.urls.map(u => `<code style="background:var(--bg-panel); padding:1px 5px; border-radius:4px;">${esc(u)}</code>`).join(" ")}</div>`
             : "";
 
         const advice = `<ul style="margin:8px 0 0; padding-left:18px; font-size:12px; color:var(--text-muted);">
-            ${(r.advice || []).map(a => `<li style="margin-bottom:3px;">${esc(a)}</li>`).join("")}</ul>`;
+            ${(r.advice || []).map(a => `<li style="margin-bottom:3px;">${pb(a)}</li>`).join("")}</ul>`;
 
         const links = (r.report_links || []).map(l =>
             `<a href="${esc(l.url)}" target="_blank" rel="noopener" style="color:var(--primary); font-size:12px; font-weight:600; margin-right:14px;">
@@ -122,15 +145,16 @@
         out.innerHTML = `
         <div class="hub-card" style="border-left:4px solid ${lvl.border}; background:${lvl.bg};">
             <div style="font-size:16px; font-weight:800; color:${lvl.chip};">${esc(r.label)}</div>
-            <div style="margin-top:4px; font-size:11px; color:var(--text-subtle);">Risk score: ${esc(String(r.score))}</div>
+            <div style="margin-top:4px; font-size:11px; color:var(--text-subtle);">${esc(T("sc-risk-score"))} ${esc(String(r.score))}</div>
             ${reasons}
             ${urls}
-            <div style="margin-top:14px; font-weight:700; font-size:12px; color:var(--text-main);">What to do:</div>
+            <div style="margin-top:14px; font-weight:700; font-size:12px; color:var(--text-main);">${esc(T("sc-what-to-do"))}</div>
             ${advice}
             <div style="margin-top:12px;">${links}</div>
-            <div style="margin-top:12px; font-size:11px; color:var(--text-subtle); font-style:italic;">${esc(r.disclaimer || "")}</div>
+            <div style="margin-top:12px; font-size:11px; color:var(--text-subtle); font-style:italic;">${r.disclaimer ? pb(r.disclaimer) : ""}</div>
         </div>`;
+        bindProse(out);
     }
 
-    window.MerlionScam = { load };
+    window.MerlionScam = { load, reload };
 })();

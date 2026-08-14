@@ -9,6 +9,14 @@
     const API = "/api/alerts";
     const CID_KEY = "merlion_client_id";
 
+    // i18n helpers — chrome via the hub dictionary (window.hubT); backend prose (notification titles/
+    // bodies, watch labels) via the shared on-demand Translate button (window.MerlionProse). fmt() fills
+    // {placeholder} tokens. All fall back gracefully if translations/helpers haven't loaded yet.
+    const T = (k) => (window.hubT ? window.hubT(k) : k);
+    const fmt = (s, v) => s.replace(/\{(\w+)\}/g, (m, k) => (v && k in v) ? v[k] : m);
+    const pb = (s) => (window.MerlionProse ? window.MerlionProse.block(s) : esc(s));
+    const bindProse = (el) => { if (window.MerlionProse && el) window.MerlionProse.bind(el); };
+
     function clientId() {
         let id = localStorage.getItem(CID_KEY);
         if (!id) {
@@ -33,20 +41,20 @@
     // Each returns the inner HTML for its param fields; readers pull values back out by element id.
     const WATCH_FORMS = {
         coe: () => `
-            <label>Category ${sel("wf-coe-cat", ["A", "B", "C", "D", "E"].map(c => [c, "Cat " + c]))}</label>
-            <label>When premium is
-                ${sel("wf-coe-dir", [["below", "below"], ["above", "above"]])}
+            <label>${esc(T("al-f-category"))} ${sel("wf-coe-cat", ["A", "B", "C", "D", "E"].map(c => [c, T("al-f-cat") + " " + c]))}</label>
+            <label>${esc(T("al-f-when-premium"))}
+                ${sel("wf-coe-dir", [["below", T("al-f-below")], ["above", T("al-f-above")]])}
                 S$ <input id="wf-coe-thr" type="number" min="1000" max="300000" step="1000" value="90000" style="${INP}">
             </label>`,
-        psi: () => `<label>Alert me when PSI goes above
+        psi: () => `<label>${esc(T("al-f-psi-above"))}
             <input id="wf-psi-thr" type="number" min="20" max="400" value="100" style="${INP}"></label>`,
-        mrt: () => `<label>Line ${sel("wf-mrt-line", MRT_LINES)}</label>`,
+        mrt: () => `<label>${esc(T("al-f-line"))} ${sel("wf-mrt-line", MRT_LINES)}</label>`,
         resale: () => `
-            <label>Town <input id="wf-resale-town" type="text" placeholder="e.g. Tampines" style="${INP}"></label>
-            <label>moves more than ± <input id="wf-resale-pct" type="number" min="1" max="50" value="3" style="${INP}"> %</label>`,
-        bto: () => `<label>Town <input id="wf-bto-town" type="text" placeholder="e.g. Punggol" style="${INP}"></label>`,
-        iras: () => `<label>Alert me when a tax deadline is within
-            <input id="wf-iras-days" type="number" min="1" max="90" value="14" style="${INP}"> days</label>`,
+            <label>${esc(T("al-f-town"))} <input id="wf-resale-town" type="text" placeholder="${esc(T("al-f-town-eg-tampines"))}" style="${INP}"></label>
+            <label>${esc(T("al-f-moves-more"))} <input id="wf-resale-pct" type="number" min="1" max="50" value="3" style="${INP}"> %</label>`,
+        bto: () => `<label>${esc(T("al-f-town"))} <input id="wf-bto-town" type="text" placeholder="${esc(T("al-f-town-eg-punggol"))}" style="${INP}"></label>`,
+        iras: () => `<label>${esc(T("al-f-iras-within"))}
+            <input id="wf-iras-days" type="number" min="1" max="90" value="14" style="${INP}"> ${esc(T("al-f-days"))}</label>`,
     };
 
     const WATCH_READERS = {
@@ -97,9 +105,13 @@
             updateBadge(data.unread_count);
         } catch (err) {
             el.innerHTML = `<div class="hub-card"><p style="color:var(--danger,#c0392b);margin:0;">
-                Couldn't load alerts: ${esc(err.message)}</p></div>`;
+                ${esc(T("al-load-error"))} ${esc(err.message)}</p></div>`;
         }
     }
+
+    // reload() re-fetches + re-renders the pane in the current language. Called by hub.js on
+    // merlion:languagechange (the pane already re-fetches on every visit, so this just refreshes chrome).
+    function reload() { if (container()) load(); }
 
     function render(el, cfg, data) {
         const typeOptions = cfg.watch_types.map(t => [t.key, t.label]);
@@ -107,60 +119,60 @@
 
         const subRows = (data.subscriptions || []).map(s => `
             <div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border);">
-                <span style="flex:1; font-size:13px; color:var(--text-main);">🔔 ${esc(s.label)}</span>
+                <span style="flex:1; font-size:13px; color:var(--text-main);">🔔 ${pb(s.label)}</span>
                 <button data-del="${esc(s.id)}" class="alerts-del-btn"
-                    style="background:none; border:1px solid var(--border); color:var(--text-muted); border-radius:6px; padding:3px 9px; font-size:12px; cursor:pointer;">Remove</button>
+                    style="background:none; border:1px solid var(--border); color:var(--text-muted); border-radius:6px; padding:3px 9px; font-size:12px; cursor:pointer;">${esc(T("al-remove"))}</button>
             </div>`).join("") ||
-            `<p style="color:var(--text-subtle); margin:0; font-size:13px;">No watches yet — add one above.</p>`;
+            `<p style="color:var(--text-subtle); margin:0; font-size:13px;">${esc(T("al-no-watches"))}</p>`;
 
         const notifRows = (data.notifications || []).map(n => `
             <div style="padding:9px 0; border-bottom:1px solid var(--border); ${n.read_at ? "opacity:.6;" : ""}">
-                <div style="font-weight:700; font-size:13px; color:var(--text-main);">${n.read_at ? "" : "🟢 "}${esc(n.title)}</div>
-                <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">${esc(n.body)}</div>
+                <div style="font-weight:700; font-size:13px; color:var(--text-main);">${n.read_at ? "" : "🟢 "}${pb(n.title)}</div>
+                <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">${pb(n.body)}</div>
                 <div style="font-size:10px; color:var(--text-subtle); margin-top:3px;">${fmtTime(n.created_at)}</div>
             </div>`).join("") ||
-            `<p style="color:var(--text-subtle); margin:0; font-size:13px;">Nothing yet. When a watch triggers, it shows here.</p>`;
+            `<p style="color:var(--text-subtle); margin:0; font-size:13px;">${esc(T("al-nothing-yet"))}</p>`;
 
         el.innerHTML = `
         <div class="hub-card" style="margin-bottom:18px;">
-            <h3><i class="fa-solid fa-plus"></i> Create an alert</h3>
+            <h3><i class="fa-solid fa-plus"></i> ${esc(T("al-create-title"))}</h3>
             <p style="font-size:13px; color:var(--text-muted); margin-bottom:12px;">
-                Get notified only when something you care about actually changes — a COE drop, an MRT
-                disruption on your line, your town's resale median moving, an approaching tax deadline.</p>
+                ${esc(T("al-create-desc"))}</p>
             <div style="display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px;">
-                <label style="font-size:13px; color:var(--text-main);">Watch
+                <label style="font-size:13px; color:var(--text-main);">${esc(T("al-watch"))}
                     ${sel("wf-type", typeOptions)}</label>
                 <div id="wf-fields" style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:13px; color:var(--text-main);"></div>
-                <button id="wf-save" style="background:var(--primary); color:#fff; border:none; border-radius:6px; padding:7px 16px; font-weight:700; font-size:13px; cursor:pointer;">Add alert</button>
+                <button id="wf-save" style="background:var(--primary); color:#fff; border:none; border-radius:6px; padding:7px 16px; font-weight:700; font-size:13px; cursor:pointer;">${esc(T("al-add"))}</button>
             </div>
             <div id="wf-msg" style="font-size:12px; margin-top:8px;"></div>
         </div>
 
         <div class="hub-card" style="margin-bottom:18px;">
-            <h3><i class="fa-solid fa-satellite-dish"></i> Delivery</h3>
+            <h3><i class="fa-solid fa-satellite-dish"></i> ${esc(T("al-delivery-title"))}</h3>
             <p style="font-size:13px; color:var(--text-muted); margin-bottom:12px;">
-                Alerts always appear in this feed. Add a channel to get pushed them when the app is closed.</p>
+                ${esc(T("al-delivery-desc"))}</p>
             <div style="display:flex; flex-wrap:wrap; gap:10px;">
                 <button id="wf-push" style="border:1px solid var(--border); background:var(--bg-panel); color:var(--text-main); border-radius:6px; padding:7px 14px; font-size:13px; cursor:pointer;">
-                    <i class="fa-solid fa-bell"></i> Enable browser notifications</button>
+                    <i class="fa-solid fa-bell"></i> ${esc(T("al-enable-push"))}</button>
                 ${cfg.channels.telegram ? `<button id="wf-tele" style="border:1px solid var(--border); background:var(--bg-panel); color:var(--text-main); border-radius:6px; padding:7px 14px; font-size:13px; cursor:pointer;">
-                    <i class="fa-brands fa-telegram"></i> Link Telegram</button>` : ""}
+                    <i class="fa-brands fa-telegram"></i> ${esc(T("al-link-tele"))}</button>` : ""}
             </div>
             <div id="wf-channel-msg" style="font-size:12px; margin-top:8px; color:var(--text-muted);"></div>
         </div>
 
         <div class="hub-card" style="margin-bottom:18px;">
-            <h3><i class="fa-solid fa-list-check"></i> Your watches</h3>
+            <h3><i class="fa-solid fa-list-check"></i> ${esc(T("al-your-watches"))}</h3>
             <div style="margin-top:8px;">${subRows}</div>
         </div>
 
         <div class="hub-card">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h3 style="margin:0;"><i class="fa-solid fa-inbox"></i> Notifications</h3>
-                <button id="wf-read" style="background:none; border:1px solid var(--border); color:var(--text-muted); border-radius:6px; padding:4px 10px; font-size:12px; cursor:pointer;">Mark all read</button>
+                <h3 style="margin:0;"><i class="fa-solid fa-inbox"></i> ${esc(T("al-notifications"))}</h3>
+                <button id="wf-read" style="background:none; border:1px solid var(--border); color:var(--text-muted); border-radius:6px; padding:4px 10px; font-size:12px; cursor:pointer;">${esc(T("al-mark-read"))}</button>
             </div>
             <div style="margin-top:10px;">${notifRows}</div>
         </div>`;
+        bindProse(el);
 
         // Wire the dynamic param fields + all buttons.
         const fields = document.getElementById("wf-fields");
@@ -187,7 +199,7 @@
         try {
             params = WATCH_READERS[type]();
         } catch (e) { return; }
-        msg.textContent = "Adding…";
+        msg.textContent = T("al-adding");
         msg.style.color = "var(--text-muted)";
         try {
             await api("", {
@@ -195,7 +207,7 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ client_id: clientId(), watch_type: type, params }),
             });
-            msg.textContent = "✓ Alert added.";
+            msg.textContent = T("al-added");
             msg.style.color = "var(--success,#1a7f3c)";
             load();
         } catch (err) {
@@ -313,5 +325,5 @@
     setInterval(pollUnread, 60000);
     document.addEventListener("DOMContentLoaded", pollUnread);
 
-    window.MerlionAlerts = { load };
+    window.MerlionAlerts = { load, reload };
 })();

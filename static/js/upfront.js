@@ -28,6 +28,11 @@
 
     function money(n) { return "$" + Number(n || 0).toLocaleString("en-SG"); }
 
+    // On-demand Gemini translation for the (deterministic, English) result prose — reuses the shared
+    // Translate button/flow exposed by js/hub.js. Falls back to plain escaped text if unavailable.
+    const pb = (s) => (window.MerlionProse ? window.MerlionProse.block(s) : esc(s));
+    const bindProse = (el) => { if (window.MerlionProse && el) window.MerlionProse.bind(el); };
+
     const container = () => document.getElementById("hub-upfront-content");
 
     function load() {
@@ -47,7 +52,7 @@
         renderForm(el);
         if (savedResults !== null) {
             const newResults = el.querySelector("#uf-results");
-            if (newResults) newResults.innerHTML = savedResults;
+            if (newResults) { newResults.innerHTML = savedResults; bindProse(newResults); }
         }
     }
 
@@ -158,14 +163,15 @@
             ? `<div class="hub-card" style="margin-bottom:12px; background:transparent;">
                 <div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:5px;">Assumptions</div>
                 <ul style="margin:0; padding-left:18px; font-size:11.5px; color:var(--text-subtle);">
-                    ${d.assumptions.map((a) => `<li style="margin-bottom:4px;">${esc(a)}</li>`).join("")}
+                    ${d.assumptions.map((a) => `<li style="margin-bottom:4px;">${pb(a)}</li>`).join("")}
                 </ul></div>`
             : "";
 
         out.innerHTML = headline + breakdown + assumptions
             + `<div class="hub-card" style="background:transparent;">
-                 <div style="font-size:11px; color:var(--text-subtle); font-style:italic;">${esc(d.disclaimer)}</div>
+                 <div style="font-size:11px; color:var(--text-subtle); font-style:italic;">${pb(d.disclaimer)}</div>
                </div>`;
+        bindProse(out);
     }
 
     window.MerlionUpfront = { load, reload };

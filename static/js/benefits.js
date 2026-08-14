@@ -50,7 +50,7 @@
         renderForm(el);
         if (savedResults !== null) {
             const newResults = el.querySelector("#bf-results");
-            if (newResults) newResults.innerHTML = savedResults;
+            if (newResults) { newResults.innerHTML = savedResults; bindProse(newResults); }
         }
     }
 
@@ -135,6 +135,11 @@
 
     function money(n) { return "$" + Number(n || 0).toLocaleString("en-SG"); }
 
+    // On-demand Gemini translation for the (deterministic, English) result prose — reuses the shared
+    // Translate button/flow exposed by js/hub.js. Falls back to plain escaped text if unavailable.
+    const pb = (s) => (window.MerlionProse ? window.MerlionProse.block(s) : esc(s));
+    const bindProse = (el) => { if (window.MerlionProse && el) window.MerlionProse.bind(el); };
+
     function renderResults(out, data) {
         const eligible = (data.results || []).filter(r => r.status === "eligible");
         const headline = eligible.length
@@ -160,8 +165,8 @@
                     <div style="font-weight:800; font-size:14px; color:${s.color};">${esc(r.amount)}</div>
                 </div>
                 <div style="font-size:11px; font-weight:700; color:${s.color}; margin-top:2px;">${esc(statusLabel)}</div>
-                <div style="font-size:12px; color:var(--text-muted); margin-top:5px;">${esc(r.why)}</div>
-                ${r.note ? `<div style="font-size:11px; color:var(--text-subtle); margin-top:3px;">${esc(r.note)}</div>` : ""}
+                <div style="font-size:12px; color:var(--text-muted); margin-top:5px;">${pb(r.why)}</div>
+                ${r.note ? `<div style="font-size:11px; color:var(--text-subtle); margin-top:3px;">${pb(r.note)}</div>` : ""}
                 <a href="${esc(r.apply_url)}" target="_blank" rel="noopener" style="display:inline-block; margin-top:7px; color:var(--primary); font-size:12px; font-weight:600;">
                     <i class="fa-solid fa-up-right-from-square"></i> Official site</a>
             </div>`;
@@ -180,8 +185,9 @@
             + eligibleAndMaybe.map(card).join("")
             + notSection
             + `<div class="hub-card" style="margin-top:12px; background:transparent;">
-                 <div style="font-size:11px; color:var(--text-subtle); font-style:italic;">${esc(data.disclaimer)}</div>
+                 <div style="font-size:11px; color:var(--text-subtle); font-style:italic;">${pb(data.disclaimer)}</div>
                </div>`;
+        bindProse(out);
     }
 
     window.MerlionBenefits = { load, reload };

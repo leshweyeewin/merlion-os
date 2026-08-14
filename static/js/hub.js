@@ -2716,6 +2716,9 @@ function initSgHub() {
         if (window.MerlionUpfront)  window.MerlionUpfront.reload();
         if (window.MerlionCpfLife)  window.MerlionCpfLife.reload();
         if (window.MerlionBenefits) window.MerlionBenefits.reload();
+        // Alerts & Safety forms.
+        if (window.MerlionScam)     window.MerlionScam.reload();
+        if (window.MerlionAlerts)   window.MerlionAlerts.reload();
     });
 
     // Live-prose Translate buttons live on several panes that DON'T re-render on language switch. On a
