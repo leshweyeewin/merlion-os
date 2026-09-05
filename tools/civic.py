@@ -518,7 +518,7 @@ def fetch_ica_media_releases() -> list:
     }
     print(f"  \033[90m[ICA Newsroom] HTTP POST {url}\033[0m")
     try:
-        r = requests.post(url, headers=headers, json=payload, timeout=8)
+        r = requests.post(url, headers=headers, json=payload, timeout=10)
         print(f"  \033[90m[ICA Newsroom] HTTP RESPONSE: {r.status_code}\033[0m")
         if r.status_code == 200:
             res_data = r.json()
