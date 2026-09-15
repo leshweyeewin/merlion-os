@@ -185,15 +185,8 @@ def fetch_weather_data() -> dict:
             except Exception as e:
                 logger.warning(f"Weather Fetch failed: {e}")
 
-            if not forecasts_list:
-                forecasts_list = [
-                    {"area": "Downtown Core", "forecast": "Partly Cloudy"},
-                    {"area": "Orchard", "forecast": "Partly Cloudy"},
-                    {"area": "Tampines", "forecast": "Light Showers"},
-                    {"area": "Jurong West", "forecast": "Fair"},
-                    {"area": "Woodlands", "forecast": "Cloudy"},
-                    {"area": "Punggol", "forecast": "Thundery Showers"}
-                ]
+            # Return whatever we actually got — empty means the frontend shows its
+            # "forecast unavailable" note. Never fabricate plausible-looking weather.
             return forecasts_list
 
         def fetch_pm25():

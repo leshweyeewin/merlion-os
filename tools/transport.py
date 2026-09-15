@@ -397,7 +397,12 @@ def fetch_lta_train_alerts() -> dict | None:
         data = r.json()
 
         overall_value = data.get("value", {})
-        raw_status = overall_value.get("Status", 1)
+        # A 200 with no Status field means we can't tell — treat as unavailable
+        # rather than asserting "Normal" and hiding a possible disruption.
+        if "Status" not in overall_value:
+            logger.warning("[LTA DataMall] Train alert response missing Status — treating as unavailable.")
+            return None
+        raw_status = overall_value.get("Status")
         overall_status_str = "Disrupted" if raw_status == 2 else "Normal"
         
         affected_segments = overall_value.get("AffectedSegments", [])

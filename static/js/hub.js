@@ -1954,7 +1954,8 @@ function initSgHub() {
         const yoyText = resale.yoy_pct == null ? ''
             : `${resale.yoy_pct >= 0 ? '+' : ''}${resale.yoy_pct.toFixed(1)}% (vs S$${resale.prior_median_price.toLocaleString()} in ${escapeHTML(resale.prior_month)})`;
 
-        const banner = syncBanner(resale.data_status || { synced_at: resale.synced_at, is_live: true });
+        // Missing data_status means we couldn't confirm freshness — show "last known", never a false LIVE.
+        const banner = syncBanner(resale.data_status || { synced_at: resale.synced_at, is_live: false });
 
         const flatTypes = resale.flat_types || [];
         const maxFtPrice = Math.max(...flatTypes.map(f => f.median_price), 1);
@@ -2140,7 +2141,7 @@ function initSgHub() {
 
         // Honest freshness pill (Live vs last-known seed) for the OWS card — it can serve the
         // committed seed on GCP while the rest of the Jobs pane is live, so it carries its own.
-        const banner = syncBanner(data.data_status || { synced_at: data.synced_at, is_live: true });
+        const banner = syncBanner(data.data_status || { synced_at: data.synced_at, is_live: false });
 
         // ---- Derived insights (the panel leads with takeaways, not raw tables) ----
         const matched = data.all_occupations.filter(o => o.pct_change != null);
@@ -2452,7 +2453,7 @@ function initSgHub() {
 
         const syncedEl = document.getElementById("retrenchment-synced");
         if (syncedEl) {
-            syncedEl.innerHTML = syncBanner(retrenchment.data_status || { synced_at: retrenchment.synced_at, is_live: true });
+            syncedEl.innerHTML = syncBanner(retrenchment.data_status || { synced_at: retrenchment.synced_at, is_live: false });
         }
 
         // headline looks like "3,590 workers (2025-Q4)" — split the count from the quarter label
