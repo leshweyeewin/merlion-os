@@ -1165,10 +1165,12 @@ function initSgHub() {
     function renderWeatherPane(data) {
         lastWeatherData = data;
         renderPaneStatus("hub-env-status", data.data_status);
-        const psi = data.psi || { value: 28, status: 'Good' };
+        // Don't invent a healthy reading when the backend has none.
+        const psi = data.psi || { value: null, status: 'Unavailable' };
         const forecasts = data.forecasts || [];
 
-        // PSI colour thresholds
+        // PSI colour thresholds. Unavailable/unknown falls back to neutral grey,
+        // never green — a missing reading must not look like clean air.
         const psiColors = {
             'Good': ['#10b981', '#d1fae5'],
             'Moderate': ['#f59e0b', '#fef3c7'],
@@ -1176,8 +1178,10 @@ function initSgHub() {
             'Very Unhealthy': ['#ef4444', '#fee2e2'],
             'Hazardous': ['#991b1b', '#fca5a5']
         };
-        const [psiColor, psiBg] = psiColors[psi.status] || ['#10b981', '#d1fae5'];
-        const psiPct = Math.min((psi.value / 300) * 100, 100);
+        const [psiColor, psiBg] = psiColors[psi.status] || ['#64748b', '#e2e8f0'];
+        const psiValueDisplay = (psi.value == null) ? '—' : psi.value;
+        const psiPct = (psi.value == null) ? 0 : Math.min((psi.value / 300) * 100, 100);
+        const psiSlug = String(psi.status).toLowerCase().replace(/ /g, '-');
 
         // Weather condition icons
         const conditionIcon = (fc) => {
@@ -1272,11 +1276,11 @@ function initSgHub() {
                 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 12px; flex-wrap:wrap; gap:8px;">
                     <div>
                         <div style="font-size: 11px; font-weight: 700; color: ${psiColor}; text-transform: uppercase; letter-spacing: 0.5px;">🍃 ${escapeHTML(T('w-psi-header'))}</div>
-                        <div style="font-size: 32px; font-weight: 800; color: ${psiColor}; line-height: 1.1; margin-top:4px;">${psi.value}</div>
+                        <div style="font-size: 32px; font-weight: 800; color: ${psiColor}; line-height: 1.1; margin-top:4px;">${psiValueDisplay}</div>
                     </div>
                     <div style="text-align: right;">
-                        <span style="background: ${psiColor}; color: #fff; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 20px;">${escapeHTML(T('w-psi-' + String(psi.status).toLowerCase().replace(/ /g, '-')))}</span>
-                        <div style="font-size: 11px; color: ${psiColor}; margin-top: 6px;">${escapeHTML(T('w-psi-advisory'))}</div>
+                        <span style="background: ${psiColor}; color: #fff; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 20px;">${escapeHTML(T('w-psi-' + psiSlug))}</span>
+                        <div style="font-size: 11px; color: ${psiColor}; margin-top: 6px;">${escapeHTML(T('w-psi-adv-' + psiSlug))}</div>
                     </div>
                 </div>
                 <div style="background: #fff3; border-radius: 4px; height: 8px; overflow: hidden;">

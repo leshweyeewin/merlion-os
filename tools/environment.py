@@ -14,6 +14,45 @@ from tools.core import _data_gov_sg_headers, _cache_get, _cache_set, _common_hea
 
 logger = logging.getLogger("merlion-os-environment")
 
+
+# Official NEA 24-hr PSI bands. Kept in one place because both the chat tool
+# and the dashboard endpoint classify readings and must stay in sync.
+def _psi_band(val: float) -> str:
+    if val > 300: return "Hazardous"
+    if val > 200: return "Very Unhealthy"
+    if val > 100: return "Unhealthy"
+    if val > 50:  return "Moderate"
+    return "Good"
+
+
+# General-population health advice per band (NEA guidance). Replaces the old
+# hard-coded "suitable for outdoor activity" line that showed for every band.
+def _psi_advice(status: str) -> str:
+    return {
+        "Good": "Air quality is good — suitable for all outdoor activities.",
+        "Moderate": "Air quality is moderate — suitable for normal activities.",
+        "Unhealthy": "Air quality is unhealthy — reduce prolonged or strenuous outdoor exertion.",
+        "Very Unhealthy": "Air quality is very unhealthy — minimise outdoor activity and exertion.",
+        "Hazardous": "Air quality is hazardous — avoid outdoor activity; stay indoors.",
+    }.get(status, f"Air quality status: {status}.")
+
+
+def _psi_national_from_v2(data: dict):
+    """Extract a national 24-hr PSI from the data.gov.sg v2 response.
+
+    v2 nests readings under data.items[] (not data.readings), uses the field
+    name `psi_twenty_four_hourly`, and no longer reports a `national` aggregate.
+    We therefore take the worst (max) of the five regional readings, which is
+    the health-conservative choice for an advisory. Returns None if unparseable.
+    """
+    items = data.get("data", {}).get("items", [])
+    if not items:
+        return None
+    regions = items[0].get("readings", {}).get("psi_twenty_four_hourly", {})
+    vals = [v for v in regions.values() if isinstance(v, (int, float))]
+    return max(vals) if vals else None
+
+
 def get_singapore_live_environment_advisory(context_query: str = "general") -> str:
     """Tool: Retrieves live Singapore environment advisories, including weather forecasts and PSI (air quality index) from data.gov.sg.
 
@@ -37,27 +76,13 @@ def get_singapore_live_environment_advisory(context_query: str = "general") -> s
             r_psi = requests.get("https://api-open.data.gov.sg/v2/real-time/api/psi", headers=headers, timeout=10)
             try:
                 if r_psi.status_code == 200:
-                    data = r_psi.json()
-                    readings_list = data.get("data", {}).get("readings", [])
-                    if readings_list:
-                        readings = readings_list[0]
-                        psi_twenty_four = readings.get("psiTwentyFourHr", {})
-                        national_psi = psi_twenty_four.get("national", "N/A")
-
-                        status = "Good"
-                        try:
-                            val = float(national_psi)
-                            if val > 300: status = "Hazardous"
-                            elif val > 200: status = "Very Unhealthy"
-                            elif val > 100: status = "Unhealthy"
-                            elif val > 50: status = "Moderate"
-                        except ValueError:
-                            pass
-
+                    national_psi = _psi_national_from_v2(r_psi.json())
+                    if national_psi is not None:
+                        status = _psi_band(national_psi)
                         results.append(
                             f"--- [NEA LIVE ADVISORY: PSI AIR QUALITY] ---\n"
-                            f"🍃 24-Hr National PSI Reading: {national_psi} ({status})\n"
-                            f"📋 Status Summary: Air quality is {status.lower()}. Suitable for general outdoor activities."
+                            f"🍃 24-Hr PSI (worst region): {national_psi} ({status})\n"
+                            f"📋 Status Summary: {_psi_advice(status)}"
                         )
                     else:
                         results.append("--- [NEA LIVE ADVISORY: PSI AIR QUALITY] ---\n📋 No current air quality readings available.")
@@ -129,26 +154,16 @@ def fetch_weather_data() -> dict:
 
     try:
         def fetch_psi():
-            psi_val, psi_status = 28, "Good"
             try:
                 r_psi = _get("psi")
                 if r_psi.status_code == 200:
-                    data = r_psi.json()
-                    readings = data.get("data", {}).get("readings", [])
-                    if readings:
-                        national_val = readings[0].get("psiTwentyFourHr", {}).get("national", 28)
-                        try:
-                            psi_val = int(national_val)
-                        except:
-                            pass
-                        if psi_val > 300: psi_status = "Hazardous"
-                        elif psi_val > 200: psi_status = "Very Unhealthy"
-                        elif psi_val > 100: psi_status = "Unhealthy"
-                        elif psi_val > 50: psi_status = "Moderate"
-                        else: psi_status = "Good"
+                    national_val = _psi_national_from_v2(r_psi.json())
+                    if national_val is not None:
+                        return {"value": int(national_val), "status": _psi_band(national_val)}
             except Exception as e:
                 logger.warning(f"PSI Fetch failed: {e}")
-            return {"value": psi_val, "status": psi_status}
+            # Don't fake a healthy default on failure — surface it honestly.
+            return {"value": None, "status": "Unavailable"}
 
         def fetch_forecasts():
             forecasts_list = []
