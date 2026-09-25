@@ -264,7 +264,7 @@ def scrape_one_telegram_channel(channel: str, allow_fallback: bool = False) -> l
                         channel_events = valid_msgs[-1:]
                     else:
                         channel_events = []
-                    print(f"  \033[32m✔\033[0m Parsed @{channel}: Found {len(messages)} messages, {len(within_3d_msgs)} within 3 days (returning {len(channel_events)}).")
+                    print(f"  \033[32m[OK]\033[0m Parsed @{channel}: Found {len(messages)} messages, {len(within_3d_msgs)} within 3 days (returning {len(channel_events)}).")
                 finally:
                     soup.clear()
         finally:
@@ -334,7 +334,7 @@ def scrape_one_telegram_channel_24h(channel: str) -> list:
                             "iso_date": iso_date
                         })
 
-                    print(f"  \033[32m✔\033[0m Parsed @{channel}: Found {len(messages)} messages, {len(channel_events)} within 24h.")
+                    print(f"  \033[32m[OK]\033[0m Parsed @{channel}: Found {len(messages)} messages, {len(channel_events)} within 24h.")
                 finally:
                     soup.clear()
         finally:

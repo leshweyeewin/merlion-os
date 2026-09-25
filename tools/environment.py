@@ -372,7 +372,7 @@ def fetch_pub_flood_alerts() -> dict:
                 })
 
         active_count = sum(1 for a in alerts if a["is_active"])
-        print(f"  \033[32m✔\033[0m [PUB Flood Alerts] {len(alerts)} alert(s) retrieved ({active_count} active).")
+        print(f"  \033[32m[OK]\033[0m [PUB Flood Alerts] {len(alerts)} alert(s) retrieved ({active_count} active).")
 
         result = {"alerts": alerts, "active_count": active_count, "retrieved_at": retrieved_at}
         _cache_set(_flood_alerts_cache, result)

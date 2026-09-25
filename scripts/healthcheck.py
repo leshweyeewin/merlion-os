@@ -34,6 +34,13 @@ from collections import namedtuple
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _ROOT)
 
+# The status icons below are emoji, which Windows' default console codepage (cp1252) can't encode —
+# without this, a local Windows run crashes with UnicodeEncodeError on the summary print, after all
+# checks already ran, so the report file never gets written. GitHub's ubuntu-latest runner is UTF-8
+# by default and unaffected, but this keeps local runs working too.
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8")
+
 # status ∈ {"PASS", "WARN", "FAIL", "SKIP"}. WARN = works but stale/degraded; FAIL = broken.
 Check = namedtuple("Check", ["name", "status", "detail"])
 

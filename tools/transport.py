@@ -451,7 +451,7 @@ def fetch_lta_train_alerts() -> dict | None:
 
         retrieved_at = _sgt_stamp()
 
-        print(f"  \033[32m✔\033[0m [LTA DataMall] Overall status: {overall_status_str} ({raw_status}). "
+        print(f"  \033[32m[OK]\033[0m [LTA DataMall] Overall status: {overall_status_str} ({raw_status}). "
               f"{len(affected_segments)} segment(s) affected, {len(parsed_messages)} message(s) retrieved.")
         return {
             "status":       overall_status_str,
@@ -540,7 +540,7 @@ def fetch_lta_taxi_availability(user_lat: float | None = None, user_lon: float |
 
         retrieved_at = _sgt_stamp()
 
-        print(f"  \033[32m✔\033[0m [LTA DataMall] {taxi_count} taxis currently available islandwide"
+        print(f"  \033[32m[OK]\033[0m [LTA DataMall] {taxi_count} taxis currently available islandwide"
               f"{f', {nearby_count} within {nearby_radius_km}km of caller near {area_name}' if nearby_count is not None else ''}.")
         return {
             "count": taxi_count,

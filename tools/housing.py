@@ -766,7 +766,7 @@ def scrape_hdb_news() -> list:
                 for item in parsed[:4]:
                     results.append({"date": item["date"], "title": item["title"], "link": item["link"]})
                 
-                print(f"  \033[32m✔\033[0m [HDB News Scraper] Returning {len(results)} latest news articles with real embedded URLs.")
+                print(f"  \033[32m[OK]\033[0m [HDB News Scraper] Returning {len(results)} latest news articles with real embedded URLs.")
                 _hdb_news_status = make_feed_status(True)
                 _cache_set(_hdb_news_cache, results)
                 _disk_cache_save("hdb_news", results, time.time())
