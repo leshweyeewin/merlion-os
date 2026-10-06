@@ -163,13 +163,15 @@ SCRAPER_CHECKS = [
 # ── BigQuery dataset health + staleness ──────────────────────────────────────────────────────
 # period_kind "month" → STRING "YYYY-MM"; "year" → INT64. lag_tolerance is how far behind "today"
 # the freshest loaded period may fall before we call it stale, expressed in the period's own unit
-# (months / years). Tolerances allow for each source's natural publication lag: HDB resale lands
-# ~1 month late and the app drops the in-progress month, so ≤2 months behind is normal; the annual
-# MOM tables lag a year by design, so only ≥2 years behind is clearly stale.
+# (months / years). Tolerances allow for each source's natural publication lag: the HDB resale
+# dataset itself only gets a fresh bulk file roughly quarterly, and .github/workflows/refresh-
+# bigquery.yml reloads it on that same quarterly cadence, so up to 4 months behind is normal
+# (one quarter plus a month of slack); the annual MOM tables lag a year by design, so only
+# ≥2 years behind is clearly stale.
 BQ_DATASETS = [
     {
         "table": "sg_housing.hdb_resale_prices", "period_col": "month", "period_kind": "month",
-        "min_rows": 100_000, "lag_tolerance": 2,
+        "min_rows": 100_000, "lag_tolerance": 4,
         "loader": "scripts/load_hdb_resale_to_bigquery.py",
     },
     {
