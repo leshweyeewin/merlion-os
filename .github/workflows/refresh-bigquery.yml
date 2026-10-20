@@ -2,13 +2,14 @@ name: Refresh BigQuery HDB resale prices
 
 # scripts/load_hdb_resale_to_bigquery.py is a manual, re-runnable loader with no scheduled job of
 # its own, so sg_housing.hdb_resale_prices quietly goes stale until someone remembers to re-run it
-# (it did — see https://github.com/leshweyeewin/merlion-os/issues/10). The data.gov.sg dataset
-# itself only gets a fresh bulk file roughly quarterly, so this runs quarterly too, just ahead of
-# the daily monitor.yml check (01:30 UTC) so a fresh load is reflected the same day.
+# (it did — see https://github.com/leshweyeewin/merlion-os/issues/10). The data.gov.sg dataset is
+# refreshed far more often than quarterly (lastUpdatedAt moved Oct 6 -> Oct 20 2026, coverage
+# through the current month), so this runs monthly, just ahead of the daily monitor.yml check
+# (01:30 UTC) so a fresh load is reflected the same day.
 
 on:
   schedule:
-    - cron: "0 1 1 1,4,7,10 *"   # 01:00 UTC on the 1st of Jan/Apr/Jul/Oct
+    - cron: "0 1 2 * *"   # 01:00 UTC on the 2nd of every month
   workflow_dispatch: {}
 
 jobs:
