@@ -62,6 +62,17 @@ def test_create_list_delete_flow(client):
     assert client.get("/api/alerts", params={"client_id": CID}).json()["subscriptions"] == []
 
 
+def test_update_flow(client):
+    sub_id = client.post("/api/alerts", json={"client_id": CID, "watch_type": "psi",
+                                              "params": {"threshold": 100}}).json()["subscription"]["id"]
+    r = client.put(f"/api/alerts/{sub_id}", json={"client_id": CID, "params": {"threshold": 130}})
+    assert r.status_code == 200
+    assert r.json()["subscription"]["label"] == "PSI above 130"
+    assert client.get("/api/alerts", params={"client_id": CID}).json()["subscriptions"][0]["label"] == "PSI above 130"
+    assert client.put(f"/api/alerts/{sub_id}", json={"client_id": CID, "params": {"threshold": 9999}}).status_code == 400
+    assert client.put(f"/api/alerts/{sub_id}", json={"client_id": "other-client-999", "params": {"threshold": 130}}).status_code == 404
+
+
 def test_create_rejects_bad_params(client):
     r = client.post("/api/alerts", json={"client_id": CID, "watch_type": "coe",
                                          "params": {"category": "Z", "threshold": 1}})

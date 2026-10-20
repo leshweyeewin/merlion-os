@@ -145,6 +145,25 @@ def list_subscriptions(client_id: str) -> list:
     return out
 
 
+def update_subscription(client_id: str, sub_id: str, params: dict) -> dict | None:
+    """Re-validates and replaces a watch's params (the watch type is fixed). Evaluator state and
+    last_fired are reset so the new threshold is judged fresh rather than against the old crossing.
+    Returns None if the watch doesn't exist for this client; raises ValueError on bad params."""
+    client_id = _clean_client_id(client_id)
+    with _conn() as conn:
+        row = conn.execute("SELECT watch_type FROM subscriptions WHERE id=? AND client_id=?",
+                           (sub_id, client_id)).fetchone()
+        if row is None:
+            return None
+        watch_type = row["watch_type"]
+        params = WATCH_TYPES[watch_type]["validate"](params or {})
+        conn.execute("UPDATE subscriptions SET params=?, state='{}', last_fired=NULL WHERE id=? AND client_id=?",
+                     (json.dumps(params), sub_id, client_id))
+        conn.commit()
+    return {"id": sub_id, "watch_type": watch_type, "params": params,
+            "label": describe_subscription(watch_type, params)}
+
+
 def delete_subscription(client_id: str, sub_id: str) -> bool:
     client_id = _clean_client_id(client_id)
     with _conn() as conn:

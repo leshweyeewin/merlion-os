@@ -1038,6 +1038,18 @@ async def list_alerts(client_id: str):
     return {"subscriptions": subs, "notifications": notifs, "unread_count": unread}
 
 
+@app.put("/api/alerts/{sub_id}")
+async def update_alert(sub_id: str, request: Request):
+    body = await request.json()
+    try:
+        sub = _alerts.update_subscription(body.get("client_id", ""), sub_id, body.get("params") or {})
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if sub is None:
+        raise HTTPException(status_code=404, detail="subscription not found")
+    return {"subscription": sub}
+
+
 @app.delete("/api/alerts/{sub_id}")
 async def delete_alert(sub_id: str, client_id: str):
     try:

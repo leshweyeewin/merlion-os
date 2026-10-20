@@ -46,6 +46,28 @@ def test_delete_is_client_scoped(db):
     assert alerts.list_subscriptions(CID) == []
 
 
+def test_update_changes_params_and_resets_state(db):
+    sub = alerts.create_subscription(CID, "psi", {"threshold": 100})
+    with alerts._conn() as conn:
+        conn.execute("UPDATE subscriptions SET state='{\"armed\": false}', last_fired=123 WHERE id=?", (sub["id"],))
+        conn.commit()
+    out = alerts.update_subscription(CID, sub["id"], {"threshold": 150})
+    assert out["label"] == "PSI above 150"
+    listed = alerts.list_subscriptions(CID)
+    assert listed[0]["params"]["threshold"] == 150 and listed[0]["last_fired"] is None
+    with alerts._conn() as conn:
+        assert conn.execute("SELECT state FROM subscriptions WHERE id=?", (sub["id"],)).fetchone()["state"] == "{}"
+
+
+def test_update_is_client_scoped_and_validates(db):
+    sub = alerts.create_subscription(CID, "psi", {"threshold": 100})
+    assert alerts.update_subscription("other-client-999", sub["id"], {"threshold": 150}) is None
+    assert alerts.update_subscription(CID, "nope", {"threshold": 150}) is None
+    with pytest.raises(ValueError):
+        alerts.update_subscription(CID, sub["id"], {"threshold": 9999})
+    assert alerts.list_subscriptions(CID)[0]["params"]["threshold"] == 100
+
+
 def test_list_is_client_scoped(db):
     alerts.create_subscription(CID, "psi", {"threshold": 100})
     alerts.create_subscription("another-client-xyz", "psi", {"threshold": 80})

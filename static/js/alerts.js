@@ -66,6 +66,16 @@
         iras: () => ({ days_before: num("wf-iras-days") }),
     };
 
+    // param name -> input id, used to pre-fill the form when editing an existing watch.
+    const WATCH_FIELD_IDS = {
+        coe: { category: "wf-coe-cat", direction: "wf-coe-dir", threshold: "wf-coe-thr" },
+        psi: { threshold: "wf-psi-thr" },
+        mrt: { line_code: "wf-mrt-line" },
+        resale: { town: "wf-resale-town", threshold_pct: "wf-resale-pct" },
+        bto: { town: "wf-bto-town" },
+        iras: { days_before: "wf-iras-days" },
+    };
+
     const INP = "padding:5px 8px; border:1px solid var(--border); border-radius:6px; background:var(--bg-panel); color:var(--text-main); font-size:13px; width:110px;";
 
     function sel(id, opts) {
@@ -95,6 +105,8 @@
     // ── render ────────────────────────────────────────────────────────────────────────────────
     const container = () => document.getElementById("hub-alerts-content");
 
+    let editing = null;   // the subscription being edited, or null when the form is in "add" mode
+
     async function load() {
         const el = container();
         if (!el) return;
@@ -120,6 +132,8 @@
         const subRows = (data.subscriptions || []).map(s => `
             <div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border);">
                 <span style="flex:1; font-size:13px; color:var(--text-main);">🔔 ${pb(s.label)}</span>
+                <button data-edit="${esc(s.id)}" class="alerts-edit-btn"
+                    style="background:none; border:1px solid var(--border); color:var(--text-muted); border-radius:6px; padding:3px 9px; font-size:12px; cursor:pointer;">${esc(T("al-edit"))}</button>
                 <button data-del="${esc(s.id)}" class="alerts-del-btn"
                     style="background:none; border:1px solid var(--border); color:var(--text-muted); border-radius:6px; padding:3px 9px; font-size:12px; cursor:pointer;">${esc(T("al-remove"))}</button>
             </div>`).join("") ||
@@ -142,7 +156,8 @@
                 <label style="font-size:13px; color:var(--text-main);">${esc(T("al-watch"))}
                     ${sel("wf-type", typeOptions)}</label>
                 <div id="wf-fields" style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:13px; color:var(--text-main);"></div>
-                <button id="wf-save" style="background:var(--primary); color:#fff; border:none; border-radius:6px; padding:7px 16px; font-weight:700; font-size:13px; cursor:pointer;">${esc(T("al-add"))}</button>
+                <button id="wf-save" style="background:var(--primary); color:#fff; border:none; border-radius:6px; padding:7px 16px; font-weight:700; font-size:13px; cursor:pointer;">${esc(T(editing ? "al-update" : "al-add"))}</button>
+                ${editing ? `<button id="wf-cancel" style="background:none; border:1px solid var(--border); color:var(--text-muted); border-radius:6px; padding:7px 14px; font-size:13px; cursor:pointer;">${esc(T("al-cancel"))}</button>` : ""}
             </div>
             <div id="wf-msg" style="font-size:12px; margin-top:8px;"></div>
         </div>
@@ -178,10 +193,28 @@
         const fields = document.getElementById("wf-fields");
         const typeSel = document.getElementById("wf-type");
         const renderFields = () => { fields.innerHTML = WATCH_FORMS[typeSel.value](); };
+        if (editing) typeSel.value = editing.watch_type;
         renderFields();
         typeSel.addEventListener("change", renderFields);
+        if (editing) {
+            typeSel.disabled = true;   // the watch type is fixed; to change it, remove and re-add
+            const ids = WATCH_FIELD_IDS[editing.watch_type] || {};
+            Object.entries(ids).forEach(([param, id]) => {
+                const input = document.getElementById(id);
+                if (input && editing.params[param] != null) input.value = editing.params[param];
+            });
+        }
 
-        document.getElementById("wf-save").addEventListener("click", () => addAlert(typeSel.value));
+        document.getElementById("wf-save").addEventListener("click", () => saveAlert(typeSel.value));
+        const cancel = document.getElementById("wf-cancel");
+        if (cancel) cancel.addEventListener("click", () => { editing = null; render(el, cfg, data); });
+        el.querySelectorAll(".alerts-edit-btn").forEach(b =>
+            b.addEventListener("click", () => {
+                editing = (data.subscriptions || []).find(x => x.id === b.getAttribute("data-edit")) || null;
+                render(el, cfg, data);
+                const form = document.getElementById("wf-save");
+                if (form) form.scrollIntoView({ behavior: "smooth", block: "center" });
+            }));
         document.getElementById("wf-read").addEventListener("click", markRead);
         document.getElementById("wf-push").addEventListener("click", enablePush);
         const tele = document.getElementById("wf-tele");
@@ -193,23 +226,36 @@
     }
 
     // ── actions ───────────────────────────────────────────────────────────────────────────────
-    async function addAlert(type) {
+    async function saveAlert(type) {
         const msg = document.getElementById("wf-msg");
         let params;
         try {
             params = WATCH_READERS[type]();
         } catch (e) { return; }
-        msg.textContent = T("al-adding");
+        msg.textContent = T(editing ? "al-updating" : "al-adding");
         msg.style.color = "var(--text-muted)";
         try {
-            await api("", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ client_id: clientId(), watch_type: type, params }),
-            });
-            msg.textContent = T("al-added");
-            msg.style.color = "var(--success,#1a7f3c)";
-            load();
+            if (editing) {
+                await api("/" + encodeURIComponent(editing.id), {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ client_id: clientId(), params }),
+                });
+            } else {
+                await api("", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ client_id: clientId(), watch_type: type, params }),
+                });
+            }
+            const wasEditing = !!editing;
+            editing = null;
+            await load();
+            const m = document.getElementById("wf-msg");
+            if (m) {
+                m.textContent = T(wasEditing ? "al-updated" : "al-added");
+                m.style.color = "var(--success,#1a7f3c)";
+            }
         } catch (err) {
             msg.textContent = "✗ " + err.message;
             msg.style.color = "var(--danger,#c0392b)";
@@ -219,6 +265,7 @@
     async function removeAlert(id) {
         try {
             await api("/" + encodeURIComponent(id) + "?client_id=" + encodeURIComponent(clientId()), { method: "DELETE" });
+            if (editing && editing.id === id) editing = null;
             load();
         } catch (err) { /* surfaced on next load */ }
     }

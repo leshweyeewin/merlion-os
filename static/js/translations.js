@@ -858,6 +858,11 @@ const HUB_I18N = {
         "al-nothing-yet": "Nothing yet. When a watch triggers, it shows here.",
         "al-adding": "Adding\u2026",
         "al-added": "\u2713 Alert added.",
+        "al-edit": "Edit",
+        "al-update": "Update alert",
+        "al-updating": "Updating\u2026",
+        "al-updated": "\u2713 Alert updated.",
+        "al-cancel": "Cancel",
         "al-load-error": "Couldn't load alerts:"
     },
     zh: {
@@ -1104,6 +1109,11 @@ const HUB_I18N = {
         "al-nothing-yet": "暂无内容。当监控触发时，会显示在此处。",
         "al-adding": "添加中…",
         "al-added": "✓ 提醒已添加。",
+        "al-edit": "编辑",
+        "al-update": "更新提醒",
+        "al-updating": "更新中…",
+        "al-updated": "✓ 提醒已更新。",
+        "al-cancel": "取消",
         "al-load-error": "无法加载提醒："
     },
     ms: {
@@ -1350,6 +1360,11 @@ const HUB_I18N = {
         "al-nothing-yet": "Belum ada apa-apa. Apabila pantauan dicetuskan, ia akan dipaparkan di sini.",
         "al-adding": "Menambah…",
         "al-added": "✓ Amaran ditambah.",
+        "al-edit": "Edit",
+        "al-update": "Kemas kini amaran",
+        "al-updating": "Mengemas kini…",
+        "al-updated": "✓ Amaran dikemas kini.",
+        "al-cancel": "Batal",
         "al-load-error": "Tidak dapat memuatkan amaran:"
     },
     ta: {
@@ -1596,6 +1611,11 @@ const HUB_I18N = {
         "al-nothing-yet": "இன்னும் எதுவும் இல்லை. ஒரு கண்காணிப்பு தூண்டப்படும்போது, அது இங்கே காண்பிக்கப்படும்.",
         "al-adding": "சேர்க்கிறது…",
         "al-added": "✓ எச்சரிக்கை சேர்க்கப்பட்டது.",
+        "al-edit": "திருத்து",
+        "al-update": "எச்சரிக்கையைப் புதுப்பி",
+        "al-updating": "புதுப்பிக்கிறது…",
+        "al-updated": "✓ எச்சரிக்கை புதுப்பிக்கப்பட்டது.",
+        "al-cancel": "ரத்துசெய்",
         "al-load-error": "எச்சரிக்கைகளை ஏற்ற முடியவில்லை:"
     }
 };
